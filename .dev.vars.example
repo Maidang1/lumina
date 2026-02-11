@@ -1,0 +1,8 @@
+# Lumina Pages Functions Secrets
+# Copy this file to .dev.vars for local development
+
+# GitHub Personal Access Token (需要 repo 权限)
+GITHUB_TOKEN=your_github_pat_here
+
+# 允许的跨域来源
+ALLOW_ORIGIN=http://localhost:3000

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Card } from "@/components/ui/card";
 
 const Histogram: React.FC = () => {
   // Generates a random-looking but smooth histogram path
@@ -22,7 +23,7 @@ const Histogram: React.FC = () => {
   const wPath = React.useMemo(() => generatePath(), []);
 
   return (
-    <div className="w-full h-24 bg-pro-gray/50 rounded p-2 relative overflow-hidden">
+    <Card className="relative h-24 w-full overflow-hidden border-white/10 bg-pro-gray/50 p-2">
       <svg viewBox="0 0 100 50" preserveAspectRatio="none" className="w-full h-full opacity-80 mix-blend-screen">
         <path d={rPath} fill="red" fillOpacity="0.4" />
         <path d={gPath} fill="green" fillOpacity="0.4" />
@@ -35,7 +36,7 @@ const Histogram: React.FC = () => {
       <div className="absolute top-0 left-1/4 h-full w-px bg-white/10"></div>
       <div className="absolute top-0 left-2/4 h-full w-px bg-white/10"></div>
       <div className="absolute top-0 left-3/4 h-full w-px bg-white/10"></div>
-    </div>
+    </Card>
   );
 };
 

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Photo } from '../types';
-import { Maximize2, Camera } from 'lucide-react';
+import { Aperture, Timer, Disc } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface PhotoCardProps {
   photo: Photo;
@@ -9,33 +11,103 @@ interface PhotoCardProps {
 
 const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onClick }) => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // When the element enters the viewport (or is close to it)
+        if (entries[0].isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect(); // Stop observing once visible
+        }
+      },
+      { 
+        rootMargin: '200px' // Start loading 200px before the element appears on screen
+      }
+    );
+
+    if (cardRef.current) {
+      observer.observe(cardRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div 
-      className="relative mb-6 break-inside-avoid group cursor-pointer overflow-hidden rounded-sm"
+      ref={cardRef}
+      className="relative mb-1 break-inside-avoid cursor-pointer overflow-hidden bg-[#1a1a1a] group"
       onClick={() => onClick(photo)}
+      // Reserve space based on image aspect ratio to prevent layout shift
+      style={{ aspectRatio: `${photo.width} / ${photo.height}` }}
     >
-      <div className={`transition-opacity duration-700 ${isLoaded ? 'opacity-100' : 'opacity-0 bg-pro-gray h-64 animate-pulse'}`}>
+      {isVisible && (
         <img
           src={photo.thumbnail}
           alt={photo.title}
-          className="w-full h-auto object-cover transform transition-transform duration-700 ease-out group-hover:scale-105 group-hover:filter group-hover:brightness-110"
+          className={`w-full h-full object-cover transition-opacity duration-700 ease-out ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setIsLoaded(true)}
         />
-      </div>
+      )}
+      
+      {/* Dark placeholder with pulse effect while loading */}
+      {!isLoaded && (
+        <div className="absolute inset-0 bg-[#1a1a1a] animate-pulse" />
+      )}
 
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
-        <h3 className="text-white font-serif text-xl tracking-wide transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-          {photo.title}
-        </h3>
-        <div className="flex items-center gap-2 mt-2 text-gray-300 text-xs uppercase tracking-widest transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-75">
-          <Camera size={12} />
-          <span>{photo.exif.camera}</span>
-        </div>
+      {/* Hover Overlay - Replicating the screenshot style */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-6">
         
-        <div className="absolute top-4 right-4 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
-            <Maximize2 size={20} strokeWidth={1.5} />
+        {/* Filename */}
+        <h3 className="text-white font-bold text-2xl tracking-tight mb-1 font-sans">{photo.filename}</h3>
+        
+        {/* Tech Specs Line */}
+        <p className="text-gray-300 text-sm font-medium mb-3 opacity-90">
+          {photo.format} <span className="mx-1">•</span> {photo.width} × {photo.height} <span className="mx-1">•</span> {photo.size}
+        </p>
+
+        {/* Category Pill */}
+        <div className="mb-6">
+          <Badge className="rounded-full border border-white/10 bg-white/20 px-3 py-1 text-xs text-white backdrop-blur-md">
+            {photo.category}
+          </Badge>
+        </div>
+
+        {/* EXIF Data Grid */}
+        <div className="grid grid-cols-2 gap-2">
+            {/* Focal Length */}
+            <Card className="border-white/5 bg-[#2a2a2a]/80 backdrop-blur-sm">
+              <CardContent className="flex items-center gap-3 p-2">
+                <Disc size={18} className="ml-1 text-white" />
+                <span className="text-sm font-medium text-white">{photo.exif.focalLength}</span>
+              </CardContent>
+            </Card>
+
+             {/* Aperture */}
+            <Card className="border-white/5 bg-[#2a2a2a]/80 backdrop-blur-sm">
+              <CardContent className="flex items-center gap-3 p-2">
+                <Aperture size={18} className="ml-1 text-white" />
+                <span className="text-sm font-medium text-white">{photo.exif.aperture}</span>
+              </CardContent>
+            </Card>
+
+            {/* Shutter Speed */}
+            <Card className="border-white/5 bg-[#2a2a2a]/80 backdrop-blur-sm">
+              <CardContent className="flex items-center gap-3 p-2">
+                <Timer size={18} className="ml-1 text-white" />
+                <span className="text-sm font-medium text-white">{photo.exif.shutter}</span>
+              </CardContent>
+            </Card>
+
+            {/* ISO */}
+            <Card className="border-white/5 bg-[#2a2a2a]/80 backdrop-blur-sm">
+              <CardContent className="flex items-center gap-3 p-2">
+                <div className="ml-1 flex h-4 items-center rounded-[3px] border border-white px-[2px] text-[9px] font-bold">ISO</div>
+                <span className="text-sm font-medium text-white">{photo.exif.iso}</span>
+              </CardContent>
+            </Card>
         </div>
       </div>
     </div>

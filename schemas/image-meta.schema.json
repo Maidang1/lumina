@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumina.example/schemas/image-meta.schema.json",
+  "title": "Image Metadata",
+  "description": "Metadata schema for uploaded images in Lumina",
+  "type": "object",
+  "required": ["schema_version", "image_id", "timestamps", "files", "derived"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0"],
+      "description": "Schema version for future compatibility"
+    },
+    "image_id": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "Content-addressable ID based on SHA-256 hash"
+    },
+    "timestamps": {
+      "type": "object",
+      "required": ["created_at"],
+      "properties": {
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server-side timestamp when image was stored"
+        },
+        "client_processed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Client-side timestamp when processing completed"
+        }
+      }
+    },
+    "files": {
+      "type": "object",
+      "required": ["original", "thumb"],
+      "properties": {
+        "original": {
+          "$ref": "#/$defs/fileMeta"
+        },
+        "thumb": {
+          "$ref": "#/$defs/thumbMeta"
+        }
+      }
+    },
+    "exif": {
+      "type": "object",
+      "description": "EXIF/XMP/IPTC metadata summary (GPS removed for privacy)",
+      "properties": {
+        "Make": { "type": "string" },
+        "Model": { "type": "string" },
+        "LensModel": { "type": "string" },
+        "DateTimeOriginal": { "type": "string" },
+        "ExposureTime": { "type": "number" },
+        "FNumber": { "type": "number" },
+        "ISO": { "type": "integer" },
+        "FocalLength": { "type": "number" },
+        "Orientation": { "type": "integer" },
+        "Software": { "type": "string" },
+        "Artist": { "type": "string" },
+        "Copyright": { "type": "string" }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "required": ["original_contains_gps", "exif_gps_removed"],
+      "properties": {
+        "original_contains_gps": {
+          "type": "boolean",
+          "description": "Whether original file contained GPS data"
+        },
+        "exif_gps_removed": {
+          "type": "boolean",
+          "description": "Whether GPS data was removed from stored metadata"
+        }
+      }
+    },
+    "derived": {
+      "type": "object",
+      "required": ["dimensions", "dominant_color", "blur", "phash", "ocr"],
+      "properties": {
+        "dimensions": {
+          "type": "object",
+          "required": ["width", "height"],
+          "properties": {
+            "width": { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "dominant_color": {
+          "type": "object",
+          "required": ["hex"],
+          "properties": {
+            "hex": {
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$",
+              "description": "Dominant color in hex format"
+            }
+          }
+        },
+        "blur": {
+          "type": "object",
+          "required": ["score", "is_blurry", "method"],
+          "properties": {
+            "score": {
+              "type": "number",
+              "description": "Blur score (variance of Laplacian)"
+            },
+            "is_blurry": {
+              "type": "boolean",
+              "description": "Whether image is considered blurry"
+            },
+            "method": {
+              "type": "string",
+              "enum": ["variance_of_laplacian"]
+            }
+          }
+        },
+        "phash": {
+          "type": "object",
+          "required": ["algo", "bits", "value"],
+          "properties": {
+            "algo": {
+              "type": "string",
+              "enum": ["blockhash"]
+            },
+            "bits": {
+              "type": "integer",
+              "enum": [16, 32]
+            },
+            "value": {
+              "type": "string",
+              "description": "Hex string of perceptual hash bits"
+            }
+          }
+        },
+        "ocr": {
+          "type": "object",
+          "required": ["status"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["ok", "skipped", "failed"],
+              "description": "OCR processing status"
+            },
+            "lang": {
+              "type": "string",
+              "description": "Languages used for OCR (e.g., 'eng+chi_sim')"
+            },
+            "summary": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "Extracted text summary"
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "fileMeta": {
+      "type": "object",
+      "required": ["path", "mime", "bytes"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path in repository"
+        },
+        "mime": {
+          "type": "string",
+          "description": "MIME type"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "File size in bytes"
+        }
+      }
+    },
+    "thumbMeta": {
+      "type": "object",
+      "required": ["path", "mime", "width", "height", "bytes"],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "mime": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

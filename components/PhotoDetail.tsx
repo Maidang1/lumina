@@ -1,186 +1,249 @@
-import React, { useEffect, useState } from 'react';
-import { Photo, AiAnalysis } from '../types';
-import { X, Aperture, Timer, Gauge, MapPin, Calendar, Camera, Sparkles, ChevronRight, Download } from 'lucide-react';
-import Histogram from './Histogram';
-import { generatePhotoCritique } from '../services/geminiService';
+import React from "react";
+import { Photo } from "../types";
+import {
+  X,
+  Aperture,
+  Timer,
+  Gauge,
+  MapPin,
+  Calendar,
+  Camera,
+  Download,
+} from "lucide-react";
+import Histogram from "./Histogram";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 
 interface PhotoDetailProps {
   photo: Photo;
   onClose: () => void;
 }
 
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "-";
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  return `${value.toFixed(value >= 100 || index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+function formatTime(value?: string): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("zh-CN", { hour12: false });
+}
+
 const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
-  const [analysis, setAnalysis] = useState<AiAnalysis>({
-    loading: false,
-    content: null,
-    error: null,
-  });
-
-  const handleAnalysis = async () => {
-    setAnalysis({ loading: true, content: null, error: null });
-    const result = await generatePhotoCritique(photo);
-    setAnalysis({ loading: false, content: result, error: null });
-  };
-
-  // Close on escape key
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [onClose]);
+  const metadata = photo.metadata;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm overflow-hidden">
-        
-      {/* Main Container */}
-      <div className="w-full h-full flex flex-col md:flex-row relative">
-        
-        {/* Close Button Mobile */}
-        <button 
-          onClick={onClose}
-          className="md:hidden absolute top-4 right-4 z-50 p-2 bg-black/50 rounded-full text-white"
-        >
-          <X size={24} />
-        </button>
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        overlayClassName="bg-black/95"
+        className="h-screen max-w-none rounded-none border-0 bg-transparent p-0"
+      >
+        <div className="relative flex h-full w-full flex-col md:flex-row">
+          <DialogClose className="absolute right-4 top-4 z-50 rounded-full bg-black/50 p-2 text-white md:hidden">
+            <X size={24} />
+          </DialogClose>
 
-        {/* Left: Image Area */}
-        <div className="flex-1 relative flex items-center justify-center bg-black p-4 md:p-8 h-[60%] md:h-full">
-            <button 
-                onClick={onClose}
-                className="hidden md:block absolute top-6 left-6 text-white/50 hover:text-white transition-colors z-20"
-            >
+          <div className="relative flex h-[60%] flex-1 items-center justify-center bg-black p-4 md:h-full md:p-8">
+            <DialogHeader className="absolute left-6 top-6 z-20 hidden md:block">
+              <DialogClose className="text-white/50 transition-colors hover:text-white">
                 <div className="flex items-center gap-2 text-sm uppercase tracking-widest">
-                    <X size={20} />
-                    <span>Close Gallery</span>
+                  <X size={20} />
+                  <span>Close Gallery</span>
                 </div>
-            </button>
-
-            <img 
-                src={photo.url} 
-                alt={photo.title}
-                className="max-w-full max-h-full object-contain shadow-2xl"
+              </DialogClose>
+              <DialogTitle className="sr-only">{photo.title}</DialogTitle>
+            </DialogHeader>
+            <img
+              src={photo.url}
+              alt={photo.title}
+              className="max-h-full max-w-full object-contain shadow-2xl"
             />
-        </div>
+          </div>
 
-        {/* Right: Info Panel */}
-        <div className="w-full md:w-[400px] lg:w-[450px] bg-pro-gray/90 border-l border-white/5 flex flex-col h-[40%] md:h-full overflow-y-auto no-scrollbar backdrop-blur-md">
-            
-            <div className="p-8 space-y-8">
-                {/* Header */}
-                <div>
-                    <h2 className="font-serif text-3xl text-white mb-2">{photo.title}</h2>
-                    <div className="flex items-center text-gray-400 text-sm gap-4">
-                        <span className="flex items-center gap-1.5"><MapPin size={14} /> {photo.location}</span>
-                        <span className="flex items-center gap-1.5"><Calendar size={14} /> {photo.exif.date}</span>
-                    </div>
+          <ScrollArea className="h-[40%] w-full border-l border-white/5 bg-pro-gray/90 backdrop-blur-md md:h-full md:w-[420px] lg:w-[480px]">
+            <div className="space-y-6 p-8">
+              <div>
+                <h2 className="mb-2 font-serif text-3xl text-white">{photo.title}</h2>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
+                  <Badge variant="outline" className="gap-1.5 border-white/10 text-gray-300">
+                    <MapPin size={14} /> {photo.location || "未标注地点"}
+                  </Badge>
+                  <Badge variant="outline" className="gap-1.5 border-white/10 text-gray-300">
+                    <Calendar size={14} /> {photo.exif.date}
+                  </Badge>
                 </div>
+              </div>
 
-                {/* Histogram */}
-                <div>
-                    <h3 className="text-xs uppercase tracking-widest text-gray-500 mb-3 font-semibold">Histogram</h3>
-                    <Histogram />
+              <div>
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">Histogram</h3>
+                <Histogram />
+              </div>
+
+              <div>
+                <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-gray-500">拍摄参数</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <Card className="border-white/5 bg-black/40">
+                    <CardContent className="p-4">
+                      <div className="mb-1 flex items-center gap-2 text-gray-400">
+                        <Aperture size={16} />
+                        <span className="text-xs uppercase tracking-wider">Aperture</span>
+                      </div>
+                      <span className="font-mono text-lg text-white">{photo.exif.aperture}</span>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-white/5 bg-black/40">
+                    <CardContent className="p-4">
+                      <div className="mb-1 flex items-center gap-2 text-gray-400">
+                        <Timer size={16} />
+                        <span className="text-xs uppercase tracking-wider">Shutter</span>
+                      </div>
+                      <span className="font-mono text-lg text-white">{photo.exif.shutter}</span>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-white/5 bg-black/40">
+                    <CardContent className="p-4">
+                      <div className="mb-1 flex items-center gap-2 text-gray-400">
+                        <Gauge size={16} />
+                        <span className="text-xs uppercase tracking-wider">ISO</span>
+                      </div>
+                      <span className="font-mono text-lg text-white">{photo.exif.iso || "-"}</span>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-white/5 bg-black/40">
+                    <CardContent className="p-4">
+                      <div className="mb-1 flex items-center gap-2 text-gray-400">
+                        <Camera size={16} />
+                        <span className="text-xs uppercase tracking-wider">Focal Len</span>
+                      </div>
+                      <span className="font-mono text-lg text-white">{photo.exif.focalLength}</span>
+                    </CardContent>
+                  </Card>
                 </div>
+              </div>
 
-                {/* EXIF Grid */}
-                <div>
-                    <h3 className="text-xs uppercase tracking-widest text-gray-500 mb-4 font-semibold">Shot Parameters</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-black/40 rounded border border-white/5 hover:border-accent/50 transition-colors group">
-                            <div className="flex items-center gap-2 text-gray-400 mb-1">
-                                <Aperture size={16} className="group-hover:text-accent transition-colors"/>
-                                <span className="text-xs uppercase tracking-wider">Aperture</span>
-                            </div>
-                            <span className="text-lg font-mono text-white">{photo.exif.aperture}</span>
-                        </div>
-
-                        <div className="p-4 bg-black/40 rounded border border-white/5 hover:border-accent/50 transition-colors group">
-                             <div className="flex items-center gap-2 text-gray-400 mb-1">
-                                <Timer size={16} className="group-hover:text-accent transition-colors"/>
-                                <span className="text-xs uppercase tracking-wider">Shutter</span>
-                            </div>
-                            <span className="text-lg font-mono text-white">{photo.exif.shutter}</span>
-                        </div>
-
-                        <div className="p-4 bg-black/40 rounded border border-white/5 hover:border-accent/50 transition-colors group">
-                             <div className="flex items-center gap-2 text-gray-400 mb-1">
-                                <Gauge size={16} className="group-hover:text-accent transition-colors"/>
-                                <span className="text-xs uppercase tracking-wider">ISO</span>
-                            </div>
-                            <span className="text-lg font-mono text-white">{photo.exif.iso}</span>
-                        </div>
-
-                        <div className="p-4 bg-black/40 rounded border border-white/5 hover:border-accent/50 transition-colors group">
-                             <div className="flex items-center gap-2 text-gray-400 mb-1">
-                                <Camera size={16} className="group-hover:text-accent transition-colors"/>
-                                <span className="text-xs uppercase tracking-wider">Focal Len</span>
-                            </div>
-                            <span className="text-lg font-mono text-white">{photo.exif.focalLength}</span>
-                        </div>
-                    </div>
+              <Separator />
+              <div className="space-y-2">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">文件信息</h3>
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-gray-400">设备</span>
+                  <span className="text-sm font-medium text-white">{photo.exif.camera}</span>
                 </div>
-
-                {/* Gear Info */}
-                <div className="pt-4 border-t border-white/5">
-                    <div className="flex justify-between items-center py-2">
-                        <span className="text-sm text-gray-400">Camera Body</span>
-                        <span className="text-sm text-white font-medium">{photo.exif.camera}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-2">
-                        <span className="text-sm text-gray-400">Lens</span>
-                        <span className="text-sm text-white font-medium">{photo.exif.lens}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-2">
-                         <span className="text-sm text-gray-400">Resolution</span>
-                        <span className="text-sm text-white font-medium">{photo.width} × {photo.height}</span>
-                    </div>
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-gray-400">镜头</span>
+                  <span className="text-sm font-medium text-white">{photo.exif.lens}</span>
                 </div>
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-gray-400">分辨率</span>
+                  <span className="text-sm font-medium text-white">{photo.width} × {photo.height}</span>
+                </div>
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-gray-400">原图大小</span>
+                  <span className="text-sm font-medium text-white">{metadata ? formatBytes(metadata.files.original.bytes) : photo.size}</span>
+                </div>
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-gray-400">缩略图</span>
+                  <span className="text-sm font-medium text-white">
+                    {metadata
+                      ? `${metadata.files.thumb.width} × ${metadata.files.thumb.height} · ${formatBytes(metadata.files.thumb.bytes)}`
+                      : "-"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-gray-400">格式</span>
+                  <span className="text-sm font-medium text-white">{metadata?.files.original.mime || photo.format}</span>
+                </div>
+              </div>
 
-                {/* AI Analysis Section */}
-                <div className="pt-4 border-t border-white/5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xs uppercase tracking-widest text-gray-500 font-semibold flex items-center gap-2">
-                            <Sparkles size={14} className="text-accent"/> Curator AI
-                        </h3>
+              {metadata && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">智能分析</h3>
+                    <div className="flex items-center justify-between py-1">
+                      <span className="text-sm text-gray-400">主色</span>
+                      <span className="font-mono text-sm text-white">{metadata.derived.dominant_color.hex}</span>
                     </div>
+                    <div className="flex items-center justify-between py-1">
+                      <span className="text-sm text-gray-400">模糊检测</span>
+                      <span className="text-sm font-medium text-white">
+                        {metadata.derived.blur.is_blurry ? "可能模糊" : "清晰"}（{metadata.derived.blur.score.toFixed(1)}）
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-1">
+                      <span className="text-sm text-gray-400">OCR</span>
+                      <span className="text-sm font-medium text-white">
+                        {metadata.derived.ocr.status === "ok"
+                          ? `已识别${metadata.derived.ocr.summary ? `：${metadata.derived.ocr.summary.slice(0, 24)}` : ""}`
+                          : metadata.derived.ocr.status === "skipped"
+                          ? "已跳过"
+                          : "失败"}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
 
-                    {!analysis.content && !analysis.loading && (
-                        <button 
-                            onClick={handleAnalysis}
-                            className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-sm text-gray-300 hover:text-white transition-all flex items-center justify-center gap-2 group"
-                        >
-                            <span>Generate Artistic Analysis</span>
-                            <ChevronRight size={16} className="opacity-0 group-hover:opacity-100 transform -translate-x-2 group-hover:translate-x-0 transition-all"/>
-                        </button>
-                    )}
+              {metadata && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">隐私与处理</h3>
+                    <div className="flex items-center justify-between py-1">
+                      <span className="text-sm text-gray-400">原图含 GPS</span>
+                      <span className="text-sm font-medium text-white">{metadata.privacy.original_contains_gps ? "是" : "否"}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-1">
+                      <span className="text-sm text-gray-400">GPS 已移除</span>
+                      <span className="text-sm font-medium text-white">{metadata.privacy.exif_gps_removed ? "是" : "否"}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-1">
+                      <span className="text-sm text-gray-400">创建时间</span>
+                      <span className="text-sm font-medium text-white">{formatTime(metadata.timestamps.created_at)}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-1">
+                      <span className="text-sm text-gray-400">处理时间</span>
+                      <span className="text-sm font-medium text-white">{formatTime(metadata.timestamps.client_processed_at)}</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-4 py-1">
+                      <span className="text-sm text-gray-400">图片 ID</span>
+                      <span className="break-all text-right font-mono text-xs text-white/80">{metadata.image_id}</span>
+                    </div>
+                  </div>
+                </>
+              )}
 
-                    {analysis.loading && (
-                         <div className="w-full py-8 flex flex-col items-center justify-center text-gray-500 gap-3">
-                            <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
-                            <span className="text-xs uppercase tracking-wide">Analyzing Composition...</span>
-                         </div>
-                    )}
-
-                    {analysis.content && (
-                        <div className="bg-gradient-to-br from-white/5 to-transparent p-6 rounded border border-white/5 relative overflow-hidden group">
-                            <div className="absolute top-0 left-0 w-1 h-full bg-accent/50"></div>
-                            <p className="text-gray-300 leading-relaxed font-serif italic text-sm">
-                                "{analysis.content}"
-                            </p>
-                        </div>
-                    )}
-                </div>
-
-                <div className="pt-8 mt-auto">
-                    <button className="w-full flex items-center justify-center gap-2 py-4 bg-white text-black font-semibold uppercase tracking-widest text-xs hover:bg-gray-200 transition-colors">
-                        <Download size={16} /> Download Original
-                    </button>
-                </div>
+              <div className="pt-2">
+                <Button
+                  onClick={() => window.open(photo.url, "_blank", "noopener,noreferrer")}
+                  className="w-full gap-2 py-4 text-xs font-semibold uppercase tracking-widest"
+                >
+                  <Download size={16} /> Download Original
+                </Button>
+              </div>
             </div>
+          </ScrollArea>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
