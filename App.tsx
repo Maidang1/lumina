@@ -46,26 +46,30 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] text-gray-300 flex flex-col">
-      <header className="sticky top-0 z-30 bg-[#1a1a1a] border-b border-black/20 h-12 flex items-center justify-between px-4 text-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 font-medium text-white">
-            <Aperture size={16} className="text-white" />
-            <span>madinah's life</span>
+    <div className="min-h-screen text-gray-300">
+      <header className="sticky top-3 z-30 px-3 sm:px-4">
+        <div className="mx-auto flex h-14 w-full max-w-[1440px] items-center justify-between rounded-2xl border border-white/10 bg-black/55 px-3 text-sm shadow-[0_12px_30px_rgba(0,0,0,0.38)] backdrop-blur-xl sm:px-4">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+            <div className="flex items-center gap-2 font-medium text-white">
+              <Aperture size={16} className="text-white" />
+              <span className="truncate text-[13px] uppercase tracking-[0.18em] sm:text-sm">
+                madinah's life
+              </span>
+            </div>
+            <Badge variant="secondary" className="font-mono text-gray-300">
+              {photos.length}
+            </Badge>
           </div>
-          <Badge variant="secondary" className="font-mono text-gray-400">
-            {photos.length}
-          </Badge>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <UploadButton onClick={() => setIsUploadModalOpen(true)} />
+          <div className="flex items-center gap-2">
+            <UploadButton onClick={() => setIsUploadModalOpen(true)} />
+          </div>
         </div>
       </header>
 
-      <main className="flex-grow">
+      <main className="mx-auto mt-4 w-full max-w-[1440px] flex-grow px-2 pb-4 sm:px-4 sm:pb-6">
         {isLoading ? (
-          <div className="h-full min-h-[40vh] flex items-center justify-center text-sm text-gray-500">
+          <div className="flex min-h-[40vh] h-full items-center justify-center text-sm text-gray-500">
             Loading photos...
           </div>
         ) : (

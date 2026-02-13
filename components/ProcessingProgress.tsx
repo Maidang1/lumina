@@ -18,34 +18,34 @@ const STAGE_LABELS: Record<string, string> = {
 
 const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ stages }) => {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5 rounded-xl border border-white/10 bg-black/20 p-3">
       {stages.map((stage) => (
         <div key={stage.id} className="flex items-center gap-3">
-          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+          <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
             {stage.status === "completed" && (
-              <Check size={16} className="text-green-500" />
+              <Check size={14} className="text-emerald-300" />
             )}
             {stage.status === "processing" && (
-              <Loader2 size={16} className="text-blue-500 animate-spin" />
+              <Loader2 size={14} className="animate-spin text-cyan-300" />
             )}
             {stage.status === "failed" && (
-              <AlertCircle size={16} className="text-red-500" />
+              <AlertCircle size={14} className="text-red-300" />
             )}
             {stage.status === "pending" && (
-              <Circle size={16} className="text-gray-600" />
+              <Circle size={14} className="text-gray-600" />
             )}
           </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1">
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-center justify-between">
               <span
                 className={`text-xs ${
                   stage.status === "completed"
-                    ? "text-gray-400"
+                    ? "text-gray-300"
                     : stage.status === "processing"
-                    ? "text-white"
+                    ? "text-cyan-100"
                     : stage.status === "failed"
-                    ? "text-red-400"
+                    ? "text-red-300"
                     : "text-gray-500"
                 }`}
               >
@@ -60,19 +60,20 @@ const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ stages }) => {
 
             <Progress
               value={stage.progress}
+              className="h-1.5 bg-white/10"
               indicatorClassName={
                 stage.status === "completed"
-                  ? "bg-green-500"
+                  ? "bg-emerald-400"
                   : stage.status === "processing"
-                  ? "bg-blue-500"
+                  ? "bg-cyan-400"
                   : stage.status === "failed"
-                  ? "bg-red-500"
-                  : "bg-gray-700"
+                  ? "bg-red-400"
+                  : "bg-white/20"
               }
             />
 
             {stage.error && (
-              <p className="text-xs text-red-400 mt-1 truncate">
+              <p className="mt-1 truncate text-xs text-red-300">
                 {stage.error}
               </p>
             )}

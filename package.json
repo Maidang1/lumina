@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@react-spring/web": "^10.0.3",
     "@rsbuild/core": "^1.7.3",
     "@rsbuild/plugin-react": "^1.4.5",
     "blockhash": "^0.2.0",

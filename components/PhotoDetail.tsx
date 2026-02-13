@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { animated, useSpring } from '@react-spring/web';
 import { Photo } from '../types';
 import {
   X,
@@ -47,8 +48,47 @@ function formatTime(value?: string): string {
   return date.toLocaleString('zh-CN', { hour12: false });
 }
 
+function formatExifText(value?: string): string {
+  if (!value) return '--';
+  const normalized = value.trim();
+  if (!normalized || normalized === '?' || normalized.toLowerCase() === 'unknown') {
+    return '--';
+  }
+  return normalized;
+}
+
+function formatNumericWithUnit(value?: string, unit?: string): string {
+  const base = formatExifText(value);
+  if (base === '--') return '--';
+  return unit ? `${base}${unit}` : base;
+}
+
 const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
   const metadata = photo.metadata;
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+
+  const shellSpring = useSpring({
+    from: { opacity: 0 },
+    to: { opacity: 1 },
+    config: { tension: 220, friction: 24 },
+  });
+
+  const imagePanelSpring = useSpring({
+    from: { opacity: 0, x: -24 },
+    to: { opacity: 1, x: 0 },
+    config: { tension: 230, friction: 26 },
+  });
+
+  const infoPanelSpring = useSpring({
+    from: { opacity: 0, x: 24 },
+    to: { opacity: 1, x: 0 },
+    config: { tension: 230, friction: 28 },
+  });
+
+  const imageSpring = useSpring({
+    opacity: isImageLoaded ? 1 : 0,
+    config: { tension: 210, friction: 26 },
+  });
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
@@ -56,12 +96,21 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
         overlayClassName='bg-black/95'
         className='h-screen max-w-none rounded-none border-0 bg-transparent p-0'
       >
-        <div className='relative flex h-full w-full flex-col md:flex-row'>
-          <DialogClose className='absolute right-4 top-4 z-50 rounded-full bg-black/50 p-2 text-white md:hidden'>
+        <animated.div
+          className='relative flex h-full w-full flex-col md:flex-row'
+          style={{ opacity: shellSpring.opacity }}
+        >
+          <DialogClose className='absolute right-3 top-3 z-50 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-black/50 p-2 text-white md:hidden'>
             <X size={24} />
           </DialogClose>
 
-          <div className='relative flex h-[60%] flex-1 items-center justify-center bg-black p-4 md:h-full md:p-8'>
+          <animated.div
+            className='relative flex h-[45svh] flex-1 items-center justify-center bg-black p-4 md:h-full md:p-8'
+            style={{
+              opacity: imagePanelSpring.opacity,
+              transform: imagePanelSpring.x.to((x) => `translate3d(${x}px, 0, 0)`),
+            }}
+          >
             <DialogHeader className='absolute left-6 top-6 z-20 hidden md:block'>
               <DialogClose className='text-white/50 transition-colors hover:text-white'>
                 <div className='flex items-center gap-2 text-sm uppercase tracking-widest'>
@@ -71,17 +120,26 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
               </DialogClose>
               <DialogTitle className='sr-only'>{photo.title}</DialogTitle>
             </DialogHeader>
-            <img
+            <animated.img
               src={photo.url}
               alt={photo.title}
               className='max-h-full max-w-full object-contain shadow-2xl'
+              style={{ opacity: imageSpring.opacity }}
+              onLoad={() => setIsImageLoaded(true)}
             />
-          </div>
+          </animated.div>
 
-          <ScrollArea className='h-[40%] w-full border-l border-white/5 bg-pro-gray/90 backdrop-blur-md md:h-full md:w-[420px] lg:w-[480px]'>
-            <div className='space-y-6 p-8'>
+          <animated.div
+            className='h-[55svh] w-full md:h-full md:w-[420px] lg:w-[480px]'
+            style={{
+              opacity: infoPanelSpring.opacity,
+              transform: infoPanelSpring.x.to((x) => `translate3d(${x}px, 0, 0)`),
+            }}
+          >
+            <ScrollArea className='h-full w-full border-l border-white/5 bg-pro-gray/90 backdrop-blur-md'>
+              <div className='space-y-6 p-5 md:p-8'>
               <div>
-                <h2 className='mb-2 font-serif text-3xl text-white'>
+                <h2 className='mb-2 font-serif text-2xl text-white md:text-3xl'>
                   {photo.title}
                 </h2>
                 <div className='flex flex-wrap items-center gap-2 text-sm text-gray-400'>
@@ -104,56 +162,56 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
                 <h3 className='mb-4 text-xs font-semibold uppercase tracking-widest text-gray-500'>
                   拍摄参数
                 </h3>
-                <div className='grid grid-cols-2 gap-4'>
+                <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
                   <Card className='border-white/5 bg-black/40'>
-                    <CardContent className='p-4'>
-                      <div className='mb-1 flex items-center gap-2 text-gray-400'>
+                    <CardContent className='flex min-h-[124px] flex-col justify-center gap-2 p-4'>
+                      <div className='flex items-center gap-2 text-gray-400'>
                         <Aperture size={16} />
                         <span className='text-xs uppercase tracking-wider'>
                           Aperture
                         </span>
                       </div>
-                      <span className='font-mono text-lg text-white'>
-                        {photo.exif.aperture}
+                      <span className='block font-mono text-2xl text-white'>
+                        {formatExifText(photo.exif.aperture)}
                       </span>
                     </CardContent>
                   </Card>
                   <Card className='border-white/5 bg-black/40'>
-                    <CardContent className='p-4'>
-                      <div className='mb-1 flex items-center gap-2 text-gray-400'>
+                    <CardContent className='flex min-h-[124px] flex-col justify-center gap-2 p-4'>
+                      <div className='flex items-center gap-2 text-gray-400'>
                         <Timer size={16} />
                         <span className='text-xs uppercase tracking-wider'>
                           Shutter
                         </span>
                       </div>
-                      <span className='font-mono text-lg text-white'>
-                        {photo.exif.shutter}
+                      <span className='block font-mono text-2xl text-white'>
+                        {formatExifText(photo.exif.shutter)}
                       </span>
                     </CardContent>
                   </Card>
                   <Card className='border-white/5 bg-black/40'>
-                    <CardContent className='p-4'>
-                      <div className='mb-1 flex items-center gap-2 text-gray-400'>
+                    <CardContent className='flex min-h-[124px] flex-col justify-center gap-2 p-4'>
+                      <div className='flex items-center gap-2 text-gray-400'>
                         <Gauge size={16} />
                         <span className='text-xs uppercase tracking-wider'>
                           ISO
                         </span>
                       </div>
-                      <span className='font-mono text-lg text-white'>
-                        {photo.exif.iso || '-'}
+                      <span className='block font-mono text-2xl text-white'>
+                        {formatExifText(photo.exif.iso)}
                       </span>
                     </CardContent>
                   </Card>
                   <Card className='border-white/5 bg-black/40'>
-                    <CardContent className='p-4'>
-                      <div className='mb-1 flex items-center gap-2 text-gray-400'>
+                    <CardContent className='flex min-h-[124px] flex-col justify-center gap-2 p-4'>
+                      <div className='flex items-center gap-2 text-gray-400'>
                         <Camera size={16} />
                         <span className='text-xs uppercase tracking-wider'>
                           Focal Len
                         </span>
                       </div>
-                      <span className='font-mono text-lg text-white'>
-                        {photo.exif.focalLength}
+                      <span className='block font-mono text-2xl text-white'>
+                        {formatNumericWithUnit(photo.exif.focalLength, 'mm')}
                       </span>
                     </CardContent>
                   </Card>
@@ -292,9 +350,10 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
                   <Download size={16} /> Download Original
                 </Button>
               </div>
-            </div>
-          </ScrollArea>
-        </div>
+              </div>
+            </ScrollArea>
+          </animated.div>
+        </animated.div>
       </DialogContent>
     </Dialog>
   );

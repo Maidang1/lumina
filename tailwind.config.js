@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        serif: ['Playfair Display', 'serif'],
+        sans: ['"Space Grotesk"', 'sans-serif'],
+        serif: ['"Archivo"', 'serif'],
       },
       colors: {
         'pro-black': '#0a0a0a',
