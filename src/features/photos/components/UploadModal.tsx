@@ -77,7 +77,7 @@ const DescriptionModal: React.FC<DescriptionModalProps> = ({
       <DialogContent className="max-w-md border border-white/10 bg-[#111111] shadow-[0_40px_120px_rgba(0,0,0,0.75)]">
         <DialogHeader className="space-y-0 pb-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-400/40 bg-cyan-500/10 text-cyan-300">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#c9a962]/40 bg-[#c9a962]/10 text-[#c9a962]">
               <Edit3 size={16} />
             </div>
             <div>
@@ -98,7 +98,7 @@ const DescriptionModal: React.FC<DescriptionModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="输入图片描述..."
-              className="mt-1.5 min-h-[100px] border-white/10 bg-black/30 text-white placeholder:text-gray-500 focus:border-cyan-400/60"
+              className="mt-1.5 min-h-[100px] border-white/10 bg-black/30 text-white placeholder:text-gray-500 focus:border-[#c9a962]/60"
             />
           </div>
         </div>
@@ -114,11 +114,11 @@ const DescriptionModal: React.FC<DescriptionModalProps> = ({
           <Button
             onClick={handleSave}
             disabled={isSaving}
-            className="bg-cyan-500 hover:bg-cyan-400"
+            className="bg-[#c9a962] text-black hover:bg-[#d4b97f]"
           >
             {isSaving ? (
               <>
-                <Loader2 size={14} className="mr-2 animate-spin" />
+                <Loader2 size={14} className="mr-2 animate-spin motion-reduce:animate-none" />
                 保存中...
               </>
             ) : (
@@ -574,7 +574,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
                     UPLOAD_TOKEN
                   </label>
                   {!isTokenConfigured && (
-                    <Badge className="rounded-full border border-amber-400/40 bg-amber-500/10 text-amber-300">
+                    <Badge className="rounded-full border border-[#c9a962]/40 bg-[#c9a962]/10 text-[#d4b97f]">
                       未配置
                     </Badge>
                   )}
@@ -590,7 +590,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
                     if (tokenError) setTokenError("");
                   }}
                   placeholder="输入上传令牌（保存在当前浏览器本地）"
-                  className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-400/60"
+                  className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none transition focus:border-[#c9a962]/60"
                 />
                 <p className="text-xs text-gray-400">
                   仅保存在当前浏览器 localStorage，用于上传接口校验。
@@ -608,7 +608,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
                 "relative overflow-hidden border p-0",
                 "before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)] before:content-['']",
                 isDragging
-                  ? "border-cyan-400/60 bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.25)]"
+                  ? "border-[#c9a962]/60 bg-[#c9a962]/10 shadow-[0_0_0_1px_rgba(201,169,98,0.25)]"
                   : "border-white/10 bg-[#171717] hover:border-white/20",
               )}
               onDrop={handleDrop}
@@ -636,8 +636,8 @@ const UploadModal: React.FC<UploadModalProps> = ({
                       className={cn(
                         "rounded-full px-4 py-2 text-xs",
                         uploadMode === "live_photo"
-                          ? "bg-amber-400 text-black hover:bg-amber-300"
-                          : "border-amber-300/40 bg-transparent text-amber-200 hover:bg-amber-500/15"
+                          ? "bg-[#c9a962] text-black hover:bg-[#d4b97f]"
+                          : "border-[#c9a962]/40 bg-transparent text-[#d4b97f] hover:bg-[#c9a962]/15"
                       )}
                     >
                       实况图片
@@ -647,7 +647,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
                     className={cn(
                       "mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border transition-colors",
                       isDragging
-                        ? "border-cyan-300/80 bg-cyan-400/20 text-cyan-100"
+                        ? "border-[#c9a962]/80 bg-[#c9a962]/20 text-[#f1e2bf]"
                         : "border-white/15 bg-white/5 text-gray-300"
                     )}
                   >
@@ -699,7 +699,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
                           onClick={() => liveVideoInputRef.current?.click()}
                           disabled={!isTokenConfigured}
                           variant="outline"
-                          className="gap-2 rounded-full border-amber-300/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="gap-2 rounded-full border-[#c9a962]/50 bg-[#c9a962]/10 text-[#d4b97f] hover:bg-[#c9a962]/20 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <Upload size={14} />
                           选择 MOV
@@ -709,10 +709,10 @@ const UploadModal: React.FC<UploadModalProps> = ({
                         <Badge className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-gray-300">
                           主图: {pendingLiveStill?.name || "未选择"}
                         </Badge>
-                        <Badge className="rounded-full border border-amber-300/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-200">
+                        <Badge className="rounded-full border border-[#c9a962]/40 bg-[#c9a962]/10 px-3 py-1 text-xs text-[#d4b97f]">
                           MOV: {pendingLiveVideo?.name || "未选择"}
                         </Badge>
-                        <Badge className="rounded-full border border-amber-300/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-200">
+                        <Badge className="rounded-full border border-[#c9a962]/40 bg-[#c9a962]/10 px-3 py-1 text-xs text-[#d4b97f]">
                           MOV 最大 10MB
                         </Badge>
                       </div>
@@ -745,10 +745,10 @@ const UploadModal: React.FC<UploadModalProps> = ({
             </Card>
 
             {queue.length > 0 && (
-              <div className="rounded-2xl border border-white/10 bg-[#141414] p-3 md:p-4">
+              <div className="rounded-xl border border-white/10 bg-[#141414] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
                   <div className="flex items-center gap-2 text-sm text-gray-300">
-                    <Sparkles size={14} className="text-cyan-300" />
+                    <Sparkles size={14} className="text-[#c9a962]" />
                     <span>上传队列</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -769,7 +769,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
                   {queue.map((item) => (
                     <Card
                       key={item.id}
-                      className="border border-white/10 bg-gradient-to-b from-[#1a1a1a] to-[#151515] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                      className="rounded-xl border border-white/10 bg-gradient-to-b from-[#1a1a1a] to-[#151515] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                     >
                       <CardContent className="p-4">
                         <div className="flex gap-4">
@@ -794,7 +794,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
                                 <p className="mt-0.5 text-xs text-gray-500">
                                   {(item.file.size / 1024 / 1024).toFixed(2)} MB
                                   {item.liveVideoFile && (
-                                    <span className="ml-2 text-amber-200">
+                                    <span className="ml-2 text-[#d4b97f]">
                                       + MOV {(item.liveVideoFile.size / 1024 / 1024).toFixed(2)} MB
                                     </span>
                                   )}
@@ -807,7 +807,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
                               </div>
                               <div className="flex items-center gap-2">
                                 {item.uploadMode === "live_photo" && (
-                                  <Badge className="rounded-full border border-amber-300/50 bg-amber-500/10 text-amber-200">
+                                  <Badge className="rounded-full border border-[#c9a962]/50 bg-[#c9a962]/10 text-[#d4b97f]">
                                     LIVE
                                   </Badge>
                                 )}
@@ -817,9 +817,9 @@ const UploadModal: React.FC<UploadModalProps> = ({
                                     item.status === "completed" &&
                                       "border-emerald-400/40 bg-emerald-500/15 text-emerald-300",
                                     item.status === "uploading" &&
-                                      "border-cyan-400/40 bg-cyan-500/15 text-cyan-200",
+                                      "border-[#c9a962]/40 bg-[#c9a962]/15 text-[#e7d3a4]",
                                     item.status === "processing" &&
-                                      "border-sky-400/40 bg-sky-500/15 text-sky-200",
+                                      "border-[#c9a962]/30 bg-[#c9a962]/10 text-[#e7d3a4]",
                                     item.status === "failed" &&
                                       "border-red-400/40 bg-red-500/15 text-red-300",
                                     item.status === "queued" &&
@@ -851,14 +851,14 @@ const UploadModal: React.FC<UploadModalProps> = ({
                               <div className="space-y-2">
                                 <div className="flex items-center justify-between text-xs text-gray-400">
                                   <span className="inline-flex items-center gap-1.5">
-                                    <Loader2 size={12} className="animate-spin" />
+                                    <Loader2 size={12} className="animate-spin motion-reduce:animate-none" />
                                     正在上传到 GitHub
                                   </span>
                                   <span>{Math.round(item.progress)}%</span>
                                 </div>
                                 <Progress
                                   value={item.progress}
-                                  indicatorClassName="bg-gradient-to-r from-cyan-400 to-emerald-400"
+                                  indicatorClassName="bg-gradient-to-r from-[#c9a962] to-[#e7d3a4]"
                                 />
                               </div>
                             )}
@@ -930,7 +930,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
               <div className="flex items-center gap-2">
                 {!allCompleted && (
                   <Badge className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-gray-300">
-                    <Loader2 size={12} className="mr-1.5 inline animate-spin" />
+                    <Loader2 size={12} className="mr-1.5 inline animate-spin motion-reduce:animate-none" />
                     处理中
                   </Badge>
                 )}

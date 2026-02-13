@@ -18,7 +18,7 @@ const UploadButton: React.FC<UploadButtonProps> = ({ onClick, queueCount = 0 }) 
       <Upload size={14} />
       <span className="hidden sm:inline">上传</span>
       {queueCount > 0 && (
-        <span className="bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+        <span className="rounded-full bg-[#c9a962] px-1.5 py-0.5 text-xs text-black">
           {queueCount}
         </span>
       )}

@@ -97,7 +97,7 @@ const App: React.FC = () => {
               </span>
             </div>
             <div className="h-5 w-px bg-white/[0.06]" />
-            <Badge variant="secondary" className="border-white/[0.04] bg-white/[0.02] font-mono text-[11px] font-normal tracking-wide text-zinc-500">
+            <Badge variant="secondary" className="border-white/[0.04] bg-white/[0.02] font-mono text-[11px] font-normal tracking-wide text-zinc-300">
               {photos.length}
             </Badge>
           </div>
@@ -114,7 +114,7 @@ const App: React.FC = () => {
             <div className="relative">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/[0.06] border-t-[#c9a962]/60" />
             </div>
-            <p className="text-xs font-light tracking-wide text-zinc-600">加载相册中...</p>
+            <p className="text-xs font-light tracking-wide text-zinc-400">加载相册中...</p>
           </div>
         ) : (
           <PhotoGrid

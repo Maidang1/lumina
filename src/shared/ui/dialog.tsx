@@ -57,14 +57,17 @@ const DialogContent: React.FC<DialogContentProps> = ({
         "fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm",
         overlayClassName,
       )}
-      onMouseDown={() => onOpenChange(false)}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onOpenChange(false);
+        }
+      }}
     >
       <div
         className={cn(
           "relative w-full rounded-lg border border-white/10 bg-[#1a1a1a] text-gray-200 shadow-xl",
           className,
         )}
-        onMouseDown={(event) => event.stopPropagation()}
         {...props}
       >
         {children}
@@ -98,7 +101,11 @@ const DialogClose: React.FC<DialogCloseProps> = ({
   const { onOpenChange } = useDialog();
   return (
     <button
-      className={className}
+      className={cn(
+        "inline-flex items-center justify-center rounded-md transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c9a962]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+        className,
+      )}
       onClick={(event) => {
         onClick?.(event);
         if (!event.defaultPrevented) onOpenChange(false);

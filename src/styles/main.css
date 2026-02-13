@@ -161,3 +161,16 @@ body::after {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer,
+  .skeleton,
+  .animate-spin {
+    animation: none !important;
+  }
+
+  .shimmer,
+  .skeleton {
+    background-position: 0 0;
+  }
+}

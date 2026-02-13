@@ -26,7 +26,7 @@ const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ stages }) => {
               <Check size={14} className="text-emerald-300" />
             )}
             {stage.status === "processing" && (
-              <Loader2 size={14} className="animate-spin text-cyan-300" />
+              <Loader2 size={14} className="animate-spin text-[#c9a962] motion-reduce:animate-none" />
             )}
             {stage.status === "failed" && (
               <AlertCircle size={14} className="text-red-300" />
@@ -43,7 +43,7 @@ const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ stages }) => {
                   stage.status === "completed"
                     ? "text-gray-300"
                     : stage.status === "processing"
-                    ? "text-cyan-100"
+                    ? "text-[#e7d3a4]"
                     : stage.status === "failed"
                     ? "text-red-300"
                     : "text-gray-500"
@@ -65,7 +65,7 @@ const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ stages }) => {
                 stage.status === "completed"
                   ? "bg-emerald-400"
                   : stage.status === "processing"
-                  ? "bg-cyan-400"
+                  ? "bg-[#c9a962]"
                   : stage.status === "failed"
                   ? "bg-red-400"
                   : "bg-white/20"
