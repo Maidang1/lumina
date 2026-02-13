@@ -10,6 +10,8 @@ const DEFAULT_OPTIONS: UploadOptions = {
   timeout: 120000,
 };
 
+const UPLOAD_TOKEN_STORAGE_KEY = "lumina.upload_token";
+
 class ApiRequestError extends Error {
   status: number;
 
@@ -36,6 +38,21 @@ export class UploadService {
     return `/v1/images/${encodeURIComponent(imageId)}`;
   }
 
+  getUploadToken(): string {
+    if (typeof window === "undefined") return "";
+    return window.localStorage.getItem(UPLOAD_TOKEN_STORAGE_KEY) || "";
+  }
+
+  setUploadToken(token: string): void {
+    if (typeof window === "undefined") return;
+    const normalized = token.trim();
+    if (!normalized) {
+      window.localStorage.removeItem(UPLOAD_TOKEN_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(UPLOAD_TOKEN_STORAGE_KEY, normalized);
+  }
+
   private async parseJson<T>(response: Response, fallbackMessage: string): Promise<T> {
     let payload: unknown;
 
@@ -60,6 +77,11 @@ export class UploadService {
     metadata: ImageMetadata,
     onProgress?: (progress: number) => void
   ): Promise<UploadResult> {
+    const uploadToken = this.getUploadToken();
+    if (!uploadToken) {
+      throw new ApiRequestError("Missing UPLOAD_TOKEN. Please configure it before upload.", 401);
+    }
+
     const formData = new FormData();
     formData.append("original", original);
     formData.append("thumb", thumb, "thumb.webp");
@@ -107,6 +129,7 @@ export class UploadService {
 
       xhr.timeout = this.options.timeout;
       xhr.open("POST", this.getEndpoint("/v1/images"));
+      xhr.setRequestHeader("X-Upload-Token", uploadToken);
       xhr.send(formData);
     });
   }

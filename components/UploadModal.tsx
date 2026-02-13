@@ -65,9 +65,15 @@ const UploadModal: React.FC<UploadModalProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [queue, setQueue] = useState<UploadQueueItem[]>([]);
+  const [uploadToken, setUploadToken] = useState<string>("");
+  const [tokenError, setTokenError] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
   const queueRef = useRef<UploadQueueItem[]>([]);
+
+  useEffect(() => {
+    setUploadToken(uploadService.getUploadToken());
+  }, []);
 
   useEffect(() => {
     queueRef.current = queue;
@@ -229,6 +235,12 @@ const UploadModal: React.FC<UploadModalProps> = ({
   }, [queue, processQueue]);
 
   const handleFiles = useCallback((files: FileList | File[]) => {
+    if (!uploadService.getUploadToken()) {
+      setTokenError("请先配置 UPLOAD_TOKEN，再选择或拖拽图片。");
+      return;
+    }
+
+    setTokenError("");
     const fileArray = Array.from(files).filter(
       (file) => file.type.startsWith("image/") && file.size <= DEFAULT_UPLOAD_CONFIG.maxFileSize
     );
@@ -287,6 +299,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
   const failedCount = queue.filter((i) => i.status === "failed").length;
   const allCompleted = queue.length > 0 && completedCount === queue.length;
   const totalBytes = queue.reduce((sum, item) => sum + item.file.size, 0);
+  const isTokenConfigured = uploadToken.trim().length > 0;
 
   useEffect(() => {
     return () => {
@@ -326,6 +339,42 @@ const UploadModal: React.FC<UploadModalProps> = ({
 
         <ScrollArea className="max-h-[70vh] flex-1">
           <div className="space-y-4 p-5 md:p-6">
+            <Card className="border border-white/10 bg-[#171717]">
+              <CardContent className="space-y-2 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <label htmlFor="upload-token" className="text-sm font-medium text-gray-200">
+                    UPLOAD_TOKEN
+                  </label>
+                  {!isTokenConfigured && (
+                    <Badge className="rounded-full border border-amber-400/40 bg-amber-500/10 text-amber-300">
+                      未配置
+                    </Badge>
+                  )}
+                </div>
+                <input
+                  id="upload-token"
+                  type="password"
+                  value={uploadToken}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setUploadToken(next);
+                    uploadService.setUploadToken(next);
+                    if (tokenError) setTokenError("");
+                  }}
+                  placeholder="输入上传令牌（保存在当前浏览器本地）"
+                  className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-400/60"
+                />
+                <p className="text-xs text-gray-400">
+                  仅保存在当前浏览器 localStorage，用于上传接口校验。
+                </p>
+                {tokenError && (
+                  <div className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                    {tokenError}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <Card
               className={cn(
                 "relative overflow-hidden border p-0",
@@ -359,7 +408,8 @@ const UploadModal: React.FC<UploadModalProps> = ({
                   <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                     <Button
                       onClick={() => fileInputRef.current?.click()}
-                      className="gap-2 rounded-full bg-white text-black hover:bg-gray-200"
+                      disabled={!isTokenConfigured}
+                      className="gap-2 rounded-full bg-white text-black hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-gray-500 disabled:text-gray-200"
                     >
                       <Images size={14} />
                       选择文件

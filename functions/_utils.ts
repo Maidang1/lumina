@@ -6,6 +6,7 @@ interface Env {
   GH_REPO: string;
   GH_BRANCH: string;
   ALLOW_ORIGIN: string;
+  UPLOAD_TOKEN: string;
 }
 
 export interface ImageMetadata {

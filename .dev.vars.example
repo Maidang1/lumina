@@ -6,3 +6,6 @@ GITHUB_TOKEN=your_github_pat_here
 
 # 允许的跨域来源
 ALLOW_ORIGIN=http://localhost:3000
+
+# 上传鉴权令牌（前端本地存储值必须与此一致）
+UPLOAD_TOKEN=change_this_upload_token

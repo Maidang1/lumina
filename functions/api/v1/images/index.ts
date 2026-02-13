@@ -32,6 +32,20 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
 async function handleUpload(request: Request, env: Env): Promise<Response> {
   try {
+    const expectedToken = env.UPLOAD_TOKEN?.trim();
+    if (!expectedToken) {
+      return errorResponse(env, "Server upload token is not configured", 500);
+    }
+
+    const providedToken = request.headers.get("x-upload-token")?.trim();
+    if (!providedToken) {
+      return errorResponse(env, "Missing upload token", 401);
+    }
+
+    if (providedToken !== expectedToken) {
+      return errorResponse(env, "Invalid upload token", 403);
+    }
+
     const formData = await request.formData();
     const original = formData.get("original");
     const thumb = formData.get("thumb");
