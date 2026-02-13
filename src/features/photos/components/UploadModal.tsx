@@ -73,49 +73,42 @@ const DescriptionModal: React.FC<DescriptionModalProps> = ({
   };
 
   return (
-    <Dialog open={true}>
-      <DialogContent className="max-w-md border border-white/10 bg-[#111111] shadow-[0_40px_120px_rgba(0,0,0,0.75)]">
-        <DialogHeader className="space-y-0 pb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#c9a962]/40 bg-[#c9a962]/10 text-[#c9a962]">
+    <Dialog open={true} onOpenChange={(open) => !open && onSkip()}>
+      <DialogContent className="w-[min(92vw,44rem)] max-w-none overflow-hidden border border-white/10 bg-[#111111] p-0 shadow-[0_40px_120px_rgba(0,0,0,0.75)]">
+        <DialogHeader className="space-y-0 border-b border-white/10 px-5 py-4 md:px-6">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#c9a962]/40 bg-[#c9a962]/10 text-[#c9a962]">
               <Edit3 size={16} />
             </div>
-            <div>
-              <DialogTitle className="text-base font-semibold tracking-wide text-white">
+            <div className="min-w-0 space-y-1">
+              <DialogTitle className="text-xl font-semibold tracking-wide text-white">
                 添加描述
               </DialogTitle>
-              <p className="text-xs text-gray-400">
+              <p className="truncate text-sm text-gray-400">
                 为 "{originalFilename}" 添加描述
               </p>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs text-gray-400">描述（可选）</label>
+        <div className="space-y-4 px-5 py-4 md:px-6">
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-gray-300">描述（可选）</label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="输入图片描述..."
-              className="mt-1.5 min-h-[100px] border-white/10 bg-black/30 text-white placeholder:text-gray-500 focus:border-[#c9a962]/60"
+              className="min-h-[140px] max-h-[40vh] resize-y border-white/15 bg-black/30 text-sm leading-relaxed text-white placeholder:text-gray-500 focus:border-[#c9a962]/60"
             />
+            <div className="text-right text-xs text-gray-500">{description.length} 字</div>
           </div>
         </div>
 
-        <DialogFooter className="mt-4 gap-2">
-          <Button
-            variant="outline"
-            onClick={onSkip}
-            className="border-white/20 bg-transparent text-gray-300 hover:bg-white/10"
-          >
+        <DialogFooter className="flex-col-reverse gap-2 border-t border-white/10 bg-[#141414] px-5 py-4 sm:flex-row sm:justify-end md:px-6">
+          <Button variant="outline" onClick={onSkip} className="h-11 w-full border-white/20 bg-transparent text-gray-300 hover:bg-white/10 sm:w-auto">
             跳过
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="bg-[#c9a962] text-black hover:bg-[#d4b97f]"
-          >
+          <Button onClick={handleSave} disabled={isSaving} className="h-11 w-full bg-[#c9a962] text-black hover:bg-[#d4b97f] sm:w-auto">
             {isSaving ? (
               <>
                 <Loader2 size={14} className="mr-2 animate-spin motion-reduce:animate-none" />

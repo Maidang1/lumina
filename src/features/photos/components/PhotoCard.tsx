@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { animated, to, useSpring } from '@react-spring/web';
 import { Photo } from '@/features/photos/types';
-import { Loader2, Trash2 } from 'lucide-react';
-import { Button } from '@/shared/ui/button';
 import { videoLoaderManager } from '@/features/photos/services/videoLoaderManager';
 import { useLivePhotoControls } from './hooks/useLivePhotoControls';
 
@@ -10,18 +8,12 @@ interface PhotoCardProps {
   photo: Photo;
   index: number;
   onClick: (photo: Photo) => void;
-  canDelete?: boolean;
-  isDeleting?: boolean;
-  onDelete?: (photoId: string) => Promise<void>;
 }
 
 const PhotoCard: React.FC<PhotoCardProps> = ({
   photo,
   index,
   onClick,
-  canDelete = false,
-  isDeleting = false,
-  onDelete,
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -172,17 +164,6 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     };
   }, [stopVideo]);
 
-  const handleDeleteClick = useCallback(
-    async (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.stopPropagation();
-      if (!onDelete || isDeleting) return;
-      const confirmed = window.confirm('确认删除？该操作不可恢复');
-      if (!confirmed) return;
-      await onDelete(photo.id);
-    },
-    [isDeleting, onDelete, photo.id],
-  );
-
   return (
     <animated.div
       ref={cardRef}
@@ -250,27 +231,6 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
 
       {!isLoaded && (
         <div className='absolute inset-0 skeleton rounded-2xl' />
-      )}
-
-      {canDelete && (
-        <div className='pointer-events-none absolute right-3 top-3 z-30 hidden transition-opacity md:block md:opacity-0 md:group-hover:opacity-100 !opacity-0'>
-          <Button
-            size='icon'
-            variant='outline'
-            disabled={isDeleting}
-            aria-label='删除图片'
-            className='pointer-events-auto h-8 w-8 rounded-full border-rose-300/60 bg-black/45 text-rose-100 hover:bg-rose-500/20 hover:text-rose-100'
-            onClick={(event) => {
-              void handleDeleteClick(event);
-            }}
-          >
-            {isDeleting ? (
-              <Loader2 size={14} className='animate-spin' />
-            ) : (
-              <Trash2 size={14} />
-            )}
-          </Button>
-        </div>
       )}
 
       <animated.div

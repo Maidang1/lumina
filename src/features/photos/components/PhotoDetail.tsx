@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { animated, useSpring } from "@react-spring/web";
 import { Photo } from "@/features/photos/types";
-import { Aperture, Calendar, Camera, Gauge, Loader2, Timer, X, FileText } from "lucide-react";
+import { Aperture, Calendar, Camera, Gauge, Loader2, Timer, X, FileText, Trash2 } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/shared/ui/dialog";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 import { videoLoaderManager } from "@/features/photos/services/videoLoaderManager";
 import { useLivePhotoControls } from "./hooks/useLivePhotoControls";
 
@@ -245,6 +246,15 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     await onDelete(photo.id);
   }, [isDeleting, onDelete, photo.id]);
 
+  const handleDeleteClick = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      event.preventDefault();
+      void handleDelete();
+    },
+    [handleDelete]
+  );
+
   const shellSpring = useSpring({
     immediate: prefersReducedMotion,
     from: { opacity: prefersReducedMotion ? 1 : 0 },
@@ -365,6 +375,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
                   <span className='text-[10px] font-medium uppercase tracking-[0.15em] text-[#c9a962]'>实况</span>
                 </div>
               )}
+
             </div>
           </animated.div>
 
@@ -523,6 +534,25 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
                         </div>
                       </div>
                     </div>
+                    {canDelete && (
+                      <div className='pt-2'>
+                        <Button
+                          size='sm'
+                          variant='outline'
+                          disabled={isDeleting}
+                          aria-label='删除图片'
+                          className='h-9 border-rose-300/60 bg-black/55 px-3 text-rose-100 hover:bg-rose-500/20 hover:text-rose-100'
+                          onClick={handleDeleteClick}
+                        >
+                          {isDeleting ? (
+                            <Loader2 size={14} className='animate-spin' />
+                          ) : (
+                            <Trash2 size={14} />
+                          )}
+                          <span className='ml-2 text-xs'>删除</span>
+                        </Button>
+                      </div>
+                    )}
                   </>
                 )}
 

@@ -120,9 +120,6 @@ const App: React.FC = () => {
           <PhotoGrid
             photos={photos}
             onPhotoClick={setSelectedPhoto}
-            canDelete={isDeleteTokenConfigured}
-            deletingPhotoId={deletingPhotoId}
-            onDeletePhoto={handleDeletePhoto}
           />
         )}
       </main>

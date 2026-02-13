@@ -5,17 +5,11 @@ import PhotoCard from './PhotoCard';
 interface PhotoGridProps {
   photos: Photo[];
   onPhotoClick: (photo: Photo) => void;
-  canDelete?: boolean;
-  deletingPhotoId?: string | null;
-  onDeletePhoto?: (photoId: string) => Promise<void>;
 }
 
 const PhotoGrid: React.FC<PhotoGridProps> = ({
   photos,
   onPhotoClick,
-  canDelete = false,
-  deletingPhotoId = null,
-  onDeletePhoto,
 }) => {
   return (
     <div className="w-full py-3">
@@ -26,9 +20,6 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({
             photo={photo} 
             index={index}
             onClick={onPhotoClick}
-            canDelete={canDelete}
-            isDeleting={deletingPhotoId === photo.id}
-            onDelete={onDeletePhoto}
           />
         ))}
       </div>
