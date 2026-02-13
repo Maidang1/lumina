@@ -83,31 +83,38 @@ const App: React.FC = () => {
   }, [deletingPhotoId]);
 
   return (
-    <div className="min-h-screen text-gray-300">
-      <header className="sticky top-3 z-30 px-3 sm:px-4">
-        <div className="mx-auto flex h-14 w-full max-w-[1440px] items-center justify-between rounded-2xl border border-white/10 bg-black/55 px-3 text-sm shadow-[0_12px_30px_rgba(0,0,0,0.38)] backdrop-blur-xl sm:px-4">
-          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            <div className="flex items-center gap-2 font-medium text-white">
-              <Aperture size={16} className="text-white" />
-              <span className="truncate text-[13px] uppercase tracking-[0.18em] sm:text-sm">
-                madinah's life
+    <div className="min-h-screen">
+      <header className="sticky top-5 z-30 px-5 sm:px-8">
+        <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between rounded-2xl border border-white/[0.04] bg-white/[0.02] px-6 text-sm shadow-[0_4px_24px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-3xl sm:px-8">
+          <div className="flex min-w-0 items-center gap-5 sm:gap-6">
+            <div className="flex items-center gap-3.5">
+              <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#c9a962]/15 to-transparent">
+                <div className="absolute inset-0 rounded-xl border border-[#c9a962]/20" />
+                <Aperture size={16} className="text-[#c9a962]" strokeWidth={1.5} />
+              </div>
+              <span className="font-display text-lg tracking-wide text-white sm:text-xl">
+                Lumina
               </span>
             </div>
-            <Badge variant="secondary" className="font-mono text-gray-300">
+            <div className="h-5 w-px bg-white/[0.06]" />
+            <Badge variant="secondary" className="border-white/[0.04] bg-white/[0.02] font-mono text-[11px] font-normal tracking-wide text-zinc-500">
               {photos.length}
             </Badge>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <UploadButton onClick={() => setIsUploadModalOpen(true)} />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto mt-4 w-full max-w-[1440px] flex-grow px-2 pb-4 sm:px-4 sm:pb-6">
+      <main className="mx-auto mt-8 w-full max-w-[1440px] flex-grow px-5 pb-12 sm:px-8 sm:pb-16">
         {isLoading ? (
-          <div className="flex min-h-[40vh] h-full items-center justify-center text-sm text-gray-500">
-            Loading photos...
+          <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4">
+            <div className="relative">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/[0.06] border-t-[#c9a962]/60" />
+            </div>
+            <p className="text-xs font-light tracking-wide text-zinc-600">加载相册中...</p>
           </div>
         ) : (
           <PhotoGrid

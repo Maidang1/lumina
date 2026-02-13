@@ -18,8 +18,8 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({
   onDeletePhoto,
 }) => {
   return (
-    <div className="w-full py-1">
-      <div className="columns-2 gap-2 space-y-2 md:columns-3 md:gap-3 md:space-y-3 lg:columns-4">
+    <div className="w-full py-3">
+      <div className="columns-2 gap-4 space-y-4 md:columns-3 md:gap-5 md:space-y-5 lg:columns-4">
         {photos.map((photo, index) => (
           <PhotoCard 
             key={photo.id} 

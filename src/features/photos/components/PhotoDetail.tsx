@@ -1,13 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { animated, useSpring } from "@react-spring/web";
 import { Photo } from "@/features/photos/types";
-import { Aperture, Calendar, Camera, Gauge, Loader2, Timer, Trash2, X } from "lucide-react";
+import { Aperture, Calendar, Camera, Gauge, Timer, X } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/shared/ui/dialog";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Badge } from "@/shared/ui/badge";
-import { Card, CardContent } from "@/shared/ui/card";
-import { Separator } from "@/shared/ui/separator";
-import { Button } from "@/shared/ui/button";
 import { videoLoaderManager } from "@/features/photos/services/videoLoaderManager";
 import { useLivePhotoControls } from "./hooks/useLivePhotoControls";
 
@@ -185,24 +182,24 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   const shellSpring = useSpring({
     from: { opacity: 0 },
     to: { opacity: 1 },
-    config: { tension: 220, friction: 24 },
+    config: { tension: 180, friction: 28 },
   });
 
   const imagePanelSpring = useSpring({
-    from: { opacity: 0, x: -24 },
-    to: { opacity: 1, x: 0 },
-    config: { tension: 230, friction: 26 },
+    from: { opacity: 0, scale: 0.98 },
+    to: { opacity: 1, scale: 1 },
+    config: { tension: 200, friction: 30 },
   });
 
   const infoPanelSpring = useSpring({
-    from: { opacity: 0, x: 24 },
+    from: { opacity: 0, x: 32 },
     to: { opacity: 1, x: 0 },
-    config: { tension: 230, friction: 28 },
+    config: { tension: 200, friction: 32 },
   });
 
   const imageSpring = useSpring({
     opacity: isImageLoaded ? 1 : 0,
-    config: { tension: 210, friction: 26 },
+    config: { tension: 180, friction: 28 },
   });
 
   return (
@@ -215,31 +212,17 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
         }
       }}
     >
-      <DialogContent overlayClassName='bg-black/95' className='h-screen max-w-none rounded-none border-0 bg-transparent p-0'>
+      <DialogContent overlayClassName='bg-[#08080a]/[0.98] backdrop-blur-xl' className='h-screen max-w-none rounded-none border-0 bg-transparent p-0'>
         <animated.div className='relative flex h-full w-full flex-col md:flex-row' style={{ opacity: shellSpring.opacity }}>
-          {/* {canDelete && (
-            <Button
-              variant='outline'
-              size='sm'
-              disabled={isDeleting}
-              className='absolute right-16 top-4 z-50 min-h-[44px] border-rose-300/60 bg-black/70 text-rose-100 hover:bg-rose-500/20'
-              onClick={() => {
-                void handleDelete();
-              }}
-            >
-              {isDeleting ? <Loader2 size={14} className='animate-spin' /> : <Trash2 size={14} />}
-              {isDeleting ? "删除中..." : "删除"}
-            </Button>
-          )} */}
-          <DialogClose className='absolute right-4 top-4 z-50 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/25 bg-black/70 p-2 text-white shadow-lg transition hover:bg-black/85'>
-            <X size={22} />
+          <DialogClose className='absolute right-6 top-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-white/[0.06] bg-black/50 text-white/80 shadow-[0_4px_24px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-300 hover:border-white/[0.12] hover:bg-black/70 hover:text-white'>
+            <X size={20} strokeWidth={1.5} />
           </DialogClose>
 
           <animated.div
             className='relative flex h-[45svh] flex-1 items-center justify-center bg-black p-4 md:h-full md:p-8'
             style={{
               opacity: imagePanelSpring.opacity,
-              transform: imagePanelSpring.x.to((x) => `translate3d(${x}px, 0, 0)`),
+              transform: imagePanelSpring.scale.to((s) => `scale(${s})`),
             }}
             onMouseDown={handleLongPressStart}
             onMouseUp={handleLongPressEnd}
@@ -278,151 +261,144 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
               )}
 
               {hasVideo && (
-                <div className='pointer-events-none absolute left-3 top-3 z-20 rounded-md border border-amber-300/60 bg-black/55 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100 backdrop-blur'>
-                  LIVE
+                <div className='pointer-events-none absolute left-5 top-5 z-20 flex items-center gap-2 rounded-full border border-[#c9a962]/25 bg-black/50 px-3 py-1.5 backdrop-blur-sm'>
+                  <span className='h-1.5 w-1.5 rounded-full bg-[#c9a962]/80' />
+                  <span className='text-[10px] font-medium uppercase tracking-[0.15em] text-[#c9a962]'>实况</span>
                 </div>
               )}
             </div>
           </animated.div>
 
           <animated.div
-            className='h-[55svh] w-full md:h-full md:w-[420px] lg:w-[480px]'
+            className='h-[55svh] w-full md:h-full md:w-[400px] lg:w-[440px]'
             style={{
               opacity: infoPanelSpring.opacity,
               transform: infoPanelSpring.x.to((x) => `translate3d(${x}px, 0, 0)`),
             }}
           >
-            <ScrollArea className='h-full w-full border-l border-white/5 bg-pro-gray/90 backdrop-blur-md'>
-              <div className='space-y-6 p-5 md:p-8'>
+            <ScrollArea className='h-full w-full border-l border-white/[0.03] bg-[#0a0a0c]/[0.98] backdrop-blur-2xl'>
+              <div className='space-y-10 p-7 md:p-9'>
                 <div>
-                  <h2 className='mb-2 font-serif text-2xl text-white md:text-3xl'>{photo.title}</h2>
-                  <div className='flex flex-wrap items-center gap-2 text-sm text-gray-400'>
-                    <Badge variant='outline' className='gap-1.5 border-white/10 text-gray-300'>
-                      <Calendar size={14} /> {photo.exif.date}
+                  <h2 className='font-display text-2xl tracking-wide text-white md:text-3xl'>{photo.title}</h2>
+                  <div className='mt-4 flex flex-wrap items-center gap-3'>
+                    <Badge variant='outline' className='gap-2 border-white/[0.04] bg-white/[0.02] px-3 py-1.5 text-xs font-normal text-zinc-400'>
+                      <Calendar size={12} className='text-zinc-500' /> 
+                      <span>{photo.exif.date}</span>
                     </Badge>
                     {photo.isLive && (
-                      <Badge variant='outline' className='gap-1.5 border-amber-300/50 bg-amber-500/10 text-amber-200'>
-                        LIVE PHOTO
+                      <Badge variant='outline' className='gap-2 border-[#c9a962]/20 bg-[#c9a962]/5 px-3 py-1.5 text-xs font-normal text-[#c9a962]'>
+                        <span className='h-1.5 w-1.5 rounded-full bg-[#c9a962]/70' />
+                        实况照片
                       </Badge>
                     )}
                   </div>
                 </div>
 
-                {hasVideo && <p className='text-sm text-amber-100/90'>长按图片可播放实况，松开后返回静态图。</p>}
-                {isConvertingVideo && <p className='text-sm text-amber-200/90'>正在转换实况视频，请稍候...</p>}
-                {livePlaybackError && <p className='text-sm text-rose-300/90'>{livePlaybackError}</p>}
+                {hasVideo && <p className='text-xs font-light tracking-wide text-zinc-600'>长按图片播放实况</p>}
+                {isConvertingVideo && <p className='text-xs text-[#c9a962]/80'>正在转换实况视频...</p>}
+                {livePlaybackError && <p className='text-xs text-rose-400/80'>{livePlaybackError}</p>}
 
                 <div>
-                  <h3 className='mb-4 text-xs font-semibold uppercase tracking-widest text-gray-500'>拍摄参数</h3>
-                  <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
-                    <Card className='border-white/5 bg-black/40'>
-                      <CardContent className='flex min-h-[50px] flex-col justify-center gap-1 p-2.5'>
-                        <div className='flex items-center gap-2 text-gray-400'>
-                          <Aperture size={14} />
-                          <span className='text-xs uppercase tracking-wider'>Aperture</span>
-                        </div>
-                        <span className='block font-mono text-lg text-white'>{formatExifText(photo.exif.aperture)}</span>
-                      </CardContent>
-                    </Card>
-                    <Card className='border-white/5 bg-black/40'>
-                      <CardContent className='flex min-h-[50px] flex-col justify-center gap-1 p-2.5'>
-                        <div className='flex items-center gap-2 text-gray-400'>
-                          <Timer size={14} />
-                          <span className='text-xs uppercase tracking-wider'>Shutter</span>
-                        </div>
-                        <span className='block font-mono text-lg text-white'>{formatExifText(photo.exif.shutter)}</span>
-                      </CardContent>
-                    </Card>
-                    <Card className='border-white/5 bg-black/40'>
-                      <CardContent className='flex min-h-[50px] flex-col justify-center gap-1 p-2.5'>
-                        <div className='flex items-center gap-2 text-gray-400'>
-                          <Gauge size={14} />
-                          <span className='text-xs uppercase tracking-wider'>ISO</span>
-                        </div>
-                        <span className='block font-mono text-lg text-white'>{formatExifText(photo.exif.iso)}</span>
-                      </CardContent>
-                    </Card>
-                    <Card className='border-white/5 bg-black/40'>
-                      <CardContent className='flex min-h-[50px] flex-col justify-center gap-1 p-2.5'>
-                        <div className='flex items-center gap-2 text-gray-400'>
-                          <Camera size={14} />
-                          <span className='text-xs uppercase tracking-wider'>Focal Len</span>
-                        </div>
-                        <span className='block font-mono text-lg text-white'>
-                          {formatNumericWithUnit(photo.exif.focalLength, "mm")}
-                        </span>
-                      </CardContent>
-                    </Card>
+                  <h3 className='mb-6 text-[10px] font-medium uppercase tracking-[0.25em] text-zinc-600'>拍摄参数</h3>
+                  <div className='grid grid-cols-2 gap-3'>
+                    <div className='rounded-xl border border-white/[0.03] bg-white/[0.01] p-4'>
+                      <div className='flex items-center gap-2 text-zinc-600'>
+                        <Aperture size={12} className='text-[#c9a962]/70' />
+                        <span className='text-[9px] uppercase tracking-[0.2em]'>光圈</span>
+                      </div>
+                      <span className='mt-2 block font-mono text-base text-white'>{formatExifText(photo.exif.aperture)}</span>
+                    </div>
+                    <div className='rounded-xl border border-white/[0.03] bg-white/[0.01] p-4'>
+                      <div className='flex items-center gap-2 text-zinc-600'>
+                        <Timer size={12} className='text-[#c9a962]/70' />
+                        <span className='text-[9px] uppercase tracking-[0.2em]'>快门</span>
+                      </div>
+                      <span className='mt-2 block font-mono text-base text-white'>{formatExifText(photo.exif.shutter)}</span>
+                    </div>
+                    <div className='rounded-xl border border-white/[0.03] bg-white/[0.01] p-4'>
+                      <div className='flex items-center gap-2 text-zinc-600'>
+                        <Gauge size={12} className='text-[#c9a962]/70' />
+                        <span className='text-[9px] uppercase tracking-[0.2em]'>感光度</span>
+                      </div>
+                      <span className='mt-2 block font-mono text-base text-white'>{formatExifText(photo.exif.iso)}</span>
+                    </div>
+                    <div className='rounded-xl border border-white/[0.03] bg-white/[0.01] p-4'>
+                      <div className='flex items-center gap-2 text-zinc-600'>
+                        <Camera size={12} className='text-[#c9a962]/70' />
+                        <span className='text-[9px] uppercase tracking-[0.2em]'>焦距</span>
+                      </div>
+                      <span className='mt-2 block font-mono text-base text-white'>
+                        {formatNumericWithUnit(photo.exif.focalLength, "mm")}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <Separator />
-                <div className='space-y-2'>
-                  <h3 className='mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500'>文件信息</h3>
-                  <div className='flex items-center justify-between py-1'>
-                    <span className='text-sm text-gray-400'>设备</span>
-                    <span className='text-sm font-medium text-white'>{photo.exif.camera}</span>
-                  </div>
-                  <div className='flex items-center justify-between py-1'>
-                    <span className='text-sm text-gray-400'>镜头</span>
-                    <span className='text-sm font-medium text-white'>{photo.exif.lens}</span>
-                  </div>
-                  <div className='flex items-center justify-between py-1'>
-                    <span className='text-sm text-gray-400'>分辨率</span>
-                    <span className='text-sm font-medium text-white'>
-                      {photo.width} × {photo.height}
-                    </span>
-                  </div>
-                  <div className='flex items-center justify-between py-1'>
-                    <span className='text-sm text-gray-400'>原图大小</span>
-                    <span className='text-sm font-medium text-white'>
-                      {metadata ? formatBytes(metadata.files.original.bytes) : photo.size}
-                    </span>
-                  </div>
-                  <div className='flex items-center justify-between py-1'>
-                    <span className='text-sm text-gray-400'>缩略图</span>
-                    <span className='text-sm font-medium text-white'>
-                      {metadata ? `${metadata.files.thumb.width} × ${metadata.files.thumb.height} · ${formatBytes(metadata.files.thumb.bytes)}` : "-"}
-                    </span>
-                  </div>
-                  <div className='flex items-center justify-between py-1'>
-                    <span className='text-sm text-gray-400'>格式</span>
-                    <span className='text-sm font-medium text-white'>{metadata?.files.original.mime || photo.format}</span>
-                  </div>
-                  {metadata?.files.live_video && (
-                    <div className='flex items-center justify-between py-1'>
-                      <span className='text-sm text-gray-400'>实况视频</span>
-                      <span className='text-sm font-medium text-white'>
-                        {metadata.files.live_video.mime} · {formatBytes(metadata.files.live_video.bytes)}
+                <div className='border-t border-white/[0.03]' />
+                <div className='space-y-4'>
+                  <h3 className='text-[10px] font-medium uppercase tracking-[0.25em] text-zinc-600'>文件信息</h3>
+                  <div className='space-y-3'>
+                    <div className='flex items-center justify-between'>
+                      <span className='text-xs text-zinc-600'>设备</span>
+                      <span className='text-xs text-white'>{photo.exif.camera}</span>
+                    </div>
+                    <div className='flex items-center justify-between'>
+                      <span className='text-xs text-zinc-600'>镜头</span>
+                      <span className='text-xs text-white'>{photo.exif.lens}</span>
+                    </div>
+                    <div className='flex items-center justify-between'>
+                      <span className='text-xs text-zinc-600'>分辨率</span>
+                      <span className='text-xs text-white'>
+                        {photo.width} × {photo.height}
                       </span>
                     </div>
-                  )}
+                    <div className='flex items-center justify-between'>
+                      <span className='text-xs text-zinc-600'>大小</span>
+                      <span className='text-xs text-white'>
+                        {metadata ? formatBytes(metadata.files.original.bytes) : photo.size}
+                      </span>
+                    </div>
+                    <div className='flex items-center justify-between'>
+                      <span className='text-xs text-zinc-600'>格式</span>
+                      <span className='text-xs text-white'>{metadata?.files.original.mime || photo.format}</span>
+                    </div>
+                    {metadata?.files.live_video && (
+                      <div className='flex items-center justify-between'>
+                        <span className='text-xs text-zinc-600'>实况视频</span>
+                        <span className='text-xs text-white'>
+                          {metadata.files.live_video.mime} · {formatBytes(metadata.files.live_video.bytes)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {metadata && (
                   <>
-                    <Separator />
-                    <div className='space-y-2'>
-                      <h3 className='mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500'>智能分析</h3>
-                      <div className='flex items-center justify-between py-1'>
-                        <span className='text-sm text-gray-400'>主色</span>
-                        <span className='font-mono text-sm text-white'>{metadata.derived.dominant_color.hex}</span>
-                      </div>
-                      <div className='flex items-center justify-between py-1'>
-                        <span className='text-sm text-gray-400'>模糊检测</span>
-                        <span className='text-sm font-medium text-white'>
-                          {metadata.derived.blur.is_blurry ? "可能模糊" : "清晰"}（{metadata.derived.blur.score.toFixed(1)}）
-                        </span>
-                      </div>
-                      <div className='flex items-center justify-between py-1'>
-                        <span className='text-sm text-gray-400'>OCR</span>
-                        <span className='text-sm font-medium text-white'>
-                          {metadata.derived.ocr.status === "ok"
-                            ? `已识别${metadata.derived.ocr.summary ? `：${metadata.derived.ocr.summary.slice(0, 24)}` : ""}`
-                            : metadata.derived.ocr.status === "skipped"
-                              ? "已跳过"
-                              : "失败"}
-                        </span>
+                    <div className='border-t border-white/[0.03]' />
+                    <div className='space-y-4'>
+                      <h3 className='text-[10px] font-medium uppercase tracking-[0.25em] text-zinc-600'>智能分析</h3>
+                      <div className='space-y-3'>
+                        <div className='flex items-center justify-between'>
+                          <span className='text-xs text-zinc-600'>主色调</span>
+                          <span className='font-mono text-xs text-white'>{metadata.derived.dominant_color.hex}</span>
+                        </div>
+                        <div className='flex items-center justify-between'>
+                          <span className='text-xs text-zinc-600'>模糊检测</span>
+                          <span className='text-xs text-white'>
+                            {metadata.derived.blur.is_blurry ? "模糊" : "清晰"} ({metadata.derived.blur.score.toFixed(1)})
+                          </span>
+                        </div>
+                        <div className='flex items-center justify-between'>
+                          <span className='text-xs text-zinc-600'>文字识别</span>
+                          <span className='text-xs text-white'>
+                            {metadata.derived.ocr.status === "ok"
+                              ? `已识别${metadata.derived.ocr.summary ? `: ${metadata.derived.ocr.summary.slice(0, 20)}...` : ""}`
+                              : metadata.derived.ocr.status === "skipped"
+                                ? "已跳过"
+                                : "失败"}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </>
@@ -430,22 +406,24 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
 
                 {metadata && (
                   <>
-                    <Separator />
-                    <div className='space-y-2'>
-                      <h3 className='mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500'>隐私与处理</h3>
-                      <div className='flex items-center justify-between py-1'>
-                        <span className='text-sm text-gray-400'>创建时间</span>
-                        <span className='text-sm font-medium text-white'>{formatTime(metadata.timestamps.created_at)}</span>
-                      </div>
-                      <div className='flex items-center justify-between py-1'>
-                        <span className='text-sm text-gray-400'>处理时间</span>
-                        <span className='text-sm font-medium text-white'>
-                          {formatTime(metadata.timestamps.client_processed_at)}
-                        </span>
-                      </div>
-                      <div className='flex items-start justify-between gap-4 py-1'>
-                        <span className='text-sm text-gray-400'>图片 ID</span>
-                        <span className='break-all text-right font-mono text-xs text-white/80'>{metadata.image_id}</span>
+                    <div className='border-t border-white/[0.03]' />
+                    <div className='space-y-4'>
+                      <h3 className='text-[10px] font-medium uppercase tracking-[0.25em] text-zinc-600'>元数据</h3>
+                      <div className='space-y-3'>
+                        <div className='flex items-center justify-between'>
+                          <span className='text-xs text-zinc-600'>创建时间</span>
+                          <span className='text-xs text-white'>{formatTime(metadata.timestamps.created_at)}</span>
+                        </div>
+                        <div className='flex items-center justify-between'>
+                          <span className='text-xs text-zinc-600'>处理时间</span>
+                          <span className='text-xs text-white'>
+                            {formatTime(metadata.timestamps.client_processed_at)}
+                          </span>
+                        </div>
+                        <div className='flex items-start justify-between gap-4'>
+                          <span className='text-xs text-zinc-600'>图片 ID</span>
+                          <span className='break-all text-right font-mono text-[10px] text-zinc-500'>{metadata.image_id}</span>
+                        </div>
                       </div>
                     </div>
                   </>

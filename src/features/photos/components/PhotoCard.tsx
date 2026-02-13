@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { animated, to, useSpring } from "@react-spring/web";
-import { Photo } from "@/features/photos/types";
-import { Aperture, Disc, Loader2, Timer, Trash2 } from "lucide-react";
-import { Card, CardContent } from "@/shared/ui/card";
-import { Button } from "@/shared/ui/button";
-import { videoLoaderManager } from "@/features/photos/services/videoLoaderManager";
-import { useLivePhotoControls } from "./hooks/useLivePhotoControls";
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { animated, to, useSpring } from '@react-spring/web';
+import { Photo } from '@/features/photos/types';
+import { Loader2, Trash2 } from 'lucide-react';
+import { Button } from '@/shared/ui/button';
+import { videoLoaderManager } from '@/features/photos/services/videoLoaderManager';
+import { useLivePhotoControls } from './hooks/useLivePhotoControls';
 
 interface PhotoCardProps {
   photo: Photo;
@@ -14,16 +13,6 @@ interface PhotoCardProps {
   canDelete?: boolean;
   isDeleting?: boolean;
   onDelete?: (photoId: string) => Promise<void>;
-}
-
-function formatExifValue(value?: string | number): string {
-  if (!value) return "未知";
-  const normalized = typeof value === "string" ? value.trim() : value.toString();
-  if (!normalized) return "未知";
-  if (normalized === "?" || normalized === "0") return "未知";
-  const lower = normalized.toLowerCase();
-  if (lower === "unknown" || lower.includes("?")) return "未知";
-  return normalized;
 }
 
 const PhotoCard: React.FC<PhotoCardProps> = ({
@@ -45,35 +34,36 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const hasVideo = photo.videoSource?.type === "live-photo";
+  const hasVideo = photo.videoSource?.type === 'live-photo';
 
   const enterSpring = useSpring({
     from: {
       opacity: 0,
-      y: prefersReducedMotion ? 0 : 20,
-      scale: prefersReducedMotion ? 1 : 0.985,
+      y: prefersReducedMotion ? 0 : 24,
+      scale: prefersReducedMotion ? 1 : 0.97,
     },
     to: {
       opacity: isVisible ? 1 : 0,
-      y: isVisible ? 0 : prefersReducedMotion ? 0 : 8,
-      scale: isVisible ? 1 : prefersReducedMotion ? 1 : 0.985,
+      y: isVisible ? 0 : prefersReducedMotion ? 0 : 12,
+      scale: isVisible ? 1 : prefersReducedMotion ? 1 : 0.97,
     },
-    delay: prefersReducedMotion ? 0 : Math.min(index, 24) * 35,
-    config: { tension: 240, friction: prefersReducedMotion ? 35 : 24 },
+    delay: prefersReducedMotion ? 0 : Math.min(index, 20) * 50,
+    config: { tension: 200, friction: 28 },
   });
 
   const hoverSpring = useSpring({
     to: {
-      scale: isHovered && !prefersReducedMotion ? 1.012 : 1,
+      scale: isHovered && !prefersReducedMotion ? 1.008 : 1,
       overlayOpacity: isHovered ? 1 : 0,
-      overlayY: isHovered && !prefersReducedMotion ? 0 : 10,
+      overlayY: isHovered && !prefersReducedMotion ? 0 : 16,
+      borderGlow: isHovered ? 0.15 : 0,
     },
-    config: { tension: 320, friction: prefersReducedMotion ? 35 : 26 },
+    config: { tension: 280, friction: 32 },
   });
 
   const imageSpring = useSpring({
     opacity: isLoaded ? 1 : 0,
-    config: { tension: 210, friction: prefersReducedMotion ? 35 : 24 },
+    config: { tension: 180, friction: 28 },
   });
 
   const stopVideo = useCallback(() => {
@@ -92,29 +82,30 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     video.currentTime = 0;
     video.play().catch(() => {
       setIsVideoPlaying(false);
-      setVideoError("实况视频播放失败");
+      setVideoError('实况视频播放失败');
     });
   }, [isConvertingVideo, isVideoPlaying, isVideoReady]);
 
-  const { handleStart: handleHoverStart, handleEnd: handleHoverEnd } = useLivePhotoControls({
-    mode: "hover",
-    enabled: hasVideo,
-    isPlaying: isVideoPlaying,
-    isVideoReady,
-    onPlay: playVideo,
-    onStop: stopVideo,
-    delayMs: 200,
-    disableHover: prefersReducedMotion,
-  });
+  const { handleStart: handleHoverStart, handleEnd: handleHoverEnd } =
+    useLivePhotoControls({
+      mode: 'hover',
+      enabled: hasVideo,
+      isPlaying: isVideoPlaying,
+      isVideoReady,
+      onPlay: playVideo,
+      onStop: stopVideo,
+      delayMs: 200,
+      disableHover: prefersReducedMotion,
+    });
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const handleMotionChange = (event: MediaQueryListEvent): void => {
       setPrefersReducedMotion(event.matches);
     };
     setPrefersReducedMotion(mediaQuery.matches);
-    mediaQuery.addEventListener("change", handleMotionChange);
-    return () => mediaQuery.removeEventListener("change", handleMotionChange);
+    mediaQuery.addEventListener('change', handleMotionChange);
+    return () => mediaQuery.removeEventListener('change', handleMotionChange);
   }, []);
 
   useEffect(() => {
@@ -126,7 +117,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         }
       },
       {
-        rootMargin: "200px",
+        rootMargin: '200px',
       },
     );
 
@@ -138,7 +129,14 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!hasVideo || !isLoaded || !isVisible || isVideoReady || !videoRef.current || !photo.videoSource) {
+    if (
+      !hasVideo ||
+      !isLoaded ||
+      !isVisible ||
+      isVideoReady ||
+      !videoRef.current ||
+      !photo.videoSource
+    ) {
       return;
     }
     let cancelled = false;
@@ -159,7 +157,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       })
       .catch(() => {
         if (!cancelled) {
-          setVideoError("实况视频加载失败");
+          setVideoError('实况视频加载失败');
         }
       });
 
@@ -178,7 +176,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     async (event: React.MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
       if (!onDelete || isDeleting) return;
-      const confirmed = window.confirm("确认删除？该操作不可恢复");
+      const confirmed = window.confirm('确认删除？该操作不可恢复');
       if (!confirmed) return;
       await onDelete(photo.id);
     },
@@ -188,13 +186,13 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   return (
     <animated.div
       ref={cardRef}
-      className='group relative mb-2 break-inside-avoid cursor-pointer overflow-hidden rounded-xl border border-white/10 bg-[#17171c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 md:mb-3'
+      className='group relative mb-4 break-inside-avoid cursor-pointer overflow-hidden rounded-2xl bg-[#0c0c0e] transition-[box-shadow] duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c9a962]/40 md:mb-5'
       role='button'
       tabIndex={0}
       aria-label={`查看图片 ${photo.title}`}
       onClick={() => onClick(photo)}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onClick(photo);
         }
@@ -207,8 +205,16 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         setIsHovered(false);
         handleHoverEnd();
       }}
-      style={{ aspectRatio: `${photo.width} / ${photo.height}` }}
+      style={{ 
+        aspectRatio: `${photo.width} / ${photo.height}`,
+        boxShadow: hoverSpring.borderGlow.to(
+          (glow) => `0 2px 8px rgba(0,0,0,0.4), 0 8px 32px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,${0.04 + glow}), inset 0 1px 0 rgba(255,255,255,${0.06 + glow * 0.5})`
+        ),
+      }}
     >
+      <div className='pointer-events-none absolute inset-0 rounded-2xl border border-white/[0.04] opacity-0 transition-opacity duration-300 group-hover:opacity-100' 
+           style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%, rgba(255,255,255,0.01) 100%)' }} 
+      />
       <animated.div
         className='h-full w-full'
         style={{
@@ -242,7 +248,9 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         />
       )}
 
-      {!isLoaded && <div className='absolute inset-0 animate-pulse bg-[#1a1a1a]' />}
+      {!isLoaded && (
+        <div className='absolute inset-0 skeleton rounded-2xl' />
+      )}
 
       {canDelete && (
         <div className='pointer-events-none absolute right-3 top-3 z-30 hidden transition-opacity md:block md:opacity-0 md:group-hover:opacity-100 !opacity-0'>
@@ -256,90 +264,53 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
               void handleDeleteClick(event);
             }}
           >
-            {isDeleting ? <Loader2 size={14} className='animate-spin' /> : <Trash2 size={14} />}
+            {isDeleting ? (
+              <Loader2 size={14} className='animate-spin' />
+            ) : (
+              <Trash2 size={14} />
+            )}
           </Button>
         </div>
       )}
 
       <animated.div
-        className='absolute inset-0 hidden flex-col justify-end bg-gradient-to-t from-black/90 via-black/45 to-transparent p-5 md:flex lg:p-6'
+        className='absolute inset-0 hidden flex-col justify-end bg-gradient-to-t from-black/[0.92] via-black/50 to-transparent p-5 md:flex lg:p-6'
         style={{
           opacity: hoverSpring.overlayOpacity,
-          transform: hoverSpring.overlayY.to((y) => `translate3d(0, ${y}px, 0)`),
+          transform: hoverSpring.overlayY.to(
+            (y) => `translate3d(0, ${y}px, 0)`,
+          ),
         }}
       >
-        <h3 className='mb-1 font-sans text-2xl font-bold tracking-tight text-white'>{photo.filename}</h3>
+        <h3 className='font-display truncate text-xl text-white lg:text-2xl'>
+          {photo.filename}
+        </h3>
 
-        <p className='mb-3 text-sm font-medium text-gray-300 opacity-90'>
-          {photo.format} <span className='mx-1'>•</span> {photo.width} × {photo.height} <span className='mx-1'>•</span>{" "}
-          {photo.size}
+        <p className='mt-1.5 text-xs font-light tracking-wide text-white/60'>
+          {photo.format} <span className='mx-1.5 opacity-30'>·</span>{' '}
+          {photo.width} × {photo.height}{' '}
+          <span className='mx-1.5 opacity-30'>·</span> {photo.size}
         </p>
-
-        <div className='grid grid-cols-2 gap-2'>
-          <Card className='border-white/5 bg-[#2a2a2a]/80 backdrop-blur-sm'>
-            <CardContent className='flex h-12 items-center gap-3 px-3 py-0'>
-              <div className='flex h-6 w-6 items-center justify-center text-white'>
-                <Disc size={18} />
-              </div>
-              <span className='flex items-center text-sm font-medium leading-none text-white'>
-                {formatExifValue(photo.exif.focalLength)}
-              </span>
-            </CardContent>
-          </Card>
-
-          <Card className='border-white/5 bg-[#2a2a2a]/80 backdrop-blur-sm'>
-            <CardContent className='flex h-12 items-center gap-3 px-3 py-0'>
-              <div className='flex h-6 w-6 items-center justify-center text-white'>
-                <Aperture size={18} />
-              </div>
-              <span className='flex items-center text-sm font-medium leading-none text-white'>
-                {formatExifValue(photo.exif.aperture)}
-              </span>
-            </CardContent>
-          </Card>
-
-          <Card className='border-white/5 bg-[#2a2a2a]/80 backdrop-blur-sm'>
-            <CardContent className='flex h-12 items-center gap-3 px-3 py-0'>
-              <div className='flex h-6 w-6 items-center justify-center text-white'>
-                <Timer size={18} />
-              </div>
-              <span className='flex items-center text-sm font-medium leading-none text-white'>
-                {formatExifValue(photo.exif.shutter)}
-              </span>
-            </CardContent>
-          </Card>
-
-          <Card className='border-white/5 bg-[#2a2a2a]/80 backdrop-blur-sm'>
-            <CardContent className='flex h-12 items-center gap-3 px-3 py-0'>
-              <div className='flex h-6 w-6 items-center justify-center rounded-[4px] border border-white text-[10px] font-bold leading-none text-white'>
-                ISO
-              </div>
-              <span className='flex items-center text-sm font-medium leading-none text-white'>
-                {formatExifValue(photo.exif.iso)}
-              </span>
-            </CardContent>
-          </Card>
-        </div>
       </animated.div>
 
-      <div className='absolute inset-x-0 bottom-0 block bg-gradient-to-t from-black/90 via-black/50 to-transparent px-3 pb-3 pt-8 md:hidden'>
+      <div className='absolute inset-x-0 bottom-0 block bg-gradient-to-t from-black/[0.92] via-black/50 to-transparent px-4 pb-4 pt-12 md:hidden'>
         {photo.isLive && (
-          <span className='mb-2 inline-flex rounded-full border border-amber-300/60 bg-amber-500/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-100'>
-            {isConvertingVideo ? "CONVERTING" : "LIVE"}
+          <span className='mb-2 inline-flex items-center gap-1.5 rounded-full border border-[#c9a962]/30 bg-[#c9a962]/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-[#c9a962]'>
+            <span className='h-1.5 w-1.5 rounded-full bg-[#c9a962]/80' />
+            {isConvertingVideo ? '转换中' : '实况'}
           </span>
         )}
         <div className='flex items-center justify-between gap-2'>
-          <p className='truncate text-sm font-semibold text-white'>{photo.filename ?? "--"}</p>
+          <p className='truncate text-sm font-medium text-white'>
+            {photo.filename ?? '--'}
+          </p>
         </div>
-        <p className='mt-1 truncate text-[11px] text-gray-300'>
-          {formatExifValue(photo.exif.aperture)} • {formatExifValue(photo.exif.shutter)} • ISO{" "}
-          {formatExifValue(photo.exif.iso)}
-        </p>
       </div>
 
       {photo.isLive && (
-        <span className='absolute left-3 top-3 hidden rounded-full border border-amber-300/60 bg-amber-500/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-100 md:inline-flex'>
-          {isConvertingVideo ? "CONVERTING" : "LIVE"}
+        <span className='absolute left-4 top-4 hidden items-center gap-1.5 rounded-full border border-[#c9a962]/30 bg-[#c9a962]/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-[#c9a962] md:inline-flex'>
+          <span className='h-1.5 w-1.5 rounded-full bg-[#c9a962]/80' />
+          {isConvertingVideo ? '转换中' : '实况'}
         </span>
       )}
 
