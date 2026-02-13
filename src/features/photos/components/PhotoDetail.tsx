@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { animated, useSpring } from "@react-spring/web";
 import { Photo } from "@/features/photos/types";
-import { Aperture, Calendar, Camera, Gauge, Timer, X } from "lucide-react";
+import { Aperture, Calendar, Camera, Gauge, Loader2, Timer, X, FileText } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/shared/ui/dialog";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Badge } from "@/shared/ui/badge";
@@ -58,16 +58,71 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   onDelete,
 }) => {
   const metadata = photo.metadata;
-  const [isImageLoaded, setIsImageLoaded] = useState(false);
+  const [isOriginalLoaded, setIsOriginalLoaded] = useState(false);
+  const [loadProgress, setLoadProgress] = useState(0);
   const [isLivePlaying, setIsLivePlaying] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [isConvertingVideo, setIsConvertingVideo] = useState(false);
   const [livePlaybackError, setLivePlaybackError] = useState<string | null>(null);
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
-  const liveImageRef = useRef<HTMLImageElement | null>(null);
+  const thumbnailImageRef = useRef<HTMLImageElement | null>(null);
+  const originalImageRef = useRef<HTMLImageElement | null>(null);
   const [liveFrameSize, setLiveFrameSize] = useState<{ width: number; height: number } | null>(null);
 
   const hasVideo = photo.videoSource?.type === "live-photo";
+
+  // 重置状态当照片改变时
+  useEffect(() => {
+    setIsOriginalLoaded(false);
+    setLoadProgress(0);
+  }, [photo.id]);
+
+  // 使用 fetch 跟踪图片加载进度
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadImageWithProgress = async () => {
+      if (cancelled) return;
+      setLoadProgress(0);
+
+      try {
+        const response = await fetch(photo.url, { mode: "cors" });
+        if (!response.ok || !response.body) {
+          throw new Error("Failed to fetch image");
+        }
+
+        const reader = response.body.getReader();
+        const contentLength = response.headers.get("content-length");
+        const total = contentLength ? parseInt(contentLength, 10) : 0;
+        let received = 0;
+
+        while (!cancelled) {
+          const { done, value } = await reader.read();
+          if (done || cancelled) break;
+
+          received += value.length;
+          if (total > 0) {
+            setLoadProgress(Math.round((received / total) * 100));
+          }
+        }
+
+        if (!cancelled) {
+          setLoadProgress(100);
+        }
+      } catch {
+        // 如果 fetch 失败，回退到 img onload
+        if (!cancelled) {
+          setLoadProgress(100);
+        }
+      }
+    };
+
+    loadImageWithProgress();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [photo.url, photo.id]);
 
   const stopVideo = useCallback(() => {
     const video = liveVideoRef.current;
@@ -108,7 +163,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   }, [photo.id]);
 
   useEffect(() => {
-    const image = liveImageRef.current;
+    const image = thumbnailImageRef.current;
     if (!image) return;
 
     const updateLiveFrameSize = (): void => {
@@ -132,7 +187,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
       observer?.disconnect();
       window.removeEventListener("resize", updateLiveFrameSize);
     };
-  }, [photo.id, isImageLoaded]);
+  }, [photo.id, isOriginalLoaded]);
 
   useEffect(() => {
     if (!hasVideo || !liveVideoRef.current || isVideoReady || !photo.videoSource) {
@@ -198,7 +253,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   });
 
   const imageSpring = useSpring({
-    opacity: isImageLoaded ? 1 : 0,
+    opacity: isOriginalLoaded ? 1 : 0,
     config: { tension: 180, friction: 28 },
   });
 
@@ -212,14 +267,17 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
         }
       }}
     >
-      <DialogContent overlayClassName='bg-[#08080a]/[0.98] backdrop-blur-xl' className='h-screen max-w-none rounded-none border-0 bg-transparent p-0'>
-        <animated.div className='relative flex h-full w-full flex-col md:flex-row' style={{ opacity: shellSpring.opacity }}>
+      <DialogContent
+        overlayClassName='bg-[#08080a]/[0.98] backdrop-blur-xl'
+        className='h-screen max-w-none overflow-hidden rounded-none border-0 bg-transparent p-0'
+      >
+        <animated.div className='relative flex h-full w-full flex-col overflow-hidden md:flex-row' style={{ opacity: shellSpring.opacity }}>
           <DialogClose className='absolute right-6 top-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-white/[0.06] bg-black/50 text-white/80 shadow-[0_4px_24px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-300 hover:border-white/[0.12] hover:bg-black/70 hover:text-white'>
             <X size={20} strokeWidth={1.5} />
           </DialogClose>
 
           <animated.div
-            className='relative flex h-[45svh] flex-1 items-center justify-center bg-black p-4 md:h-full md:p-8'
+            className='relative flex h-[45svh] min-w-0 flex-1 items-center justify-center overflow-hidden bg-black p-4 md:h-full md:p-8'
             style={{
               opacity: imagePanelSpring.opacity,
               transform: imagePanelSpring.scale.to((s) => `scale(${s})`),
@@ -232,15 +290,42 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           >
             <DialogTitle className='sr-only'>{photo.title}</DialogTitle>
 
-            <div className='relative flex max-h-full max-w-full items-center justify-center'>
-              <animated.img
-                ref={liveImageRef}
-                src={photo.url}
-                alt={photo.title}
-                className='max-h-full max-w-full object-contain shadow-2xl'
-                style={{ opacity: imageSpring.opacity }}
-                onLoad={() => setIsImageLoaded(true)}
-              />
+            <div className='relative flex h-full w-full min-w-0 items-center justify-center overflow-hidden'>
+              {/* 图片容器 - 保持在视口内，防止宽高比极端时溢出 */}
+              <div className='relative flex h-full w-full items-center justify-center overflow-hidden'>
+                {/* 缩略图 - 始终渲染，通过 opacity 控制显示 */}
+                <animated.img
+                  ref={thumbnailImageRef}
+                  src={photo.thumbnail}
+                  alt={photo.title}
+                  className='absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain shadow-2xl'
+                  style={{ opacity: imageSpring.opacity.to((v) => 1 - v) }}
+                />
+
+                {/* 原始图片 - 始终渲染，加载完成后通过 opacity 显示 */}
+                <animated.img
+                  ref={originalImageRef}
+                  src={photo.url}
+                  alt={photo.title}
+                  className='absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain shadow-2xl'
+                  style={{ opacity: imageSpring.opacity }}
+                  onLoad={() => setIsOriginalLoaded(true)}
+                />
+
+                {/* 加载指示器 - 右下角轻提示 */}
+                {!isOriginalLoaded && (
+                  <div className='absolute bottom-3 right-3 z-30 flex items-center gap-2 rounded-lg border border-white/[0.08] bg-black/70 px-2.5 py-1.5 backdrop-blur-md'>
+                    <Loader2 className='h-3 w-3 animate-spin text-white/60' />
+                    <span className='text-[10px] text-white/50'>原图 {loadProgress}%</span>
+                    <div className='h-1 w-10 overflow-hidden rounded-full bg-white/[0.1]'>
+                      <div
+                        className='h-full rounded-full bg-[#c9a962]/60 transition-all duration-300'
+                        style={{ width: `${loadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {hasVideo && (
                 <video
@@ -255,7 +340,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
                   muted
                   playsInline
                   preload='metadata'
-                  poster={photo.url}
+                  poster={photo.thumbnail}
                   onEnded={stopVideo}
                 />
               )}
@@ -292,6 +377,14 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
                       </Badge>
                     )}
                   </div>
+                  {photo.visualDescription && (
+                    <div className='mt-4 flex items-start gap-2 rounded-lg border border-white/[0.04] bg-white/[0.02] p-3'>
+                      <FileText size={14} className='mt-0.5 text-zinc-500' />
+                      <p className='text-sm leading-relaxed text-zinc-300'>
+                        {photo.visualDescription}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {hasVideo && <p className='text-xs font-light tracking-wide text-zinc-600'>长按图片播放实况</p>}
@@ -387,16 +480,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
                           <span className='text-xs text-zinc-600'>模糊检测</span>
                           <span className='text-xs text-white'>
                             {metadata.derived.blur.is_blurry ? "模糊" : "清晰"} ({metadata.derived.blur.score.toFixed(1)})
-                          </span>
-                        </div>
-                        <div className='flex items-center justify-between'>
-                          <span className='text-xs text-zinc-600'>文字识别</span>
-                          <span className='text-xs text-white'>
-                            {metadata.derived.ocr.status === "ok"
-                              ? `已识别${metadata.derived.ocr.summary ? `: ${metadata.derived.ocr.summary.slice(0, 20)}...` : ""}`
-                              : metadata.derived.ocr.status === "skipped"
-                                ? "已跳过"
-                                : "失败"}
                           </span>
                         </div>
                       </div>

@@ -286,6 +286,12 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
           {photo.filename}
         </h3>
 
+        {photo.visualDescription && (
+          <p className='mt-1.5 text-xs font-light tracking-wide text-white/80 line-clamp-2'>
+            {photo.visualDescription}
+          </p>
+        )}
+
         <p className='mt-1.5 text-xs font-light tracking-wide text-white/60'>
           {photo.format} <span className='mx-1.5 opacity-30'>·</span>{' '}
           {photo.width} × {photo.height}{' '}
@@ -300,10 +306,15 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
             {isConvertingVideo ? '转换中' : '实况'}
           </span>
         )}
-        <div className='flex items-center justify-between gap-2'>
+        <div className='flex flex-col gap-1'>
           <p className='truncate text-sm font-medium text-white'>
             {photo.filename ?? '--'}
           </p>
+          {photo.visualDescription && (
+            <p className='truncate text-xs text-white/60'>
+              {photo.visualDescription}
+            </p>
+          )}
         </div>
       </div>
 

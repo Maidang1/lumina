@@ -9,6 +9,8 @@ import {
   Sparkles,
   Images,
   HardDriveUpload,
+  Edit3,
+  Save,
 } from "lucide-react";
 import ProcessingProgress from "./ProcessingProgress";
 import { cn } from "@/shared/lib/utils";
@@ -26,6 +28,8 @@ import { Button } from "@/shared/ui/button";
 import { Progress } from "@/shared/ui/progress";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent } from "@/shared/ui/card";
+import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
 import {
   UploadQueueItem,
   ProcessingStage,
@@ -42,6 +46,93 @@ import { extractExif } from "../services/exifExtractor";
 import { performOcr } from "../services/ocrService";
 import { computePHash } from "../services/phashService";
 import { uploadService } from "../services/uploadService";
+
+interface DescriptionModalProps {
+  originalFilename: string;
+  initialDescription?: string;
+  onSave: (description: string) => void | Promise<void>;
+  onSkip: () => void;
+}
+
+const DescriptionModal: React.FC<DescriptionModalProps> = ({
+  originalFilename,
+  initialDescription = "",
+  onSave,
+  onSkip,
+}) => {
+  const [description, setDescription] = useState(initialDescription);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSave(description);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={true}>
+      <DialogContent className="max-w-md border border-white/10 bg-[#111111] shadow-[0_40px_120px_rgba(0,0,0,0.75)]">
+        <DialogHeader className="space-y-0 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-400/40 bg-cyan-500/10 text-cyan-300">
+              <Edit3 size={16} />
+            </div>
+            <div>
+              <DialogTitle className="text-base font-semibold tracking-wide text-white">
+                添加描述
+              </DialogTitle>
+              <p className="text-xs text-gray-400">
+                为 "{originalFilename}" 添加描述
+              </p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-gray-400">描述（可选）</label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="输入图片描述..."
+              className="mt-1.5 min-h-[100px] border-white/10 bg-black/30 text-white placeholder:text-gray-500 focus:border-cyan-400/60"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="mt-4 gap-2">
+          <Button
+            variant="outline"
+            onClick={onSkip}
+            className="border-white/20 bg-transparent text-gray-300 hover:bg-white/10"
+          >
+            跳过
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="bg-cyan-500 hover:bg-cyan-400"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 size={14} className="mr-2 animate-spin" />
+                保存中...
+              </>
+            ) : (
+              <>
+                <Save size={14} className="mr-2" />
+                保存
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -72,6 +163,13 @@ const UploadModal: React.FC<UploadModalProps> = ({
   const [pendingLiveVideo, setPendingLiveVideo] = useState<File | null>(null);
   const [uploadToken, setUploadToken] = useState<string>("");
   const [tokenError, setTokenError] = useState<string>("");
+  const [pendingDescriptionItem, setPendingDescriptionItem] = useState<{
+    originalFilename: string;
+    initialDescription?: string;
+  } | null>(null);
+  const pendingDescriptionResolverRef = useRef<
+    ((value: { description?: string }) => void) | null
+  >(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const liveStillInputRef = useRef<HTMLInputElement>(null);
   const liveVideoInputRef = useRef<HTMLInputElement>(null);
@@ -177,6 +275,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
       const metadata: ImageMetadata = {
         schema_version: "1.1",
         image_id: imageId,
+        original_filename: item.file.name,
         timestamps: {
           created_at: new Date().toISOString(),
           client_processed_at: new Date().toISOString(),
@@ -225,20 +324,35 @@ const UploadModal: React.FC<UploadModalProps> = ({
         },
       };
 
-      updateItem({ metadata });
+      const descriptionResult = await new Promise<{ description?: string }>((resolve) => {
+        pendingDescriptionResolverRef.current = resolve;
+        setPendingDescriptionItem({
+          originalFilename: file.name,
+          initialDescription: metadata.description || "",
+        });
+      });
+
+      const nextMetadata: ImageMetadata = {
+        ...metadata,
+        ...(descriptionResult.description !== undefined
+          ? { description: descriptionResult.description }
+          : {}),
+      };
+
+      updateItem({ metadata: nextMetadata });
 
       updateItem({ status: "uploading", progress: 0 });
       const result = await uploadService.uploadImage(
         file,
         thumbResult.blob,
-        metadata,
+        nextMetadata,
         item.liveVideoFile,
         item.uploadMode,
         (progress) => updateItem({ progress })
       );
 
       updateItem({ status: "completed", result });
-      onUploadComplete?.(metadata);
+      onUploadComplete?.(nextMetadata);
     } catch (error) {
       console.error("Processing failed:", error);
       updateItem({
@@ -391,6 +505,20 @@ const UploadModal: React.FC<UploadModalProps> = ({
       }
       return prev.filter((i) => i.id !== id);
     });
+  }, []);
+
+  const handleSaveDescription = useCallback((description: string) => {
+    const resolver = pendingDescriptionResolverRef.current;
+    pendingDescriptionResolverRef.current = null;
+    resolver?.({ description: description.trim() });
+    setPendingDescriptionItem(null);
+  }, []);
+
+  const handleSkipDescription = useCallback(() => {
+    const resolver = pendingDescriptionResolverRef.current;
+    pendingDescriptionResolverRef.current = null;
+    resolver?.({});
+    setPendingDescriptionItem(null);
   }, []);
 
   const completedCount = queue.filter((i) => i.status === "completed").length;
@@ -819,6 +947,15 @@ const UploadModal: React.FC<UploadModalProps> = ({
           </>
         )}
       </DialogContent>
+
+      {pendingDescriptionItem ? (
+        <DescriptionModal
+          originalFilename={pendingDescriptionItem.originalFilename}
+          initialDescription={pendingDescriptionItem.initialDescription}
+          onSave={handleSaveDescription}
+          onSkip={handleSkipDescription}
+        />
+      ) : null}
     </Dialog>
   );
 };

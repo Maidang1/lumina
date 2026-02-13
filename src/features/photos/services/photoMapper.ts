@@ -86,13 +86,13 @@ export function metadataToPhoto(metadata: ImageMetadata): Photo {
           mime: metadata.files.live_video?.mime,
         }
       : { type: "none" },
-    title: metadata.exif?.Model || "Untitled",
+    title: metadata.original_filename || metadata.exif?.Model || "Untitled",
     location: "",
     category: "",
     width: metadata.derived.dimensions.width,
     height: metadata.derived.dimensions.height,
-    visualDescription: metadata.derived.ocr?.summary || "",
-    filename: metadata.image_id.slice(7, 20),
+    visualDescription: metadata.description || "",
+    filename: metadata.original_filename || metadata.image_id.slice(7, 20),
     format: metadata.files.original.mime.split("/")[1]?.toUpperCase() || "IMG",
     size: `${(metadata.files.original.bytes / 1024 / 1024).toFixed(1)}MB`,
     exif: {

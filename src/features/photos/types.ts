@@ -109,6 +109,8 @@ export interface DerivedData {
 export interface ImageMetadata {
   schema_version: "1.0" | "1.1";
   image_id: string;
+  original_filename?: string;
+  description?: string;
   timestamps: {
     created_at: string;
     client_processed_at?: string;

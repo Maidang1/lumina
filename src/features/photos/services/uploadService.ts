@@ -195,6 +195,27 @@ export class UploadService {
 
     return this.parseJson<DeleteImageResult>(response, `Failed to delete image: ${response.status}`);
   }
+
+  async updateImageMetadata(
+    imageId: string,
+    updates: { description?: string; original_filename?: string }
+  ): Promise<ImageMetadata> {
+    const uploadToken = this.getUploadToken();
+    if (!uploadToken) {
+      throw new ApiRequestError("Missing UPLOAD_TOKEN. Please configure it before update.", 401);
+    }
+
+    const response = await fetch(this.getEndpoint(this.getImagePath(imageId)), {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Upload-Token": uploadToken,
+      },
+      body: JSON.stringify(updates),
+    });
+
+    return this.parseJson<ImageMetadata>(response, `Failed to update metadata: ${response.status}`);
+  }
 }
 
 export const uploadService = new UploadService();

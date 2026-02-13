@@ -12,6 +12,8 @@ interface Env {
 export interface ImageMetadata {
   schema_version: "1.0" | "1.1";
   image_id: string;
+  original_filename?: string;
+  description?: string;
   timestamps: {
     created_at: string;
     client_processed_at?: string;
@@ -447,6 +449,13 @@ class GitHubClient {
     return { originalPath, thumbPath, liveVideoPath, metaPath };
   }
 
+  async updateImageMetadata(metadata: ImageMetadata): Promise<void> {
+    const metaPath = imageIdToMetaPath(metadata.image_id);
+    const metaBytes = new TextEncoder().encode(JSON.stringify(metadata, null, 2));
+    const metaB64 = bytesToBase64(metaBytes);
+    await this.putFile(metaPath, metaB64, `Update metadata: ${metadata.image_id}`);
+  }
+
   async deleteImageAssets(metadata: ImageMetadata): Promise<string[]> {
     const imageId = metadata.image_id;
     const objectDir = imageIdToObjectPath(imageId);
@@ -485,7 +494,7 @@ class GitHubClient {
 export function corsHeaders(env: Env): HeadersInit {
   return {
     "Access-Control-Allow-Origin": env.ALLOW_ORIGIN || "*",
-    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, PATCH, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Upload-Token",
     "Access-Control-Max-Age": "86400",
   };
