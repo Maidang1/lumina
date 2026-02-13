@@ -1,7 +1,7 @@
 import React from "react";
-import { ProcessingStage } from "../types";
+import { ProcessingStage } from "@/features/photos/types";
 import { Check, Loader2, AlertCircle, Circle } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { Progress } from "@/shared/ui/progress";
 
 interface ProcessingProgressProps {
   stages: ProcessingStage[];

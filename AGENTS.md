@@ -72,20 +72,33 @@ No test framework is currently configured. If tests are added, prefer Vitest.
 
 ```
 lumina/
-├── components/         # React components (kebab-case filenames)
-│   ├── PhotoCard.tsx
-│   ├── PhotoDetail.tsx
-│   ├── PhotoGrid.tsx
-│   ├── Histogram.tsx
-│   ├── UploadButton.tsx
-│   ├── UploadModal.tsx
-│   └── ProcessingProgress.tsx
-├── services/           # Client-side services
-│   ├── imageProcessor.ts    # Thumbnail, color, blur detection
-│   ├── exifExtractor.ts     # EXIF parsing + GPS removal
-│   ├── ocrService.ts        # Tesseract.js OCR
-│   ├── phashService.ts      # Perceptual hash
-│   └── uploadService.ts     # API client
+├── src/
+│   ├── app/                # Application shell and entry
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── features/           # Business-domain modules
+│   │   └── photos/
+│   │       ├── components/
+│   │       │   ├── PhotoCard.tsx
+│   │       │   ├── PhotoDetail.tsx
+│   │       │   ├── PhotoGrid.tsx
+│   │       │   ├── UploadButton.tsx
+│   │       │   ├── UploadModal.tsx
+│   │       │   └── ProcessingProgress.tsx
+│   │       ├── services/
+│   │       │   ├── imageProcessor.ts
+│   │       │   ├── exifExtractor.ts
+│   │       │   ├── ocrService.ts
+│   │       │   ├── phashService.ts
+│   │       │   ├── photoMapper.ts
+│   │       │   └── uploadService.ts
+│   │       └── types.ts
+│   ├── shared/             # Shared UI and utilities
+│   │   ├── ui/
+│   │   └── lib/
+│   │       └── utils.ts
+│   └── styles/
+│       └── main.css
 ├── functions/          # Cloudflare Pages Functions (serverless API)
 │   ├── _utils.ts            # Shared utilities (GitHub client, CORS)
 │   └── api/v1/images/       # Image API endpoints
@@ -94,12 +107,9 @@ lumina/
 │       └── [id]/[type].ts   # GET original/thumb
 ├── schemas/            # JSON Schema definitions
 │   └── image-meta.schema.json
-├── types.ts            # TypeScript interfaces
-├── constants.ts        # Static data and constants
-├── App.tsx             # Main application component
-├── index.tsx           # React entry point
 ├── rsbuild.config.ts   # Rsbuild configuration
 ├── tsconfig.json       # TypeScript configuration
+├── tailwind.config.js  # Tailwind configuration
 └── wrangler.toml       # Cloudflare Pages config
 ```
 
@@ -151,7 +161,7 @@ GET  /api/v1/images/:id/original # Redirect to original
 ### React
 
 - Use function components with `React.FC<Props>` typing
-- Component filenames: `kebab-case.tsx`
+- Component filenames: `UpperCamelCase.tsx` (e.g. `PhotoCard.tsx`)
 - JSX component names: `UpperCamelCase`
 - Always specify `key` prop when mapping (use unique IDs, not array indices)
 

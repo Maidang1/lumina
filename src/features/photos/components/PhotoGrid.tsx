@@ -1,5 +1,5 @@
 import React from 'react';
-import { Photo } from '../types';
+import { Photo } from '@/features/photos/types';
 import PhotoCard from './PhotoCard';
 
 interface PhotoGridProps {

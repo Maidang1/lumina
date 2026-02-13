@@ -14,12 +14,12 @@ export default defineConfig({
   ],
   source: {
     entry: {
-      index: "./index.tsx",
+      index: "./src/app/main.tsx",
     },
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "."),
+      "@": path.resolve(__dirname, "src"),
     },
   },
   html: {

@@ -1,4 +1,4 @@
-import { PHashInfo } from "../types";
+import { PHashInfo } from "@/features/photos/types";
 
 export interface PHashOptions {
   bits: 16 | 32;

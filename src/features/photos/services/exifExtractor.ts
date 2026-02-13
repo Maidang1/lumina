@@ -1,5 +1,5 @@
 import exifr from "exifr";
-import { ExifSummary, PrivacyInfo } from "../types";
+import { ExifSummary, PrivacyInfo } from "@/features/photos/types";
 
 export interface ExifResult {
   exif: ExifSummary | null;

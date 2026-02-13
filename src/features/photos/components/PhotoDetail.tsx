@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { animated, useSpring } from '@react-spring/web';
-import { Photo } from '../types';
+import { Photo } from '@/features/photos/types';
 import {
   X,
   Aperture,
@@ -16,12 +16,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
+} from '@/shared/ui/dialog';
+import { ScrollArea } from '@/shared/ui/scroll-area';
+import { Badge } from '@/shared/ui/badge';
+import { Card, CardContent } from '@/shared/ui/card';
+import { Separator } from '@/shared/ui/separator';
+import { Button } from '@/shared/ui/button';
 
 interface PhotoDetailProps {
   photo: Photo;

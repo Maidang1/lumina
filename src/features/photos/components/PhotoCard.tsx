@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { animated, to, useSpring } from '@react-spring/web';
-import { Photo } from '../types';
+import { Photo } from '@/features/photos/types';
 import { Aperture, Timer, Disc } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/shared/ui/card';
 
 interface PhotoCardProps {
   photo: Photo;

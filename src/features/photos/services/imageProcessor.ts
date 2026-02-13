@@ -1,4 +1,4 @@
-import { Dimensions, DominantColor, BlurInfo, ThumbMeta } from "../types";
+import { Dimensions, DominantColor, BlurInfo, ThumbMeta } from "@/features/photos/types";
 
 export interface ThumbnailResult {
   blob: Blob;

@@ -1,4 +1,4 @@
-import { ImageMetadata, UploadResult, UploadError, ImageListResponse } from "../types";
+import { ImageMetadata, UploadResult, UploadError, ImageListResponse } from "@/features/photos/types";
 
 export interface UploadOptions {
   apiUrl: string;

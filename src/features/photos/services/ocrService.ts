@@ -1,5 +1,5 @@
 import Tesseract from "tesseract.js";
-import { OcrInfo } from "../types";
+import { OcrInfo } from "@/features/photos/types";
 
 export interface OcrOptions {
   lang: string;

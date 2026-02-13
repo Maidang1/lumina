@@ -11,7 +11,7 @@ import {
   HardDriveUpload,
 } from "lucide-react";
 import ProcessingProgress from "./ProcessingProgress";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import {
   Dialog,
   DialogClose,
@@ -19,19 +19,19 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+} from "@/shared/ui/dialog";
+import { ScrollArea } from "@/shared/ui/scroll-area";
+import { Separator } from "@/shared/ui/separator";
+import { Button } from "@/shared/ui/button";
+import { Progress } from "@/shared/ui/progress";
+import { Badge } from "@/shared/ui/badge";
+import { Card, CardContent } from "@/shared/ui/card";
 import {
   UploadQueueItem,
   ProcessingStage,
   ImageMetadata,
   DEFAULT_UPLOAD_CONFIG,
-} from "../types";
+} from "@/features/photos/types";
 import {
   createThumbnail,
   computeSHA256,

@@ -1,4 +1,4 @@
-import { ImageMetadata, Photo } from "../types";
+import { ImageMetadata, Photo } from "@/features/photos/types";
 
 const GH_OWNER = "Maidang1";
 const GH_REPO = "photos";

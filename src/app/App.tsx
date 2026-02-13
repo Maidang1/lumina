@@ -1,13 +1,13 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { Photo, ImageMetadata } from "./types";
-import PhotoGrid from "./components/PhotoGrid";
-import PhotoDetail from "./components/PhotoDetail";
-import UploadButton from "./components/UploadButton";
-import UploadModal from "./components/UploadModal";
+import { Photo, ImageMetadata } from "@/features/photos/types";
+import PhotoGrid from "@/features/photos/components/PhotoGrid";
+import PhotoDetail from "@/features/photos/components/PhotoDetail";
+import UploadButton from "@/features/photos/components/UploadButton";
+import UploadModal from "@/features/photos/components/UploadModal";
 import { Aperture } from "lucide-react";
-import { uploadService } from "./services/uploadService";
-import { metadataToPhoto } from "./services/photoMapper";
-import { Badge } from "./components/ui/badge";
+import { uploadService } from "@/features/photos/services/uploadService";
+import { metadataToPhoto } from "@/features/photos/services/photoMapper";
+import { Badge } from "@/shared/ui/badge";
 
 const App: React.FC = () => {
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);

@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './styles/main.css';
-import App from './App';
+import '@/styles/main.css';
+import App from '@/app/App';
 import { ClickToComponent } from 'click-to-react-component';
 
 const rootElement = document.getElementById('root');

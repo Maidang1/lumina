@@ -1,6 +1,6 @@
 import React from "react";
 import { Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 
 interface UploadButtonProps {
   onClick: () => void;
