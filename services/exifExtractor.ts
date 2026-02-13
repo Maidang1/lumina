@@ -63,7 +63,7 @@ export async function extractExif(file: File | Blob): Promise<ExifResult> {
       xmp: true,
       icc: true,
       translateValues: true,
-      mergeOutput: false,
+      mergeOutput: true,
     });
 
     const gpsData = await exifr.gps(file).catch(() => null);
@@ -80,7 +80,11 @@ export async function extractExif(file: File | Blob): Promise<ExifResult> {
       };
     }
 
-    const cleanedExif = removeGPSData(fullExif as Record<string, unknown>);
+    const exifSource =
+      typeof fullExif === "object" && fullExif !== null
+        ? (fullExif as Record<string, unknown>)
+        : {};
+    const cleanedExif = removeGPSData(exifSource);
 
     const exifSummary: ExifSummary = {};
 

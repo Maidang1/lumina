@@ -6,7 +6,6 @@ import {
   Aperture,
   Timer,
   Gauge,
-  MapPin,
   Calendar,
   Camera,
   Download,
@@ -48,9 +47,9 @@ function formatTime(value?: string): string {
   return date.toLocaleString('zh-CN', { hour12: false });
 }
 
-function formatExifText(value?: string): string {
+function formatExifText(value?: string | number): string {
   if (!value) return '--';
-  const normalized = value.trim();
+  const normalized = typeof value === 'string' ? value.trim() : value.toString();
   if (!normalized || normalized === '?' || normalized.toLowerCase() === 'unknown') {
     return '--';
   }
@@ -143,12 +142,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
                   {photo.title}
                 </h2>
                 <div className='flex flex-wrap items-center gap-2 text-sm text-gray-400'>
-                  <Badge
-                    variant='outline'
-                    className='gap-1.5 border-white/10 text-gray-300'
-                  >
-                    <MapPin size={14} /> {photo.location || '未标注地点'}
-                  </Badge>
                   <Badge
                     variant='outline'
                     className='gap-1.5 border-white/10 text-gray-300'
@@ -306,18 +299,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
                     <h3 className='mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500'>
                       隐私与处理
                     </h3>
-                    <div className='flex items-center justify-between py-1'>
-                      <span className='text-sm text-gray-400'>原图含 GPS</span>
-                      <span className='text-sm font-medium text-white'>
-                        {metadata.privacy.original_contains_gps ? '是' : '否'}
-                      </span>
-                    </div>
-                    <div className='flex items-center justify-between py-1'>
-                      <span className='text-sm text-gray-400'>GPS 已移除</span>
-                      <span className='text-sm font-medium text-white'>
-                        {metadata.privacy.exif_gps_removed ? '是' : '否'}
-                      </span>
-                    </div>
                     <div className='flex items-center justify-between py-1'>
                       <span className='text-sm text-gray-400'>创建时间</span>
                       <span className='text-sm font-medium text-white'>
