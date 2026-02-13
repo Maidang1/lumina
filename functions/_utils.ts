@@ -252,6 +252,30 @@ class GitHubClient {
     }
   }
 
+  async deleteFile(path: string, message: string): Promise<void> {
+    await this.waitForWriteSlot();
+
+    const url = getApiUrl(this.env.GH_OWNER, this.env.GH_REPO, path);
+    const existing = await this.getFile(path);
+
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: this.getHeaders(),
+      body: JSON.stringify({
+        message,
+        branch: this.env.GH_BRANCH,
+        sha: existing.sha,
+      }),
+    });
+
+    this.lastWriteTime = Date.now();
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`GitHub DELETE failed: ${response.status} ${text}`);
+    }
+  }
+
   async getFile(path: string): Promise<GitHubFileResponse> {
     const url = getApiUrl(this.env.GH_OWNER, this.env.GH_REPO, path);
 
@@ -358,6 +382,28 @@ class GitHubClient {
     await this.putFile(IMAGE_INDEX_PATH, b64, `Update image index: ${metadata.image_id}`);
   }
 
+  async removeImageIndex(imageId: string): Promise<void> {
+    const existing = await this.getImageIndex();
+    if (!existing) {
+      return;
+    }
+
+    const nextItems = existing.items.filter((item) => item.image_id !== imageId);
+    if (nextItems.length === existing.items.length) {
+      return;
+    }
+
+    const nextIndex: ImageIndexFile = {
+      version: "1",
+      updated_at: new Date().toISOString(),
+      items: nextItems,
+    };
+
+    const bytes = new TextEncoder().encode(JSON.stringify(nextIndex, null, 2));
+    const b64 = bytesToBase64(bytes);
+    await this.putFile(IMAGE_INDEX_PATH, b64, `Remove image from index: ${imageId}`);
+  }
+
   async uploadImage(
     original: Uint8Array,
     originalMime: string,
@@ -400,15 +446,67 @@ class GitHubClient {
 
     return { originalPath, thumbPath, liveVideoPath, metaPath };
   }
+
+  async deleteImageAssets(metadata: ImageMetadata): Promise<string[]> {
+    const imageId = metadata.image_id;
+    const objectDir = imageIdToObjectPath(imageId);
+    const fallbackOriginalPath = `${objectDir}/original.${guessExtension(metadata.files.original.mime)}`;
+    const fallbackThumbPath = `${objectDir}/thumb.webp`;
+    const fallbackLivePath = metadata.files.live_video
+      ? `${objectDir}/live.${guessExtension(metadata.files.live_video.mime)}`
+      : undefined;
+    const paths = [
+      metadata.files.original.path || fallbackOriginalPath,
+      metadata.files.thumb.path || fallbackThumbPath,
+      metadata.files.live_video?.path || fallbackLivePath,
+      imageIdToMetaPath(imageId),
+    ].filter((path): path is string => Boolean(path));
+    const uniquePaths = Array.from(new Set(paths));
+    const deletedPaths: string[] = [];
+
+    for (const path of uniquePaths) {
+      try {
+        await this.deleteFile(path, `Delete ${imageId} - ${path}`);
+        deletedPaths.push(path);
+        await sleep(WRITE_INTERVAL_MS);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("File not found")) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    await this.removeImageIndex(imageId);
+    return deletedPaths;
+  }
 }
 
 export function corsHeaders(env: Env): HeadersInit {
   return {
     "Access-Control-Allow-Origin": env.ALLOW_ORIGIN || "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Upload-Token",
     "Access-Control-Max-Age": "86400",
   };
+}
+
+export function validateUploadToken(request: Request, env: Env): Response | null {
+  const expectedToken = env.UPLOAD_TOKEN?.trim();
+  if (!expectedToken) {
+    return errorResponse(env, "Server upload token is not configured", 500);
+  }
+
+  const providedToken = request.headers.get("x-upload-token")?.trim();
+  if (!providedToken) {
+    return errorResponse(env, "Missing upload token", 401);
+  }
+
+  if (providedToken !== expectedToken) {
+    return errorResponse(env, "Invalid upload token", 403);
+  }
+
+  return null;
 }
 
 export function jsonResponse(env: Env, data: unknown, status: number = 200): Response {

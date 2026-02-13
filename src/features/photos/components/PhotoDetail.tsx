@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { animated, useSpring } from "@react-spring/web";
 import { Photo } from "@/features/photos/types";
-import { Aperture, Calendar, Camera, Download, Gauge, Pause, Play, Timer, X } from "lucide-react";
-import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import { Aperture, Calendar, Camera, Gauge, Loader2, Timer, Trash2, X } from "lucide-react";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/shared/ui/dialog";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Badge } from "@/shared/ui/badge";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -14,6 +14,9 @@ import { useLivePhotoControls } from "./hooks/useLivePhotoControls";
 interface PhotoDetailProps {
   photo: Photo;
   onClose: () => void;
+  canDelete?: boolean;
+  isDeleting?: boolean;
+  onDelete?: (photoId: string) => Promise<void>;
 }
 
 function formatBytes(bytes: number): string {
@@ -50,7 +53,13 @@ function formatNumericWithUnit(value?: string, unit?: string): string {
   return unit ? `${base}${unit}` : base;
 }
 
-const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
+const PhotoDetail: React.FC<PhotoDetailProps> = ({
+  photo,
+  onClose,
+  canDelete = false,
+  isDeleting = false,
+  onDelete,
+}) => {
   const metadata = photo.metadata;
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const [isLivePlaying, setIsLivePlaying] = useState(false);
@@ -58,7 +67,8 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
   const [isConvertingVideo, setIsConvertingVideo] = useState(false);
   const [livePlaybackError, setLivePlaybackError] = useState<string | null>(null);
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
-  const hasAutoPlayedRef = useRef(false);
+  const liveImageRef = useRef<HTMLImageElement | null>(null);
+  const [liveFrameSize, setLiveFrameSize] = useState<{ width: number; height: number } | null>(null);
 
   const hasVideo = photo.videoSource?.type === "live-photo";
 
@@ -97,8 +107,35 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
     setLivePlaybackError(null);
     setIsVideoReady(false);
     setIsConvertingVideo(false);
-    hasAutoPlayedRef.current = false;
+    setLiveFrameSize(null);
   }, [photo.id]);
+
+  useEffect(() => {
+    const image = liveImageRef.current;
+    if (!image) return;
+
+    const updateLiveFrameSize = (): void => {
+      const rect = image.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      setLiveFrameSize({ width: rect.width, height: rect.height });
+    };
+
+    updateLiveFrameSize();
+
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            updateLiveFrameSize();
+          })
+        : null;
+    observer?.observe(image);
+    window.addEventListener("resize", updateLiveFrameSize);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateLiveFrameSize);
+    };
+  }, [photo.id, isImageLoaded]);
 
   useEffect(() => {
     if (!hasVideo || !liveVideoRef.current || isVideoReady || !photo.videoSource) {
@@ -133,18 +170,17 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
   }, [hasVideo, isVideoReady, photo.videoSource]);
 
   useEffect(() => {
-    if (!hasVideo || !isVideoReady || hasAutoPlayedRef.current) {
-      return;
-    }
-    hasAutoPlayedRef.current = true;
-    playVideo();
-  }, [hasVideo, isVideoReady, playVideo]);
-
-  useEffect(() => {
     return () => {
       stopVideo();
     };
   }, [stopVideo]);
+
+  const handleDelete = useCallback(async () => {
+    if (!onDelete || isDeleting) return;
+    const confirmed = window.confirm("确认删除？该操作不可恢复");
+    if (!confirmed) return;
+    await onDelete(photo.id);
+  }, [isDeleting, onDelete, photo.id]);
 
   const shellSpring = useSpring({
     from: { opacity: 0 },
@@ -181,8 +217,22 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
     >
       <DialogContent overlayClassName='bg-black/95' className='h-screen max-w-none rounded-none border-0 bg-transparent p-0'>
         <animated.div className='relative flex h-full w-full flex-col md:flex-row' style={{ opacity: shellSpring.opacity }}>
-          <DialogClose className='absolute right-3 top-3 z-50 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-black/50 p-2 text-white md:hidden'>
-            <X size={24} />
+          {/* {canDelete && (
+            <Button
+              variant='outline'
+              size='sm'
+              disabled={isDeleting}
+              className='absolute right-16 top-4 z-50 min-h-[44px] border-rose-300/60 bg-black/70 text-rose-100 hover:bg-rose-500/20'
+              onClick={() => {
+                void handleDelete();
+              }}
+            >
+              {isDeleting ? <Loader2 size={14} className='animate-spin' /> : <Trash2 size={14} />}
+              {isDeleting ? "删除中..." : "删除"}
+            </Button>
+          )} */}
+          <DialogClose className='absolute right-4 top-4 z-50 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/25 bg-black/70 p-2 text-white shadow-lg transition hover:bg-black/85'>
+            <X size={22} />
           </DialogClose>
 
           <animated.div
@@ -197,18 +247,11 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
             onTouchStart={handleLongPressStart}
             onTouchEnd={handleLongPressEnd}
           >
-            <DialogHeader className='absolute left-6 top-6 z-20 hidden md:block'>
-              <DialogClose className='text-white/50 transition-colors hover:text-white'>
-                <div className='flex items-center gap-2 text-sm uppercase tracking-widest'>
-                  <X size={20} />
-                  <span>Close Gallery</span>
-                </div>
-              </DialogClose>
-              <DialogTitle className='sr-only'>{photo.title}</DialogTitle>
-            </DialogHeader>
+            <DialogTitle className='sr-only'>{photo.title}</DialogTitle>
 
             <div className='relative flex max-h-full max-w-full items-center justify-center'>
               <animated.img
+                ref={liveImageRef}
                 src={photo.url}
                 alt={photo.title}
                 className='max-h-full max-w-full object-contain shadow-2xl'
@@ -219,14 +262,25 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
               {hasVideo && (
                 <video
                   ref={liveVideoRef}
-                  className='pointer-events-none absolute inset-0 h-full w-full object-contain shadow-2xl transition-opacity duration-200'
-                  style={{ opacity: isLivePlaying ? 1 : 0 }}
+                  className='pointer-events-none absolute left-1/2 top-1/2 object-cover shadow-2xl transition-opacity duration-200'
+                  style={{
+                    opacity: isLivePlaying ? 1 : 0,
+                    width: liveFrameSize?.width,
+                    height: liveFrameSize?.height,
+                    transform: "translate(-50%, -50%)",
+                  }}
                   muted
                   playsInline
                   preload='metadata'
                   poster={photo.url}
                   onEnded={stopVideo}
                 />
+              )}
+
+              {hasVideo && (
+                <div className='pointer-events-none absolute left-3 top-3 z-20 rounded-md border border-amber-300/60 bg-black/55 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100 backdrop-blur'>
+                  LIVE
+                </div>
               )}
             </div>
           </animated.div>
@@ -254,28 +308,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
                   </div>
                 </div>
 
-                {hasVideo && (
-                  <div className='flex items-center gap-2'>
-                    {!isLivePlaying ? (
-                      <Button
-                        onClick={playVideo}
-                        disabled={!isVideoReady || isConvertingVideo}
-                        className='gap-2 rounded-full bg-amber-400/90 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-black hover:bg-amber-300'
-                      >
-                        <Play size={14} /> {isConvertingVideo ? "转换中..." : "播放实况"}
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={stopVideo}
-                        variant='outline'
-                        className='gap-2 rounded-full border-white/20 bg-transparent px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white hover:bg-white/10'
-                      >
-                        <Pause size={14} /> 返回静态图
-                      </Button>
-                    )}
-                  </div>
-                )}
-
+                {hasVideo && <p className='text-sm text-amber-100/90'>长按图片可播放实况，松开后返回静态图。</p>}
                 {isConvertingVideo && <p className='text-sm text-amber-200/90'>正在转换实况视频，请稍候...</p>}
                 {livePlaybackError && <p className='text-sm text-rose-300/90'>{livePlaybackError}</p>}
 
@@ -283,39 +316,39 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
                   <h3 className='mb-4 text-xs font-semibold uppercase tracking-widest text-gray-500'>拍摄参数</h3>
                   <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
                     <Card className='border-white/5 bg-black/40'>
-                      <CardContent className='flex min-h-[124px] flex-col justify-center gap-2 p-4'>
+                      <CardContent className='flex min-h-[50px] flex-col justify-center gap-1 p-2.5'>
                         <div className='flex items-center gap-2 text-gray-400'>
-                          <Aperture size={16} />
+                          <Aperture size={14} />
                           <span className='text-xs uppercase tracking-wider'>Aperture</span>
                         </div>
-                        <span className='block font-mono text-2xl text-white'>{formatExifText(photo.exif.aperture)}</span>
+                        <span className='block font-mono text-lg text-white'>{formatExifText(photo.exif.aperture)}</span>
                       </CardContent>
                     </Card>
                     <Card className='border-white/5 bg-black/40'>
-                      <CardContent className='flex min-h-[124px] flex-col justify-center gap-2 p-4'>
+                      <CardContent className='flex min-h-[50px] flex-col justify-center gap-1 p-2.5'>
                         <div className='flex items-center gap-2 text-gray-400'>
-                          <Timer size={16} />
+                          <Timer size={14} />
                           <span className='text-xs uppercase tracking-wider'>Shutter</span>
                         </div>
-                        <span className='block font-mono text-2xl text-white'>{formatExifText(photo.exif.shutter)}</span>
+                        <span className='block font-mono text-lg text-white'>{formatExifText(photo.exif.shutter)}</span>
                       </CardContent>
                     </Card>
                     <Card className='border-white/5 bg-black/40'>
-                      <CardContent className='flex min-h-[124px] flex-col justify-center gap-2 p-4'>
+                      <CardContent className='flex min-h-[50px] flex-col justify-center gap-1 p-2.5'>
                         <div className='flex items-center gap-2 text-gray-400'>
-                          <Gauge size={16} />
+                          <Gauge size={14} />
                           <span className='text-xs uppercase tracking-wider'>ISO</span>
                         </div>
-                        <span className='block font-mono text-2xl text-white'>{formatExifText(photo.exif.iso)}</span>
+                        <span className='block font-mono text-lg text-white'>{formatExifText(photo.exif.iso)}</span>
                       </CardContent>
                     </Card>
                     <Card className='border-white/5 bg-black/40'>
-                      <CardContent className='flex min-h-[124px] flex-col justify-center gap-2 p-4'>
+                      <CardContent className='flex min-h-[50px] flex-col justify-center gap-1 p-2.5'>
                         <div className='flex items-center gap-2 text-gray-400'>
-                          <Camera size={16} />
+                          <Camera size={14} />
                           <span className='text-xs uppercase tracking-wider'>Focal Len</span>
                         </div>
-                        <span className='block font-mono text-2xl text-white'>
+                        <span className='block font-mono text-lg text-white'>
                           {formatNumericWithUnit(photo.exif.focalLength, "mm")}
                         </span>
                       </CardContent>
@@ -418,22 +451,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({ photo, onClose }) => {
                   </>
                 )}
 
-                <div className='pt-2'>
-                  <Button onClick={() => window.open(photo.url, "_blank", "noopener,noreferrer")} className='w-full gap-2 py-4 text-xs font-semibold uppercase tracking-widest'>
-                    <Download size={16} /> Download Original
-                  </Button>
-                </div>
-                {photo.isLive && photo.liveUrl && (
-                  <div className='pt-2'>
-                    <Button
-                      onClick={() => window.open(photo.liveUrl, "_blank", "noopener,noreferrer")}
-                      variant='outline'
-                      className='w-full gap-2 border-white/20 bg-transparent py-4 text-xs font-semibold uppercase tracking-widest text-white hover:bg-white/10'
-                    >
-                      <Download size={16} /> Download Live Video
-                    </Button>
-                  </div>
-                )}
               </div>
             </ScrollArea>
           </animated.div>

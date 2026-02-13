@@ -3,18 +3,26 @@ import { cn } from "@/shared/lib/utils";
 
 interface ScrollAreaProps extends React.HTMLAttributes<HTMLDivElement> {
   viewportClassName?: string;
+  hideScrollbar?: boolean;
 }
 
 const ScrollArea: React.FC<ScrollAreaProps> = ({
   className,
   viewportClassName,
+  hideScrollbar = false,
   children,
   ...props
 }) => (
-  <div className={cn("relative overflow-hidden", className)} {...props}>
-    <div className={cn("h-full w-full overflow-auto no-scrollbar", viewportClassName)}>
-      {children}
-    </div>
+  <div
+    className={cn(
+      "relative overflow-auto",
+      hideScrollbar && "no-scrollbar",
+      className,
+      viewportClassName,
+    )}
+    {...props}
+  >
+    {children}
   </div>
 );
 

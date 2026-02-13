@@ -22,7 +22,8 @@ interface CachedVideo {
 }
 
 const MAX_VIDEO_CACHE_ENTRIES = 20;
-const FFMPEG_LOCAL_BASE = "/ffmpeg";
+const FFMPEG_CORE_JS_URL = "https://images.felixwliu.cn/ffmpeg-core.js";
+const FFMPEG_CORE_WASM_URL = "https://images.felixwliu.cn/ffmpeg-core.wasm";
 
 const VIDEO_MIME_BY_EXTENSION: Record<string, string> = {
   mov: "video/quicktime",
@@ -58,8 +59,8 @@ async function getFfmpegInstance(): Promise<import("@ffmpeg/ffmpeg").FFmpeg> {
   ffmpegPromise = (async () => {
     const [{ FFmpeg }, { toBlobURL }] = await Promise.all([import("@ffmpeg/ffmpeg"), import("@ffmpeg/util")]);
     const ffmpeg = new FFmpeg();
-    const coreURL = await toBlobURL(`${FFMPEG_LOCAL_BASE}/ffmpeg-core.js`, "text/javascript");
-    const wasmURL = await toBlobURL(`${FFMPEG_LOCAL_BASE}/ffmpeg-core.wasm`, "application/wasm");
+    const coreURL = await toBlobURL(FFMPEG_CORE_JS_URL, "text/javascript");
+    const wasmURL = await toBlobURL(FFMPEG_CORE_WASM_URL, "application/wasm");
 
     ffmpeg.on("progress", ({ progress }: { progress: number }) => {
       if (ffmpegProgressConsumer) {

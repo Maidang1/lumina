@@ -5,6 +5,11 @@ export interface UploadOptions {
   timeout: number;
 }
 
+export interface DeleteImageResult {
+  image_id: string;
+  deleted_paths: string[];
+}
+
 const DEFAULT_OPTIONS: UploadOptions = {
   apiUrl: "/api",
   timeout: 120000,
@@ -41,6 +46,10 @@ export class UploadService {
   getUploadToken(): string {
     if (typeof window === "undefined") return "";
     return window.localStorage.getItem(UPLOAD_TOKEN_STORAGE_KEY) || "";
+  }
+
+  hasUploadToken(): boolean {
+    return this.getUploadToken().trim().length > 0;
   }
 
   setUploadToken(token: string): void {
@@ -169,6 +178,22 @@ export class UploadService {
     } while (cursor);
 
     return images;
+  }
+
+  async deleteImage(imageId: string): Promise<DeleteImageResult> {
+    const uploadToken = this.getUploadToken();
+    if (!uploadToken) {
+      throw new ApiRequestError("Missing UPLOAD_TOKEN. Please configure it before delete.", 401);
+    }
+
+    const response = await fetch(this.getEndpoint(this.getImagePath(imageId)), {
+      method: "DELETE",
+      headers: {
+        "X-Upload-Token": uploadToken,
+      },
+    });
+
+    return this.parseJson<DeleteImageResult>(response, `Failed to delete image: ${response.status}`);
   }
 }
 

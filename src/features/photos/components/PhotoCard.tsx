@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { animated, to, useSpring } from "@react-spring/web";
 import { Photo } from "@/features/photos/types";
-import { Aperture, Disc, Timer } from "lucide-react";
+import { Aperture, Disc, Loader2, Timer, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
 import { videoLoaderManager } from "@/features/photos/services/videoLoaderManager";
 import { useLivePhotoControls } from "./hooks/useLivePhotoControls";
 
@@ -10,6 +11,9 @@ interface PhotoCardProps {
   photo: Photo;
   index: number;
   onClick: (photo: Photo) => void;
+  canDelete?: boolean;
+  isDeleting?: boolean;
+  onDelete?: (photoId: string) => Promise<void>;
 }
 
 function formatExifValue(value?: string | number): string {
@@ -22,7 +26,14 @@ function formatExifValue(value?: string | number): string {
   return normalized;
 }
 
-const PhotoCard: React.FC<PhotoCardProps> = ({ photo, index, onClick }) => {
+const PhotoCard: React.FC<PhotoCardProps> = ({
+  photo,
+  index,
+  onClick,
+  canDelete = false,
+  isDeleting = false,
+  onDelete,
+}) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -163,6 +174,17 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, index, onClick }) => {
     };
   }, [stopVideo]);
 
+  const handleDeleteClick = useCallback(
+    async (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      if (!onDelete || isDeleting) return;
+      const confirmed = window.confirm("确认删除？该操作不可恢复");
+      if (!confirmed) return;
+      await onDelete(photo.id);
+    },
+    [isDeleting, onDelete, photo.id],
+  );
+
   return (
     <animated.div
       ref={cardRef}
@@ -221,6 +243,23 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, index, onClick }) => {
       )}
 
       {!isLoaded && <div className='absolute inset-0 animate-pulse bg-[#1a1a1a]' />}
+
+      {canDelete && (
+        <div className='pointer-events-none absolute right-3 top-3 z-30 hidden transition-opacity md:block md:opacity-0 md:group-hover:opacity-100 !opacity-0'>
+          <Button
+            size='icon'
+            variant='outline'
+            disabled={isDeleting}
+            aria-label='删除图片'
+            className='pointer-events-auto h-8 w-8 rounded-full border-rose-300/60 bg-black/45 text-rose-100 hover:bg-rose-500/20 hover:text-rose-100'
+            onClick={(event) => {
+              void handleDeleteClick(event);
+            }}
+          >
+            {isDeleting ? <Loader2 size={14} className='animate-spin' /> : <Trash2 size={14} />}
+          </Button>
+        </div>
+      )}
 
       <animated.div
         className='absolute inset-0 hidden flex-col justify-end bg-gradient-to-t from-black/90 via-black/45 to-transparent p-5 md:flex lg:p-6'

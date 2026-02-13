@@ -47,9 +47,6 @@ export function useLivePhotoControls({
     if (mode === "hover" && (isMobile || disableHover)) {
       return;
     }
-    if (mode === "long-press" && !isMobile) {
-      return;
-    }
     if (!enabled || !isVideoReady || isPlaying) {
       return;
     }
@@ -62,9 +59,6 @@ export function useLivePhotoControls({
   const handleEnd = useCallback(() => {
     const isMobile = isMobileDevice();
     if (mode === "hover" && (isMobile || disableHover)) {
-      return;
-    }
-    if (mode === "long-press" && !isMobile) {
       return;
     }
     clearTimer();

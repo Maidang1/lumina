@@ -14,6 +14,8 @@ const App: React.FC = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleteTokenConfigured, setIsDeleteTokenConfigured] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
 
   const handleUploadComplete = useCallback((metadata: ImageMetadata) => {
     const newPhoto = metadataToPhoto(metadata);
@@ -45,6 +47,41 @@ const App: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const refreshDeleteTokenState = (): void => {
+      setIsDeleteTokenConfigured(uploadService.hasUploadToken());
+    };
+    refreshDeleteTokenState();
+    window.addEventListener("focus", refreshDeleteTokenState);
+    return () => {
+      window.removeEventListener("focus", refreshDeleteTokenState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedPhoto) return;
+    setIsDeleteTokenConfigured(uploadService.hasUploadToken());
+  }, [selectedPhoto]);
+
+  const handleDeletePhoto = useCallback(async (photoId: string): Promise<void> => {
+    if (deletingPhotoId === photoId) {
+      return;
+    }
+
+    try {
+      setDeletingPhotoId(photoId);
+      await uploadService.deleteImage(photoId);
+      setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
+      setSelectedPhoto((prev) => (prev?.id === photoId ? null : prev));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "删除失败";
+      window.alert(message);
+    } finally {
+      setDeletingPhotoId((prev) => (prev === photoId ? null : prev));
+      setIsDeleteTokenConfigured(uploadService.hasUploadToken());
+    }
+  }, [deletingPhotoId]);
+
   return (
     <div className="min-h-screen text-gray-300">
       <header className="sticky top-3 z-30 px-3 sm:px-4">
@@ -73,7 +110,13 @@ const App: React.FC = () => {
             Loading photos...
           </div>
         ) : (
-          <PhotoGrid photos={photos} onPhotoClick={setSelectedPhoto} />
+          <PhotoGrid
+            photos={photos}
+            onPhotoClick={setSelectedPhoto}
+            canDelete={isDeleteTokenConfigured}
+            deletingPhotoId={deletingPhotoId}
+            onDeletePhoto={handleDeletePhoto}
+          />
         )}
       </main>
 
@@ -81,6 +124,9 @@ const App: React.FC = () => {
         <PhotoDetail
           photo={selectedPhoto}
           onClose={() => setSelectedPhoto(null)}
+          canDelete={isDeleteTokenConfigured}
+          isDeleting={deletingPhotoId === selectedPhoto.id}
+          onDelete={handleDeletePhoto}
         />
       )}
 
