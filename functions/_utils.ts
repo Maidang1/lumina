@@ -10,7 +10,7 @@ interface Env {
 }
 
 export interface ImageMetadata {
-  schema_version: "1.0";
+  schema_version: "1.0" | "1.1";
   image_id: string;
   timestamps: {
     created_at: string;
@@ -19,6 +19,14 @@ export interface ImageMetadata {
   files: {
     original: FileMeta;
     thumb: ThumbMeta;
+    live_video?: FileMeta;
+  };
+  live_photo?: {
+    enabled: boolean;
+    pair_id: string;
+    still_hash: string;
+    video_hash: string;
+    duration_ms?: number;
   };
   exif?: ExifSummary;
   privacy: PrivacyInfo;
@@ -79,12 +87,14 @@ interface UploadResult {
   stored: {
     original_path: string;
     thumb_path: string;
+    live_video_path?: string;
     meta_path: string;
   };
   urls: {
     meta: string;
     thumb: string;
     original: string;
+    live?: string;
   };
 }
 
@@ -129,6 +139,7 @@ export function buildImageApiUrls(imageId: string): UploadResult["urls"] {
     meta: `/api/v1/images/${encoded}`,
     thumb: `/api/v1/images/${encoded}/thumb`,
     original: `/api/v1/images/${encoded}/original`,
+    live: `/api/v1/images/${encoded}/live`,
   };
 }
 
@@ -162,6 +173,8 @@ function guessExtension(mime: string): string {
     "image/heic": "heic",
     "image/heif": "heif",
     "image/avif": "avif",
+    "video/quicktime": "mov",
+    "video/mp4": "mp4",
   };
   return mimeMap[mime] || "bin";
 }
@@ -349,19 +362,27 @@ class GitHubClient {
     original: Uint8Array,
     originalMime: string,
     thumb: Uint8Array,
-    metadata: ImageMetadata
-  ): Promise<{ originalPath: string; thumbPath: string; metaPath: string }> {
+    metadata: ImageMetadata,
+    liveVideo?: { bytes: Uint8Array; mime: string }
+  ): Promise<{ originalPath: string; thumbPath: string; liveVideoPath?: string; metaPath: string }> {
     const objectDir = imageIdToObjectPath(metadata.image_id);
     const ext = guessExtension(originalMime);
 
     const originalPath = `${objectDir}/original.${ext}`;
     const thumbPath = `${objectDir}/thumb.webp`;
+    const liveVideoPath = liveVideo
+      ? `${objectDir}/live.${guessExtension(liveVideo.mime)}`
+      : undefined;
     const metaPath = `${objectDir}/meta.json`;
 
     const originalB64 = bytesToBase64(original);
     const thumbB64 = bytesToBase64(thumb);
+    const liveVideoB64 = liveVideo ? bytesToBase64(liveVideo.bytes) : undefined;
     metadata.files.original.path = originalPath;
     metadata.files.thumb.path = thumbPath;
+    if (liveVideoPath && metadata.files.live_video) {
+      metadata.files.live_video.path = liveVideoPath;
+    }
     const metaBytes = new TextEncoder().encode(JSON.stringify(metadata, null, 2));
     const metaB64 = bytesToBase64(metaBytes);
 
@@ -369,11 +390,15 @@ class GitHubClient {
     await sleep(WRITE_INTERVAL_MS);
     await this.putFile(thumbPath, thumbB64, `Upload ${metadata.image_id} - thumbnail`);
     await sleep(WRITE_INTERVAL_MS);
+    if (liveVideoPath && liveVideoB64) {
+      await this.putFile(liveVideoPath, liveVideoB64, `Upload ${metadata.image_id} - live video`);
+      await sleep(WRITE_INTERVAL_MS);
+    }
     await this.putFile(metaPath, metaB64, `Upload ${metadata.image_id} - metadata`);
     await sleep(WRITE_INTERVAL_MS);
     await this.upsertImageIndex(metadata, metaPath);
 
-    return { originalPath, thumbPath, metaPath };
+    return { originalPath, thumbPath, liveVideoPath, metaPath };
   }
 }
 
@@ -381,7 +406,7 @@ export function corsHeaders(env: Env): HeadersInit {
   return {
     "Access-Control-Allow-Origin": env.ALLOW_ORIGIN || "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Upload-Token",
     "Access-Control-Max-Age": "86400",
   };
 }

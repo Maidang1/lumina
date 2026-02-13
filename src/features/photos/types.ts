@@ -8,10 +8,25 @@ export interface ExifData {
   date: string;
 }
 
+export type VideoSource =
+  | {
+      type: "live-photo";
+      videoUrl: string;
+      mime?: string;
+    }
+  | {
+      type: "none";
+    };
+
 export interface Photo {
   id: string;
   url: string;
   thumbnail: string;
+  isLive: boolean;
+  liveUrl?: string;
+  liveMime?: string;
+  videoSource?: VideoSource;
+  livePlaybackReady?: boolean;
   title: string;
   location: string;
   category: string;
@@ -92,7 +107,7 @@ export interface DerivedData {
 }
 
 export interface ImageMetadata {
-  schema_version: "1.0";
+  schema_version: "1.0" | "1.1";
   image_id: string;
   timestamps: {
     created_at: string;
@@ -101,6 +116,14 @@ export interface ImageMetadata {
   files: {
     original: FileMeta;
     thumb: ThumbMeta;
+    live_video?: FileMeta;
+  };
+  live_photo?: {
+    enabled: boolean;
+    pair_id: string;
+    still_hash: string;
+    video_hash: string;
+    duration_ms?: number;
   };
   exif?: ExifSummary;
   privacy: PrivacyInfo;
@@ -112,12 +135,14 @@ export interface UploadResult {
   stored: {
     original_path: string;
     thumb_path: string;
+    live_video_path?: string;
     meta_path: string;
   };
   urls: {
     meta: string;
     thumb: string;
     original: string;
+    live?: string;
   };
   etag?: string;
 }
@@ -147,6 +172,8 @@ export interface ProcessingStage {
 export interface UploadQueueItem {
   id: string;
   file: File;
+  liveVideoFile?: File;
+  uploadMode: "static" | "live_photo";
   status: "queued" | "processing" | "uploading" | "completed" | "failed";
   progress: number;
   stages: ProcessingStage[];

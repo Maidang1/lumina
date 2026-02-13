@@ -58,6 +58,8 @@ const createInitialStages = (): ProcessingStage[] => [
   { id: "phash", name: "感知哈希", status: "pending", progress: 0 },
 ];
 
+const MAX_LIVE_VIDEO_SIZE = 10 * 1024 * 1024;
+
 const UploadModal: React.FC<UploadModalProps> = ({
   isOpen,
   onClose,
@@ -65,9 +67,14 @@ const UploadModal: React.FC<UploadModalProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [queue, setQueue] = useState<UploadQueueItem[]>([]);
+  const [uploadMode, setUploadMode] = useState<"static" | "live_photo">("static");
+  const [pendingLiveStill, setPendingLiveStill] = useState<File | null>(null);
+  const [pendingLiveVideo, setPendingLiveVideo] = useState<File | null>(null);
   const [uploadToken, setUploadToken] = useState<string>("");
   const [tokenError, setTokenError] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const liveStillInputRef = useRef<HTMLInputElement>(null);
+  const liveVideoInputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
   const queueRef = useRef<UploadQueueItem[]>([]);
 
@@ -105,7 +112,12 @@ const UploadModal: React.FC<UploadModalProps> = ({
     try {
       const file = item.file;
 
-      const imageId = await computeSHA256(file);
+      const stillHash = await computeSHA256(file);
+      const liveVideoHash = item.liveVideoFile ? await computeSHA256(item.liveVideoFile) : null;
+      const imageId =
+        item.uploadMode === "live_photo" && liveVideoHash
+          ? await computeSHA256(new Blob([stillHash, ":", liveVideoHash], { type: "text/plain" }))
+          : stillHash;
       updateItem({ metadata: { image_id: imageId } as ImageMetadata });
 
       updateStage("thumbnail", { status: "processing", progress: 0 });
@@ -163,7 +175,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
       );
 
       const metadata: ImageMetadata = {
-        schema_version: "1.0",
+        schema_version: "1.1",
         image_id: imageId,
         timestamps: {
           created_at: new Date().toISOString(),
@@ -182,7 +194,26 @@ const UploadModal: React.FC<UploadModalProps> = ({
             width: thumbResult.width,
             height: thumbResult.height,
           },
+          ...(item.liveVideoFile
+            ? {
+                live_video: {
+                  path: "",
+                  mime: item.liveVideoFile.type || "video/quicktime",
+                  bytes: item.liveVideoFile.size,
+                },
+              }
+            : {}),
         },
+        ...(item.uploadMode === "live_photo" && liveVideoHash
+          ? {
+              live_photo: {
+                enabled: true,
+                pair_id: imageId,
+                still_hash: stillHash,
+                video_hash: liveVideoHash,
+              },
+            }
+          : {}),
         exif: exifResult.exif || undefined,
         privacy: exifResult.privacy,
         derived: {
@@ -201,6 +232,8 @@ const UploadModal: React.FC<UploadModalProps> = ({
         file,
         thumbResult.blob,
         metadata,
+        item.liveVideoFile,
+        item.uploadMode,
         (progress) => updateItem({ progress })
       );
 
@@ -248,6 +281,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
     const newItems: UploadQueueItem[] = fileArray.map((file) => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       file,
+      uploadMode: "static",
       status: "queued",
       progress: 0,
       stages: createInitialStages(),
@@ -256,19 +290,61 @@ const UploadModal: React.FC<UploadModalProps> = ({
     setQueue((prev) => [...prev, ...newItems]);
   }, []);
 
+  const enqueueLivePair = useCallback((stillFile: File, liveFile: File) => {
+    if (!uploadService.getUploadToken()) {
+      setTokenError("请先配置 UPLOAD_TOKEN，再选择实况图片。");
+      return;
+    }
+
+    if (!stillFile.type.startsWith("image/")) {
+      setTokenError("实况主图必须是图片文件。");
+      return;
+    }
+
+    const isMovType =
+      liveFile.type === "video/quicktime" || liveFile.name.toLowerCase().endsWith(".mov");
+    if (!isMovType) {
+      setTokenError("实况视频必须是 MOV 文件。");
+      return;
+    }
+    if (liveFile.size > MAX_LIVE_VIDEO_SIZE) {
+      setTokenError("实况视频超过 10MB 限制。");
+      return;
+    }
+
+    setTokenError("");
+    const liveItem: UploadQueueItem = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      file: stillFile,
+      liveVideoFile: liveFile,
+      uploadMode: "live_photo",
+      status: "queued",
+      progress: 0,
+      stages: createInitialStages(),
+    };
+    setQueue((prev) => [...prev, liveItem]);
+    setPendingLiveStill(null);
+    setPendingLiveVideo(null);
+  }, []);
+
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragging(false);
+      if (uploadMode !== "static") {
+        setTokenError("实况模式不支持拖拽，请手动选择主图与 MOV 文件。");
+        return;
+      }
       handleFiles(e.dataTransfer.files);
     },
-    [handleFiles]
+    [handleFiles, uploadMode]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    if (uploadMode !== "static") return;
     setIsDragging(true);
-  }, []);
+  }, [uploadMode]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -285,6 +361,28 @@ const UploadModal: React.FC<UploadModalProps> = ({
     [handleFiles]
   );
 
+  const handleLiveStillSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      setPendingLiveStill(selected);
+      if (pendingLiveVideo) {
+        enqueueLivePair(selected, pendingLiveVideo);
+      }
+    }
+    e.target.value = "";
+  }, [enqueueLivePair, pendingLiveVideo]);
+
+  const handleLiveVideoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      setPendingLiveVideo(selected);
+      if (pendingLiveStill) {
+        enqueueLivePair(pendingLiveStill, selected);
+      }
+    }
+    e.target.value = "";
+  }, [enqueueLivePair, pendingLiveStill]);
+
   const removeItem = useCallback((id: string) => {
     setQueue((prev) => {
       const item = prev.find((i) => i.id === id);
@@ -298,7 +396,9 @@ const UploadModal: React.FC<UploadModalProps> = ({
   const completedCount = queue.filter((i) => i.status === "completed").length;
   const failedCount = queue.filter((i) => i.status === "failed").length;
   const allCompleted = queue.length > 0 && completedCount === queue.length;
-  const totalBytes = queue.reduce((sum, item) => sum + item.file.size, 0);
+  const totalBytes = queue.reduce((sum, item) => {
+    return sum + item.file.size + (item.liveVideoFile?.size || 0);
+  }, 0);
   const isTokenConfigured = uploadToken.trim().length > 0;
 
   useEffect(() => {
@@ -389,6 +489,32 @@ const UploadModal: React.FC<UploadModalProps> = ({
             >
               <CardContent className="relative p-8 md:p-10">
                 <div className="mx-auto flex max-w-lg flex-col items-center text-center">
+                  <div className="mb-5 flex w-full items-center justify-center gap-2">
+                    <Button
+                      onClick={() => setUploadMode("static")}
+                      variant={uploadMode === "static" ? "default" : "outline"}
+                      className={cn(
+                        "rounded-full px-4 py-2 text-xs",
+                        uploadMode === "static"
+                          ? "bg-white text-black hover:bg-gray-200"
+                          : "border-white/20 bg-transparent text-gray-300 hover:bg-white/10"
+                      )}
+                    >
+                      静态图片
+                    </Button>
+                    <Button
+                      onClick={() => setUploadMode("live_photo")}
+                      variant={uploadMode === "live_photo" ? "default" : "outline"}
+                      className={cn(
+                        "rounded-full px-4 py-2 text-xs",
+                        uploadMode === "live_photo"
+                          ? "bg-amber-400 text-black hover:bg-amber-300"
+                          : "border-amber-300/40 bg-transparent text-amber-200 hover:bg-amber-500/15"
+                      )}
+                    >
+                      实况图片
+                    </Button>
+                  </div>
                   <div
                     className={cn(
                       "mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border transition-colors",
@@ -399,28 +525,71 @@ const UploadModal: React.FC<UploadModalProps> = ({
                   >
                     <Upload size={26} />
                   </div>
-                  <p className="text-base font-medium text-white">
-                    拖拽照片到这里，立即开始处理
-                  </p>
-                  <p className="mt-1 text-sm text-gray-400">
-                    自动生成缩略图、提取 EXIF、OCR 与画质分析
-                  </p>
-                  <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-                    <Button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={!isTokenConfigured}
-                      className="gap-2 rounded-full bg-white text-black hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-gray-500 disabled:text-gray-200"
-                    >
-                      <Images size={14} />
-                      选择文件
-                    </Button>
-                    <Badge className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-gray-300">
-                      JPG · PNG · WebP · HEIC
-                    </Badge>
-                    <Badge className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-gray-300">
-                      最大 {DEFAULT_UPLOAD_CONFIG.maxFileSize / 1024 / 1024}MB
-                    </Badge>
-                  </div>
+                  {uploadMode === "static" ? (
+                    <>
+                      <p className="text-base font-medium text-white">
+                        拖拽照片到这里，立即开始处理
+                      </p>
+                      <p className="mt-1 text-sm text-gray-400">
+                        自动生成缩略图、提取 EXIF、OCR 与画质分析
+                      </p>
+                      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                        <Button
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={!isTokenConfigured}
+                          className="gap-2 rounded-full bg-white text-black hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-gray-500 disabled:text-gray-200"
+                        >
+                          <Images size={14} />
+                          选择文件
+                        </Button>
+                        <Badge className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-gray-300">
+                          JPG · PNG · WebP · HEIC
+                        </Badge>
+                        <Badge className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-gray-300">
+                          最大 {DEFAULT_UPLOAD_CONFIG.maxFileSize / 1024 / 1024}MB
+                        </Badge>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-base font-medium text-white">
+                        手动配对上传实况：主图 + MOV
+                      </p>
+                      <p className="mt-1 text-sm text-gray-400">
+                        需同时选择一张主图和一个 MOV 文件，缺一不可
+                      </p>
+                      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                        <Button
+                          onClick={() => liveStillInputRef.current?.click()}
+                          disabled={!isTokenConfigured}
+                          className="gap-2 rounded-full bg-white text-black hover:bg-gray-200 disabled:cursor-not-allowed disabled:bg-gray-500 disabled:text-gray-200"
+                        >
+                          <Images size={14} />
+                          选择主图
+                        </Button>
+                        <Button
+                          onClick={() => liveVideoInputRef.current?.click()}
+                          disabled={!isTokenConfigured}
+                          variant="outline"
+                          className="gap-2 rounded-full border-amber-300/50 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Upload size={14} />
+                          选择 MOV
+                        </Button>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs text-gray-400">
+                        <Badge className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-gray-300">
+                          主图: {pendingLiveStill?.name || "未选择"}
+                        </Badge>
+                        <Badge className="rounded-full border border-amber-300/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-200">
+                          MOV: {pendingLiveVideo?.name || "未选择"}
+                        </Badge>
+                        <Badge className="rounded-full border border-amber-300/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-200">
+                          MOV 最大 10MB
+                        </Badge>
+                      </div>
+                    </>
+                  )}
                 </div>
                 <input
                   ref={fileInputRef}
@@ -429,6 +598,20 @@ const UploadModal: React.FC<UploadModalProps> = ({
                   accept="image/*"
                   className="hidden"
                   onChange={handleFileSelect}
+                />
+                <input
+                  ref={liveStillInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleLiveStillSelect}
+                />
+                <input
+                  ref={liveVideoInputRef}
+                  type="file"
+                  accept=".mov,video/quicktime"
+                  className="hidden"
+                  onChange={handleLiveVideoSelect}
                 />
               </CardContent>
             </Card>
@@ -482,6 +665,11 @@ const UploadModal: React.FC<UploadModalProps> = ({
                                 </p>
                                 <p className="mt-0.5 text-xs text-gray-500">
                                   {(item.file.size / 1024 / 1024).toFixed(2)} MB
+                                  {item.liveVideoFile && (
+                                    <span className="ml-2 text-amber-200">
+                                      + MOV {(item.liveVideoFile.size / 1024 / 1024).toFixed(2)} MB
+                                    </span>
+                                  )}
                                   {item.metadata?.image_id && (
                                     <span className="ml-2 font-mono text-[11px] text-gray-400">
                                       {item.metadata.image_id.slice(0, 16)}...
@@ -490,6 +678,11 @@ const UploadModal: React.FC<UploadModalProps> = ({
                                 </p>
                               </div>
                               <div className="flex items-center gap-2">
+                                {item.uploadMode === "live_photo" && (
+                                  <Badge className="rounded-full border border-amber-300/50 bg-amber-500/10 text-amber-200">
+                                    LIVE
+                                  </Badge>
+                                )}
                                 <Badge
                                   className={cn(
                                     "rounded-full border px-2.5 py-0.5 text-[11px]",

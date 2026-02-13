@@ -19,7 +19,13 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return errorResponse(env, "Method not allowed", 405);
   }
 
-  const imageId = params.id as string;
+  const rawId = params.id as string;
+  let imageId: string;
+  try {
+    imageId = decodeURIComponent(rawId);
+  } catch {
+    return errorResponse(env, "Invalid image_id encoding", 400);
+  }
   const type = params.type as string;
 
   if (!isValidImageId(imageId)) {

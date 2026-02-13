@@ -15,6 +15,7 @@ Professional photography portfolio web app built with React + TypeScript + Rsbui
   - Perceptual hash (blockhash)
 - Upload pipeline to Cloudflare Pages Functions
 - GitHub-backed storage for original image, thumbnail, and metadata
+- iOS Live Photo support (still image + MOV upload, storage, and playback in detail view)
 
 ## Tech Stack
 
@@ -103,3 +104,4 @@ functions/
 - `GET /api/v1/images/:id`: get metadata
 - `GET /api/v1/images/:id/thumb`: redirect to thumbnail
 - `GET /api/v1/images/:id/original`: redirect to original
+- `GET /api/v1/images/:id/live`: redirect to live video (when available)

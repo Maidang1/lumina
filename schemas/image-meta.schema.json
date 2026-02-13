@@ -8,7 +8,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "enum": ["1.0"],
+      "enum": ["1.0", "1.1"],
       "description": "Schema version for future compatibility"
     },
     "image_id": {
@@ -41,6 +41,34 @@
         },
         "thumb": {
           "$ref": "#/$defs/thumbMeta"
+        },
+        "live_video": {
+          "$ref": "#/$defs/fileMeta"
+        }
+      }
+    },
+    "live_photo": {
+      "type": "object",
+      "required": ["enabled", "pair_id", "still_hash", "video_hash"],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "pair_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "still_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "video_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     },

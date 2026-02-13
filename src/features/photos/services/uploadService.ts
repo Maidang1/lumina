@@ -75,6 +75,8 @@ export class UploadService {
     original: File,
     thumb: Blob,
     metadata: ImageMetadata,
+    liveVideo?: File,
+    uploadMode: "static" | "live_photo" = "static",
     onProgress?: (progress: number) => void
   ): Promise<UploadResult> {
     const uploadToken = this.getUploadToken();
@@ -86,6 +88,10 @@ export class UploadService {
     formData.append("original", original);
     formData.append("thumb", thumb, "thumb.webp");
     formData.append("metadata", JSON.stringify(metadata));
+    formData.append("upload_mode", uploadMode);
+    if (liveVideo) {
+      formData.append("live_video", liveVideo, liveVideo.name || "live.mov");
+    }
 
     const xhr = new XMLHttpRequest();
 
@@ -139,7 +145,7 @@ export class UploadService {
     return this.parseJson<ImageMetadata>(response, `Failed to fetch image: ${response.status}`);
   }
 
-  getImageUrl(imageId: string, type: "original" | "thumb"): string {
+  getImageUrl(imageId: string, type: "original" | "thumb" | "live"): string {
     return this.getEndpoint(`${this.getImagePath(imageId)}/${type}`);
   }
 

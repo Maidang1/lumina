@@ -49,7 +49,10 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
     const formData = await request.formData();
     const original = formData.get("original");
     const thumb = formData.get("thumb");
+    const liveVideo = formData.get("live_video");
     const metadataStr = formData.get("metadata");
+    const uploadModeValue = formData.get("upload_mode");
+    const uploadMode = uploadModeValue === "live_photo" ? "live_photo" : "static";
 
     if (!original || !(original instanceof File)) {
       return errorResponse(env, "Missing original file", 400);
@@ -75,25 +78,60 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
     }
 
     const MAX_SIZE = 25 * 1024 * 1024;
+    const MAX_LIVE_VIDEO_SIZE = 10 * 1024 * 1024;
     if (original.size > MAX_SIZE) {
       return errorResponse(env, "File too large", 413);
+    }
+
+    if (uploadMode === "live_photo") {
+      if (!liveVideo || !(liveVideo instanceof File)) {
+        return errorResponse(env, "Missing live video file for live photo upload", 400);
+      }
+      const isMovType =
+        liveVideo.type === "video/quicktime" ||
+        liveVideo.name.toLowerCase().endsWith(".mov");
+      if (!isMovType) {
+        return errorResponse(env, "Invalid live video type. Must be MOV", 400);
+      }
+      if (liveVideo.size > MAX_LIVE_VIDEO_SIZE) {
+        return errorResponse(env, "Live video file too large", 413);
+      }
+      if (!metadata.files.live_video) {
+        metadata.files.live_video = {
+          path: "",
+          mime: liveVideo.type || "video/quicktime",
+          bytes: liveVideo.size,
+        };
+      }
     }
 
     const github = createGitHubClient(env);
 
     const originalBytes = new Uint8Array(await original.arrayBuffer());
     const thumbBytes = new Uint8Array(await thumb.arrayBuffer());
+    const liveVideoBytes =
+      uploadMode === "live_photo" && liveVideo instanceof File
+        ? new Uint8Array(await liveVideo.arrayBuffer())
+        : undefined;
 
-    const { originalPath, thumbPath, metaPath } = await github.uploadImage(
+    const { originalPath, thumbPath, liveVideoPath, metaPath } = await github.uploadImage(
       originalBytes,
       original.type,
       thumbBytes,
-      metadata
+      metadata,
+      liveVideoBytes && liveVideo instanceof File
+        ? { bytes: liveVideoBytes, mime: liveVideo.type || "video/quicktime" }
+        : undefined
     );
 
     const result: UploadResult = {
       image_id: metadata.image_id,
-      stored: { original_path: originalPath, thumb_path: thumbPath, meta_path: metaPath },
+      stored: {
+        original_path: originalPath,
+        thumb_path: thumbPath,
+        live_video_path: liveVideoPath,
+        meta_path: metaPath,
+      },
       urls: buildImageApiUrls(metadata.image_id),
     };
 

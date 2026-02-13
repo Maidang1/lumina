@@ -68,10 +68,24 @@ export function metadataToPhoto(metadata: ImageMetadata): Photo {
     ? metadata.exif.DateTimeOriginal.split("T")[0]
     : new Date(metadata.timestamps.created_at).toISOString().split("T")[0];
 
+  const isLive = Boolean(metadata.files.live_video?.path);
+  const liveUrl = metadata.files.live_video?.path
+    ? `/api/v1/images/${encodeURIComponent(metadata.image_id)}/live`
+    : undefined;
   return {
     id: metadata.image_id,
     url: toRawGitHubUrl(getOriginalPath(metadata)),
     thumbnail: toRawGitHubUrl(getThumbPath(metadata)),
+    isLive,
+    liveUrl,
+    liveMime: metadata.files.live_video?.mime,
+    videoSource: liveUrl
+      ? {
+          type: "live-photo",
+          videoUrl: liveUrl,
+          mime: metadata.files.live_video?.mime,
+        }
+      : { type: "none" },
     title: metadata.exif?.Model || "Untitled",
     location: "",
     category: "",
