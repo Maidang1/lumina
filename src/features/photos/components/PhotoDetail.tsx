@@ -1,13 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { animated, useSpring } from "@react-spring/web";
+import { Loader2, X } from "lucide-react";
 import { Photo } from "@/features/photos/types";
-import { Aperture, Calendar, Camera, Gauge, Loader2, Timer, X, FileText, Trash2 } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/shared/ui/dialog";
-import { ScrollArea } from "@/shared/ui/scroll-area";
-import { Badge } from "@/shared/ui/badge";
-import { Button } from "@/shared/ui/button";
 import { videoLoaderManager } from "@/features/photos/services/videoLoaderManager";
 import { useLivePhotoControls } from "./hooks/useLivePhotoControls";
+import PhotoDetailInfoPanel from "./photo-detail/PhotoDetailInfoPanel";
 
 interface PhotoDetailProps {
   photo: Photo;
@@ -17,40 +15,6 @@ interface PhotoDetailProps {
   onDelete?: (photoId: string) => Promise<void>;
 }
 
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "-";
-  const units = ["B", "KB", "MB", "GB"];
-  let value = bytes;
-  let index = 0;
-  while (value >= 1024 && index < units.length - 1) {
-    value /= 1024;
-    index += 1;
-  }
-  return `${value.toFixed(value >= 100 || index === 0 ? 0 : 1)} ${units[index]}`;
-}
-
-function formatTime(value?: string): string {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("zh-CN", { hour12: false });
-}
-
-function formatExifText(value?: string | number): string {
-  if (!value) return "--";
-  const normalized = typeof value === "string" ? value.trim() : value.toString();
-  if (!normalized || normalized === "?" || normalized.toLowerCase() === "unknown") {
-    return "--";
-  }
-  return normalized;
-}
-
-function formatNumericWithUnit(value?: string, unit?: string): string {
-  const base = formatExifText(value);
-  if (base === "--") return "--";
-  return unit ? `${base}${unit}` : base;
-}
-
 const PhotoDetail: React.FC<PhotoDetailProps> = ({
   photo,
   onClose,
@@ -58,7 +22,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   isDeleting = false,
   onDelete,
 }) => {
-  const metadata = photo.metadata;
   const [isOriginalLoaded, setIsOriginalLoaded] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
   const [isLivePlaying, setIsLivePlaying] = useState(false);
@@ -66,10 +29,10 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   const [isConvertingVideo, setIsConvertingVideo] = useState(false);
   const [livePlaybackError, setLivePlaybackError] = useState<string | null>(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [liveFrameSize, setLiveFrameSize] = useState<{ width: number; height: number } | null>(null);
+
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
   const thumbnailImageRef = useRef<HTMLImageElement | null>(null);
-  const originalImageRef = useRef<HTMLImageElement | null>(null);
-  const [liveFrameSize, setLiveFrameSize] = useState<{ width: number; height: number } | null>(null);
 
   const hasVideo = photo.videoSource?.type === "live-photo";
 
@@ -83,17 +46,15 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     return () => mediaQuery.removeEventListener("change", handleMotionChange);
   }, []);
 
-  // 重置状态当照片改变时
   useEffect(() => {
     setIsOriginalLoaded(false);
     setLoadProgress(0);
   }, [photo.id]);
 
-  // 使用 fetch 跟踪图片加载进度
   useEffect(() => {
     let cancelled = false;
 
-    const loadImageWithProgress = async () => {
+    const loadImageWithProgress = async (): Promise<void> => {
       if (cancelled) return;
       setLoadProgress(0);
 
@@ -122,19 +83,18 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           setLoadProgress(100);
         }
       } catch {
-        // 如果 fetch 失败，回退到 img onload
         if (!cancelled) {
           setLoadProgress(100);
         }
       }
     };
 
-    loadImageWithProgress();
+    void loadImageWithProgress();
 
     return () => {
       cancelled = true;
     };
-  }, [photo.url, photo.id]);
+  }, [photo.id, photo.url]);
 
   const stopVideo = useCallback(() => {
     const video = liveVideoRef.current;
@@ -205,22 +165,26 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     if (!hasVideo || !liveVideoRef.current || isVideoReady || !photo.videoSource) {
       return;
     }
+
     let cancelled = false;
     void videoLoaderManager
       .processVideo(photo.videoSource, liveVideoRef.current, {
         onLoadingStateUpdate: (state) => {
-          if (cancelled) return;
-          setIsConvertingVideo(Boolean(state.isConverting));
+          if (!cancelled) {
+            setIsConvertingVideo(Boolean(state.isConverting));
+          }
         },
       })
       .then(() => {
-        if (cancelled) return;
-        setIsVideoReady(true);
-        setLivePlaybackError(null);
+        if (!cancelled) {
+          setIsVideoReady(true);
+          setLivePlaybackError(null);
+        }
       })
       .catch(() => {
-        if (cancelled) return;
-        setLivePlaybackError("实况视频加载失败。可能是浏览器不支持 MOV/HEVC，或视频源暂时不可用。");
+        if (!cancelled) {
+          setLivePlaybackError("实况视频加载失败。可能是浏览器不支持 MOV/HEVC，或视频源暂时不可用。");
+        }
       })
       .finally(() => {
         if (!cancelled) {
@@ -304,7 +268,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
             className='relative flex h-[45svh] min-w-0 flex-1 items-center justify-center overflow-hidden bg-black p-4 md:h-full md:p-8'
             style={{
               opacity: imagePanelSpring.opacity,
-              transform: imagePanelSpring.scale.to((s) => `scale(${s})`),
+              transform: imagePanelSpring.scale.to((value) => `scale(${value})`),
             }}
             onMouseDown={handleLongPressStart}
             onMouseUp={handleLongPressEnd}
@@ -315,20 +279,16 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
             <DialogTitle className='sr-only'>{photo.title}</DialogTitle>
 
             <div className='relative flex h-full w-full min-w-0 items-center justify-center overflow-hidden'>
-              {/* 图片容器 - 保持在视口内，防止宽高比极端时溢出 */}
               <div className='relative flex h-full w-full items-center justify-center overflow-hidden'>
-                {/* 缩略图 - 始终渲染，通过 opacity 控制显示 */}
                 <animated.img
                   ref={thumbnailImageRef}
                   src={photo.thumbnail}
                   alt={photo.title}
                   className='absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain shadow-2xl'
-                  style={{ opacity: imageSpring.opacity.to((v) => 1 - v) }}
+                  style={{ opacity: imageSpring.opacity.to((value) => 1 - value) }}
                 />
 
-                {/* 原始图片 - 始终渲染，加载完成后通过 opacity 显示 */}
                 <animated.img
-                  ref={originalImageRef}
                   src={photo.url}
                   alt={photo.title}
                   className='absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain shadow-2xl'
@@ -336,7 +296,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
                   onLoad={() => setIsOriginalLoaded(true)}
                 />
 
-                {/* 加载指示器 - 右下角轻提示 */}
                 {!isOriginalLoaded && (
                   <div className='absolute bottom-3 right-3 z-30 flex items-center gap-2 rounded-lg border border-white/[0.08] bg-black/70 px-2.5 py-1.5 backdrop-blur-md'>
                     <Loader2 className='h-3 w-3 animate-spin text-white/60' />
@@ -375,7 +334,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
                   <span className='text-[10px] font-medium uppercase tracking-[0.15em] text-[#c9a962]'>实况</span>
                 </div>
               )}
-
             </div>
           </animated.div>
 
@@ -383,181 +341,18 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
             className='h-[55svh] w-full md:h-full md:w-[400px] lg:w-[440px]'
             style={{
               opacity: infoPanelSpring.opacity,
-              transform: infoPanelSpring.x.to((x) => `translate3d(${x}px, 0, 0)`),
+              transform: infoPanelSpring.x.to((value) => `translate3d(${value}px, 0, 0)`),
             }}
           >
-            <ScrollArea className='h-full w-full border-l border-white/[0.03] bg-[#0a0a0c]/[0.98] backdrop-blur-2xl'>
-              <div className='space-y-10 p-7 md:p-9'>
-                <div>
-                  <h2 className='font-display text-2xl tracking-wide text-white md:text-3xl'>{photo.title}</h2>
-                  <div className='mt-4 flex flex-wrap items-center gap-3'>
-                    <Badge variant='outline' className='gap-2 border-white/[0.04] bg-white/[0.02] px-3 py-1.5 text-xs font-normal text-zinc-400'>
-                      <Calendar size={12} className='text-zinc-400' />
-                      <span>{photo.exif.date}</span>
-                    </Badge>
-                    {photo.isLive && (
-                      <Badge variant='outline' className='gap-2 border-[#c9a962]/20 bg-[#c9a962]/5 px-3 py-1.5 text-xs font-normal text-[#c9a962]'>
-                        <span className='h-1.5 w-1.5 rounded-full bg-[#c9a962]/70' />
-                        实况照片
-                      </Badge>
-                    )}
-                  </div>
-                  {photo.visualDescription && (
-                    <div className='mt-4 flex items-start gap-2 rounded-lg border border-white/[0.04] bg-white/[0.02] p-3'>
-                      <FileText size={14} className='mt-0.5 text-zinc-400' />
-                      <p className='text-sm leading-relaxed text-zinc-300'>
-                        {photo.visualDescription}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {hasVideo && <p className='text-xs font-light tracking-wide text-zinc-400'>长按图片播放实况</p>}
-                {isConvertingVideo && <p className='text-xs text-[#c9a962]/80'>正在转换实况视频...</p>}
-                {livePlaybackError && <p className='text-xs text-rose-400/80'>{livePlaybackError}</p>}
-
-                <div>
-                  <h3 className='mb-6 text-[10px] font-medium uppercase tracking-[0.25em] text-zinc-400'>拍摄参数</h3>
-                  <div className='grid grid-cols-2 gap-3'>
-                    <div className='rounded-xl border border-white/[0.03] bg-white/[0.01] p-4'>
-                      <div className='flex items-center gap-2 text-zinc-400'>
-                        <Aperture size={12} className='text-[#c9a962]/70' />
-                        <span className='text-[9px] uppercase tracking-[0.2em]'>光圈</span>
-                      </div>
-                      <span className='mt-2 block font-mono text-base text-white'>{formatExifText(photo.exif.aperture)}</span>
-                    </div>
-                    <div className='rounded-xl border border-white/[0.03] bg-white/[0.01] p-4'>
-                      <div className='flex items-center gap-2 text-zinc-400'>
-                        <Timer size={12} className='text-[#c9a962]/70' />
-                        <span className='text-[9px] uppercase tracking-[0.2em]'>快门</span>
-                      </div>
-                      <span className='mt-2 block font-mono text-base text-white'>{formatExifText(photo.exif.shutter)}</span>
-                    </div>
-                    <div className='rounded-xl border border-white/[0.03] bg-white/[0.01] p-4'>
-                      <div className='flex items-center gap-2 text-zinc-400'>
-                        <Gauge size={12} className='text-[#c9a962]/70' />
-                        <span className='text-[9px] uppercase tracking-[0.2em]'>感光度</span>
-                      </div>
-                      <span className='mt-2 block font-mono text-base text-white'>{formatExifText(photo.exif.iso)}</span>
-                    </div>
-                    <div className='rounded-xl border border-white/[0.03] bg-white/[0.01] p-4'>
-                      <div className='flex items-center gap-2 text-zinc-400'>
-                        <Camera size={12} className='text-[#c9a962]/70' />
-                        <span className='text-[9px] uppercase tracking-[0.2em]'>焦距</span>
-                      </div>
-                      <span className='mt-2 block font-mono text-base text-white'>
-                        {formatNumericWithUnit(photo.exif.focalLength, "mm")}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className='border-t border-white/[0.03]' />
-                <div className='space-y-4'>
-                  <h3 className='text-[10px] font-medium uppercase tracking-[0.25em] text-zinc-400'>文件信息</h3>
-                  <div className='space-y-3'>
-                    <div className='flex items-center justify-between'>
-                      <span className='text-xs text-zinc-400'>设备</span>
-                      <span className='text-xs text-white'>{photo.exif.camera}</span>
-                    </div>
-                    <div className='flex items-center justify-between'>
-                      <span className='text-xs text-zinc-400'>镜头</span>
-                      <span className='text-xs text-white'>{photo.exif.lens}</span>
-                    </div>
-                    <div className='flex items-center justify-between'>
-                      <span className='text-xs text-zinc-400'>分辨率</span>
-                      <span className='text-xs text-white'>
-                        {photo.width} × {photo.height}
-                      </span>
-                    </div>
-                    <div className='flex items-center justify-between'>
-                      <span className='text-xs text-zinc-400'>大小</span>
-                      <span className='text-xs text-white'>
-                        {metadata ? formatBytes(metadata.files.original.bytes) : photo.size}
-                      </span>
-                    </div>
-                    <div className='flex items-center justify-between'>
-                      <span className='text-xs text-zinc-400'>格式</span>
-                      <span className='text-xs text-white'>{metadata?.files.original.mime || photo.format}</span>
-                    </div>
-                    {metadata?.files.live_video && (
-                      <div className='flex items-center justify-between'>
-                        <span className='text-xs text-zinc-400'>实况视频</span>
-                        <span className='text-xs text-white'>
-                          {metadata.files.live_video.mime} · {formatBytes(metadata.files.live_video.bytes)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {metadata && (
-                  <>
-                    <div className='border-t border-white/[0.03]' />
-                    <div className='space-y-4'>
-                      <h3 className='text-[10px] font-medium uppercase tracking-[0.25em] text-zinc-400'>智能分析</h3>
-                      <div className='space-y-3'>
-                        <div className='flex items-center justify-between'>
-                          <span className='text-xs text-zinc-400'>主色调</span>
-                          <span className='font-mono text-xs text-white'>{metadata.derived.dominant_color.hex}</span>
-                        </div>
-                        <div className='flex items-center justify-between'>
-                          <span className='text-xs text-zinc-400'>模糊检测</span>
-                          <span className='text-xs text-white'>
-                            {metadata.derived.blur.is_blurry ? "模糊" : "清晰"} ({metadata.derived.blur.score.toFixed(1)})
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {metadata && (
-                  <>
-                    <div className='border-t border-white/[0.03]' />
-                    <div className='space-y-4'>
-                      <h3 className='text-[10px] font-medium uppercase tracking-[0.25em] text-zinc-400'>元数据</h3>
-                      <div className='space-y-3'>
-                        <div className='flex items-center justify-between'>
-                          <span className='text-xs text-zinc-400'>创建时间</span>
-                          <span className='text-xs text-white'>{formatTime(metadata.timestamps.created_at)}</span>
-                        </div>
-                        <div className='flex items-center justify-between'>
-                          <span className='text-xs text-zinc-400'>处理时间</span>
-                          <span className='text-xs text-white'>
-                            {formatTime(metadata.timestamps.client_processed_at)}
-                          </span>
-                        </div>
-                        <div className='flex items-start justify-between gap-4'>
-                          <span className='text-xs text-zinc-400'>图片 ID</span>
-                          <span className='break-all text-right font-mono text-[10px] text-zinc-400'>{metadata.image_id}</span>
-                        </div>
-                      </div>
-                    </div>
-                    {canDelete && (
-                      <div className='pt-2'>
-                        <Button
-                          size='sm'
-                          variant='outline'
-                          disabled={isDeleting}
-                          aria-label='删除图片'
-                          className='h-9 border-rose-300/60 bg-black/55 px-3 text-rose-100 hover:bg-rose-500/20 hover:text-rose-100'
-                          onClick={handleDeleteClick}
-                        >
-                          {isDeleting ? (
-                            <Loader2 size={14} className='animate-spin' />
-                          ) : (
-                            <Trash2 size={14} />
-                          )}
-                          <span className='ml-2 text-xs'>删除</span>
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                )}
-
-              </div>
-            </ScrollArea>
+            <PhotoDetailInfoPanel
+              photo={photo}
+              hasVideo={hasVideo}
+              isConvertingVideo={isConvertingVideo}
+              livePlaybackError={livePlaybackError}
+              canDelete={canDelete}
+              isDeleting={isDeleting}
+              onDeleteClick={handleDeleteClick}
+            />
           </animated.div>
         </animated.div>
       </DialogContent>
