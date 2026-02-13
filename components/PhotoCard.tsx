@@ -81,7 +81,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onClick }) => {
             <Card className="border-white/5 bg-[#2a2a2a]/80 backdrop-blur-sm">
               <CardContent className="flex items-center gap-3 p-2">
                 <Disc size={18} className="ml-1 text-white" />
-                <span className="text-sm font-medium text-white">{photo.exif.focalLength}</span>
+                <span className="text-sm font-medium text-white flex items-center">{photo.exif.focalLength}</span>
               </CardContent>
             </Card>
 
@@ -89,7 +89,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onClick }) => {
             <Card className="border-white/5 bg-[#2a2a2a]/80 backdrop-blur-sm">
               <CardContent className="flex items-center gap-3 p-2">
                 <Aperture size={18} className="ml-1 text-white" />
-                <span className="text-sm font-medium text-white">{photo.exif.aperture}</span>
+                <span className="text-sm font-medium text-white flex items-center">{photo.exif.aperture}</span>
               </CardContent>
             </Card>
 
@@ -97,7 +97,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onClick }) => {
             <Card className="border-white/5 bg-[#2a2a2a]/80 backdrop-blur-sm">
               <CardContent className="flex items-center gap-3 p-2">
                 <Timer size={18} className="ml-1 text-white" />
-                <span className="text-sm font-medium text-white">{photo.exif.shutter}</span>
+                <span className="text-sm font-medium text-white flex items-center">{photo.exif.shutter}</span>
               </CardContent>
             </Card>
 
@@ -105,7 +105,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onClick }) => {
             <Card className="border-white/5 bg-[#2a2a2a]/80 backdrop-blur-sm">
               <CardContent className="flex items-center gap-3 p-2">
                 <div className="ml-1 flex h-4 items-center rounded-[3px] border border-white px-[2px] text-[9px] font-bold">ISO</div>
-                <span className="text-sm font-medium text-white">{photo.exif.iso}</span>
+                <span className="text-sm font-medium text-white flex items-center">{photo.exif.iso}</span>
               </CardContent>
             </Card>
         </div>
