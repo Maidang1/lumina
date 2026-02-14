@@ -13,9 +13,12 @@ Professional photography portfolio web app built with React + TypeScript + Rsbui
   - Dominant color extraction
   - Blur detection (variance of Laplacian)
   - Perceptual hash (blockhash)
+- iOS Live Photo support:
+  - Still image extraction and upload
+  - MOV video storage
+  - Playback in detail view
 - Upload pipeline to Cloudflare Pages Functions
-- GitHub-backed storage for original image, thumbnail, and metadata
-- iOS Live Photo support (still image + MOV upload, storage, and playback in detail view)
+- GitHub-backed storage for original image, thumbnail, metadata, and live video
 
 ## Tech Stack
 
@@ -24,6 +27,7 @@ Professional photography portfolio web app built with React + TypeScript + Rsbui
 - Rsbuild
 - Tailwind CSS
 - Cloudflare Pages Functions
+- FFmpeg (video processing)
 - Wrangler
 
 ## Requirements
@@ -95,6 +99,8 @@ src/
 functions/
   _utils.ts
   api/v1/images/
+schemas/
+  image-meta.schema.json
 ```
 
 ## API Endpoints
