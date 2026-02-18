@@ -7,7 +7,17 @@ import { useLivePhotoControls } from './hooks/useLivePhotoControls';
 interface PhotoCardProps {
   photo: Photo;
   index: number;
-  onClick: (photo: Photo) => void;
+  onClick: (
+    photo: Photo,
+    transitionSource: {
+      photoId: string;
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+      borderRadius: number;
+    }
+  ) => void;
 }
 
 const PhotoCard: React.FC<PhotoCardProps> = ({
@@ -164,6 +174,29 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     };
   }, [stopVideo]);
 
+  const getTransitionSource = useCallback(() => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return {
+        photoId: photo.id,
+        left: window.innerWidth / 2,
+        top: window.innerHeight / 2,
+        width: 1,
+        height: 1,
+        borderRadius: 16,
+      };
+    }
+
+    return {
+      photoId: photo.id,
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+      borderRadius: 16,
+    };
+  }, [photo.id]);
+
   return (
     <animated.div
       ref={cardRef}
@@ -171,11 +204,11 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       role='button'
       tabIndex={0}
       aria-label={`查看图片 ${photo.title}`}
-      onClick={() => onClick(photo)}
+      onClick={() => onClick(photo, getTransitionSource())}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          onClick(photo);
+          onClick(photo, getTransitionSource());
         }
       }}
       onMouseEnter={() => {

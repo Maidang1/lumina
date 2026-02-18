@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { Photo, ImageMetadata } from "@/features/photos/types";
 import PhotoGrid from "@/features/photos/components/PhotoGrid";
 import PhotoDetail from "@/features/photos/components/PhotoDetail";
@@ -8,14 +8,39 @@ import { Aperture } from "lucide-react";
 import { uploadService } from "@/features/photos/services/uploadService";
 import { metadataToPhoto } from "@/features/photos/services/photoMapper";
 import { Badge } from "@/shared/ui/badge";
+import { Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 
-const App: React.FC = () => {
-  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+interface GalleryShellProps {
+  routePhotoId: string | null;
+}
+
+interface PhotoOpenTransition {
+  photoId: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  borderRadius: number;
+}
+
+const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
+  const [routePhoto, setRoutePhoto] = useState<Photo | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleteTokenConfigured, setIsDeleteTokenConfigured] = useState(false);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+  const [openTransition, setOpenTransition] = useState<PhotoOpenTransition | null>(null);
+  const navigate = useNavigate();
+
+  const navigateToPhoto = useCallback((photoId: string): void => {
+    navigate(`/photos/${encodeURIComponent(photoId)}`);
+  }, [navigate]);
+
+  const closeDetailRoute = useCallback((): void => {
+    setOpenTransition(null);
+    navigate("/", { replace: true });
+  }, [navigate]);
 
   const handleUploadComplete = useCallback((metadata: ImageMetadata) => {
     const newPhoto = metadataToPhoto(metadata);
@@ -58,6 +83,46 @@ const App: React.FC = () => {
     };
   }, []);
 
+  const selectedPhoto = useMemo(() => {
+    if (!routePhotoId) return null;
+    return photos.find((photo) => photo.id === routePhotoId) ?? routePhoto;
+  }, [photos, routePhoto, routePhotoId]);
+
+  useEffect(() => {
+    if (!routePhotoId) {
+      setRoutePhoto(null);
+      setOpenTransition(null);
+      return;
+    }
+
+    const existing = photos.find((photo) => photo.id === routePhotoId);
+    if (existing) {
+      setRoutePhoto(existing);
+      return;
+    }
+
+    let cancelled = false;
+    const loadRoutePhoto = async (): Promise<void> => {
+      try {
+        const metadata = await uploadService.getImage(routePhotoId);
+        if (!cancelled) {
+          setRoutePhoto(metadataToPhoto(metadata));
+        }
+      } catch (error) {
+        console.error("Failed to load route photo:", error);
+        if (!cancelled) {
+          navigate("/", { replace: true });
+        }
+      }
+    };
+
+    void loadRoutePhoto();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, photos, routePhotoId]);
+
   useEffect(() => {
     if (!selectedPhoto) return;
     setIsDeleteTokenConfigured(uploadService.hasUploadToken());
@@ -72,7 +137,9 @@ const App: React.FC = () => {
       setDeletingPhotoId(photoId);
       await uploadService.deleteImage(photoId);
       setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
-      setSelectedPhoto((prev) => (prev?.id === photoId ? null : prev));
+      if (routePhotoId === photoId) {
+        navigate("/", { replace: true });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "删除失败";
       window.alert(message);
@@ -80,10 +147,12 @@ const App: React.FC = () => {
       setDeletingPhotoId((prev) => (prev === photoId ? null : prev));
       setIsDeleteTokenConfigured(uploadService.hasUploadToken());
     }
-  }, [deletingPhotoId]);
+  }, [deletingPhotoId, navigate, routePhotoId]);
 
   return (
     <div className="min-h-screen">
+      <div className="app-background" aria-hidden="true" />
+      <div className="app-vignette" aria-hidden="true" />
       <header className="sticky top-5 z-30 px-5 sm:px-8">
         <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between rounded-2xl border border-white/[0.04] bg-white/[0.02] px-6 text-sm shadow-[0_4px_24px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-3xl sm:px-8">
           <div className="flex min-w-0 items-center gap-5 sm:gap-6">
@@ -119,7 +188,10 @@ const App: React.FC = () => {
         ) : (
           <PhotoGrid
             photos={photos}
-            onPhotoClick={setSelectedPhoto}
+            onPhotoClick={(photo, transitionSource) => {
+              setOpenTransition(transitionSource);
+              navigateToPhoto(photo.id);
+            }}
           />
         )}
       </main>
@@ -127,10 +199,11 @@ const App: React.FC = () => {
       {selectedPhoto && (
         <PhotoDetail
           photo={selectedPhoto}
-          onClose={() => setSelectedPhoto(null)}
+          onClose={closeDetailRoute}
           canDelete={isDeleteTokenConfigured}
           isDeleting={deletingPhotoId === selectedPhoto.id}
           onDelete={handleDeletePhoto}
+          openingTransition={openTransition && openTransition.photoId === selectedPhoto.id ? openTransition : null}
         />
       )}
 
@@ -140,6 +213,21 @@ const App: React.FC = () => {
         onUploadComplete={handleUploadComplete}
       />
     </div>
+  );
+};
+
+const GalleryRoute: React.FC = () => {
+  const { photoId } = useParams();
+  return <GalleryShell routePhotoId={photoId ?? null} />;
+};
+
+const App: React.FC = () => {
+  return (
+    <Routes>
+      <Route path="/" element={<GalleryRoute />} />
+      <Route path="/photos/:photoId" element={<GalleryRoute />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 };
 

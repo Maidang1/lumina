@@ -4,7 +4,17 @@ import PhotoCard from './PhotoCard';
 
 interface PhotoGridProps {
   photos: Photo[];
-  onPhotoClick: (photo: Photo) => void;
+  onPhotoClick: (
+    photo: Photo,
+    transitionSource: {
+      photoId: string;
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+      borderRadius: number;
+    }
+  ) => void;
 }
 
 const PhotoGrid: React.FC<PhotoGridProps> = ({

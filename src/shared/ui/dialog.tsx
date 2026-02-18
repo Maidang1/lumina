@@ -8,6 +8,58 @@ interface DialogContextValue {
 
 const DialogContext = createContext<DialogContextValue | null>(null);
 
+let openDialogCount = 0;
+let lockedScrollY = 0;
+let originalBodyOverflow = "";
+let originalBodyPaddingRight = "";
+let originalBodyPosition = "";
+let originalBodyTop = "";
+let originalBodyWidth = "";
+
+const lockBodyScroll = (): void => {
+  if (typeof document === "undefined") return;
+
+  if (openDialogCount === 0) {
+    const body = document.body;
+    const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    lockedScrollY = window.scrollY;
+    originalBodyOverflow = body.style.overflow;
+    originalBodyPaddingRight = body.style.paddingRight;
+    originalBodyPosition = body.style.position;
+    originalBodyTop = body.style.top;
+    originalBodyWidth = body.style.width;
+
+    body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${lockedScrollY}px`;
+    body.style.width = "100%";
+
+    if (scrollBarWidth > 0) {
+      body.style.paddingRight = `${scrollBarWidth}px`;
+    }
+  }
+
+  openDialogCount += 1;
+};
+
+const unlockBodyScroll = (): void => {
+  if (typeof document === "undefined") return;
+  if (openDialogCount <= 0) return;
+
+  openDialogCount -= 1;
+
+  if (openDialogCount === 0) {
+    const body = document.body;
+    body.style.overflow = originalBodyOverflow;
+    body.style.paddingRight = originalBodyPaddingRight;
+    body.style.position = originalBodyPosition;
+    body.style.top = originalBodyTop;
+    body.style.width = originalBodyWidth;
+    window.scrollTo(0, lockedScrollY);
+  }
+};
+
 interface DialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -48,6 +100,14 @@ const DialogContent: React.FC<DialogContentProps> = ({
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, [open, onOpenChange]);
+
+  useEffect(() => {
+    if (!open) return;
+    lockBodyScroll();
+    return () => {
+      unlockBodyScroll();
+    };
+  }, [open]);
 
   if (!open) return null;
 

@@ -13,6 +13,14 @@ interface PhotoDetailProps {
   canDelete?: boolean;
   isDeleting?: boolean;
   onDelete?: (photoId: string) => Promise<void>;
+  openingTransition?: {
+    photoId: string;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    borderRadius: number;
+  } | null;
 }
 
 const PhotoDetail: React.FC<PhotoDetailProps> = ({
@@ -21,6 +29,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   canDelete = false,
   isDeleting = false,
   onDelete,
+  openingTransition = null,
 }) => {
   const [isOriginalLoaded, setIsOriginalLoaded] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -30,9 +39,17 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   const [livePlaybackError, setLivePlaybackError] = useState<string | null>(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [liveFrameSize, setLiveFrameSize] = useState<{ width: number; height: number } | null>(null);
+  const [launchTargetRect, setLaunchTargetRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [isLaunchAnimating, setIsLaunchAnimating] = useState(false);
 
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
   const thumbnailImageRef = useRef<HTMLImageElement | null>(null);
+  const imagePanelRef = useRef<HTMLDivElement | null>(null);
 
   const hasVideo = photo.videoSource?.type === "live-photo";
 
@@ -245,6 +262,82 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     config: { tension: 180, friction: 28 },
   });
 
+  useEffect(() => {
+    if (
+      prefersReducedMotion ||
+      !openingTransition ||
+      openingTransition.photoId !== photo.id
+    ) {
+      setIsLaunchAnimating(false);
+      setLaunchTargetRect(null);
+      return;
+    }
+
+    setIsLaunchAnimating(true);
+    const animationFrame = window.requestAnimationFrame(() => {
+      const rect = imagePanelRef.current?.getBoundingClientRect();
+      if (!rect) {
+        setIsLaunchAnimating(false);
+        return;
+      }
+
+      setLaunchTargetRect({
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      });
+    });
+
+    const timeout = window.setTimeout(() => {
+      setIsLaunchAnimating(false);
+    }, 480);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.clearTimeout(timeout);
+    };
+  }, [openingTransition, photo.id, prefersReducedMotion]);
+
+  const launchSpring = useSpring({
+    immediate:
+      prefersReducedMotion ||
+      !openingTransition ||
+      !launchTargetRect ||
+      !isLaunchAnimating ||
+      openingTransition.photoId !== photo.id,
+    from: {
+      left: openingTransition?.left ?? window.innerWidth / 2,
+      top: openingTransition?.top ?? window.innerHeight / 2,
+      width: openingTransition?.width ?? 1,
+      height: openingTransition?.height ?? 1,
+      radius: openingTransition?.borderRadius ?? 16,
+      opacity: 1,
+    },
+    to:
+      isLaunchAnimating &&
+      openingTransition &&
+      launchTargetRect &&
+      openingTransition.photoId === photo.id
+        ? {
+            left: launchTargetRect.left,
+            top: launchTargetRect.top,
+            width: launchTargetRect.width,
+            height: launchTargetRect.height,
+            radius: 0,
+            opacity: 0,
+          }
+        : {
+            left: launchTargetRect?.left ?? openingTransition?.left ?? 0,
+            top: launchTargetRect?.top ?? openingTransition?.top ?? 0,
+            width: launchTargetRect?.width ?? openingTransition?.width ?? 1,
+            height: launchTargetRect?.height ?? openingTransition?.height ?? 1,
+            radius: 0,
+            opacity: 0,
+          },
+    config: { tension: 240, friction: 28 },
+  });
+
   return (
     <Dialog
       open={true}
@@ -265,6 +358,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           </DialogClose>
 
           <animated.div
+            ref={imagePanelRef}
             className='relative flex h-[45svh] min-w-0 flex-1 items-center justify-center overflow-hidden bg-black p-4 md:h-full md:p-8'
             style={{
               opacity: imagePanelSpring.opacity,
@@ -276,9 +370,21 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
             onTouchStart={handleLongPressStart}
             onTouchEnd={handleLongPressEnd}
           >
+            <div className='pointer-events-none absolute inset-0 overflow-hidden'>
+              <img
+                src={photo.thumbnail}
+                alt=''
+                aria-hidden='true'
+                className='absolute inset-0 h-full w-full scale-125 object-cover opacity-65 blur-3xl'
+              />
+              <div className='absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(20,20,24,0.05)_0%,rgba(8,8,10,0.75)_78%)]' />
+              <div className='absolute inset-y-0 right-0 w-[22%] bg-gradient-to-l from-black/60 to-transparent' />
+              <div className='absolute inset-y-0 left-0 w-[18%] bg-gradient-to-r from-black/45 to-transparent' />
+            </div>
+
             <DialogTitle className='sr-only'>{photo.title}</DialogTitle>
 
-            <div className='relative flex h-full w-full min-w-0 items-center justify-center overflow-hidden'>
+            <div className='relative z-10 flex h-full w-full min-w-0 items-center justify-center overflow-hidden'>
               <div className='relative flex h-full w-full items-center justify-center overflow-hidden'>
                 <animated.img
                   ref={thumbnailImageRef}
@@ -338,7 +444,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           </animated.div>
 
           <animated.div
-            className='h-[55svh] w-full md:h-full md:w-[400px] lg:w-[440px]'
+            className='h-[55svh] w-full md:h-full md:w-[420px] lg:w-[460px]'
             style={{
               opacity: infoPanelSpring.opacity,
               transform: infoPanelSpring.x.to((value) => `translate3d(${value}px, 0, 0)`),
@@ -355,6 +461,29 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
             />
           </animated.div>
         </animated.div>
+        {openingTransition &&
+          launchTargetRect &&
+          openingTransition.photoId === photo.id &&
+          isLaunchAnimating && (
+            <animated.div
+              className='pointer-events-none fixed z-[80] overflow-hidden bg-black shadow-[0_24px_80px_rgba(0,0,0,0.55)]'
+              style={{
+                left: launchSpring.left,
+                top: launchSpring.top,
+                width: launchSpring.width,
+                height: launchSpring.height,
+                borderRadius: launchSpring.radius,
+                opacity: launchSpring.opacity,
+              }}
+            >
+              <img
+                src={photo.thumbnail}
+                alt=''
+                aria-hidden='true'
+                className='h-full w-full object-cover'
+              />
+            </animated.div>
+          )}
       </DialogContent>
     </Dialog>
   );

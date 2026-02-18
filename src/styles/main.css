@@ -31,6 +31,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
+  overflow-x: hidden;
 }
 
 body::before {
@@ -38,19 +39,26 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 100% 60% at 50% -10%, rgba(201, 169, 98, 0.06), transparent 50%),
-    radial-gradient(ellipse 80% 50% at 100% 0%, rgba(201, 169, 98, 0.03), transparent 40%),
-    radial-gradient(ellipse 60% 40% at 0% 100%, rgba(255, 255, 255, 0.015), transparent 40%);
+    radial-gradient(ellipse 110% 70% at 50% -10%, rgba(201, 169, 98, 0.1), transparent 52%),
+    radial-gradient(ellipse 70% 45% at 100% 0%, rgba(201, 169, 98, 0.08), transparent 42%),
+    radial-gradient(ellipse 65% 44% at 0% 100%, rgba(157, 187, 255, 0.05), transparent 48%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(255, 255, 255, 0.03), transparent 50%);
   pointer-events: none;
   z-index: 0;
+  animation: aurora-float 18s ease-in-out infinite alternate;
 }
 
 body::after {
   content: "";
   position: fixed;
   inset: 0;
-  opacity: 0.35;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.42;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 56px 56px, 56px 56px, 220px 220px;
+  background-position: 0 0, 0 0, 0 0;
   pointer-events: none;
   z-index: 1;
   mix-blend-mode: overlay;
@@ -59,6 +67,73 @@ body::after {
 #root {
   position: relative;
   z-index: 2;
+}
+
+.app-background {
+  position: fixed;
+  inset: -20%;
+  pointer-events: none;
+  z-index: 1;
+  filter: blur(64px);
+}
+
+.app-background::before,
+.app-background::after {
+  content: "";
+  position: absolute;
+  width: 38rem;
+  height: 38rem;
+  border-radius: 9999px;
+  opacity: 0.45;
+}
+
+.app-background::before {
+  top: 8%;
+  right: -8%;
+  background: radial-gradient(circle, rgba(201, 169, 98, 0.42) 0%, rgba(201, 169, 98, 0) 65%);
+  animation: orb-drift-a 20s ease-in-out infinite alternate;
+}
+
+.app-background::after {
+  bottom: -6%;
+  left: -8%;
+  background: radial-gradient(circle, rgba(126, 151, 255, 0.32) 0%, rgba(126, 151, 255, 0) 68%);
+  animation: orb-drift-b 24s ease-in-out infinite alternate;
+}
+
+.app-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(circle at center, rgba(8, 8, 10, 0) 40%, rgba(3, 3, 5, 0.6) 100%);
+}
+
+@keyframes aurora-float {
+  0% {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  100% {
+    transform: scale(1.05) translate3d(-1.5%, 1.5%, 0);
+  }
+}
+
+@keyframes orb-drift-a {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(-7%, 4%, 0) scale(1.08);
+  }
+}
+
+@keyframes orb-drift-b {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(8%, -5%, 0) scale(1.1);
+  }
 }
 
 .font-serif {
@@ -165,7 +240,10 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .shimmer,
   .skeleton,
-  .animate-spin {
+  .animate-spin,
+  .app-background::before,
+  .app-background::after,
+  body::before {
     animation: none !important;
   }
 
