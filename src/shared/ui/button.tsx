@@ -8,11 +8,11 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<NonNullable<ButtonProps["variant"]>, string> = {
   default:
-    "bg-white text-black hover:bg-gray-100",
+    "bg-lumina-accent text-black hover:bg-lumina-accent/90",
   outline:
-    "border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white",
+    "border border-lumina-border bg-lumina-surface/50 text-lumina-text-secondary hover:bg-lumina-surface hover:text-lumina-text",
   ghost:
-    "bg-transparent text-gray-300 hover:bg-white/10 hover:text-white",
+    "bg-transparent text-lumina-text-secondary hover:bg-lumina-surface hover:text-lumina-text",
 };
 
 const sizeClasses: Record<NonNullable<ButtonProps["size"]>, string> = {

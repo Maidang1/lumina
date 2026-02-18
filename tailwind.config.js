@@ -7,15 +7,26 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Space Grotesk"', 'sans-serif'],
-        serif: ['"Archivo"', 'serif'],
+        sans: ['"Inter"', 'sans-serif'],
+        serif: ['"Bodoni Moda"', 'serif'],
+        mono: ['"Space Grotesk"', 'monospace'],
+        display: ['"Bodoni Moda"', 'serif'],
       },
       colors: {
-        'pro-black': '#0a0a0a',
-        'pro-gray': '#1a1a1a',
-        'pro-light': '#e5e5e5',
-        'accent': '#d4af37',
-      }
+        'lumina': {
+          'bg': '#050505',
+          'surface': '#0a0a0a',
+          'surface-elevated': '#121212',
+          'border': 'rgba(255, 255, 255, 0.08)',
+          'border-subtle': 'rgba(255, 255, 255, 0.04)',
+          'text': '#fafafa',
+          'text-secondary': '#a1a1aa',
+          'muted': '#52525b',
+          'accent': '#D4AF37',
+          'accent-muted': 'rgba(212, 175, 55, 0.15)',
+          'accent-glow': 'rgba(212, 175, 55, 0.25)',
+        },
+      },
     }
   },
   plugins: [],

@@ -211,10 +211,10 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   return (
     <animated.div
       ref={cardRef}
-      className='group relative mb-4 break-inside-avoid cursor-pointer overflow-hidden rounded-2xl bg-[#0c0c0e] transition-[box-shadow] duration-500 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c9a962]/40 md:mb-5'
+      className='group relative mb-6 break-inside-avoid cursor-pointer overflow-hidden bg-[#050505]'
       role='button'
       tabIndex={0}
-      aria-label={`查看图片 ${photo.title}`}
+      aria-label={`View photo ${photo.title}`}
       onClick={() => {
         if (selectionMode) {
           onToggleSelect?.(photo.id);
@@ -242,46 +242,43 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       }}
       style={{ 
         aspectRatio: `${photo.width} / ${photo.height}`,
-        boxShadow: hoverSpring.borderGlow.to(
-          (glow) => `0 2px 8px rgba(0,0,0,0.4), 0 8px 32px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,${0.04 + glow}), inset 0 1px 0 rgba(255,255,255,${0.06 + glow * 0.5})`
-        ),
       }}
     >
-      <div className='pointer-events-none absolute inset-0 rounded-2xl border border-white/[0.04] opacity-0 transition-opacity duration-300 group-hover:opacity-100' 
-           style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%, rgba(255,255,255,0.01) 100%)' }} 
-      />
+      <div className='absolute inset-0 z-10 transition-opacity duration-500 opacity-0 group-hover:opacity-100 bg-black/20' />
+      
       <button
         type='button'
-        aria-label={isFavorite ? '取消收藏' : '收藏'}
-        className='absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white/80 backdrop-blur-sm transition hover:border-white/40 hover:text-white'
+        aria-label={isFavorite ? 'Unfavorite' : 'Favorite'}
+        className={`absolute right-4 top-4 z-20 transition-all duration-300 ${
+          isFavorite ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          if (selectionMode) {
-            onToggleSelect?.(photo.id);
-            return;
-          }
           onToggleFavorite(photo.id);
         }}
       >
         <Star
-          size={14}
-          className={isFavorite ? 'fill-[#c9a962] text-[#c9a962]' : ''}
+          size={16}
+          className={isFavorite ? 'fill-white text-white' : 'text-white/70 hover:text-white'}
+          strokeWidth={1.5}
         />
       </button>
+
       {selectionMode && (
         <span
-          className={`absolute left-3 top-3 z-20 inline-flex h-6 min-w-6 items-center justify-center rounded-full border text-[10px] ${
+          className={`absolute left-4 top-4 z-20 inline-flex h-5 w-5 items-center justify-center rounded-full border ${
             isSelected
-              ? "border-[#c9a962]/60 bg-[#c9a962]/30 text-[#f7e6bc]"
-              : "border-white/30 bg-black/55 text-zinc-300"
+              ? "border-white bg-white text-black"
+              : "border-white/50 bg-black/20"
           }`}
         >
-          {isSelected ? "✓" : ""}
+          {isSelected && <span className="block h-2 w-2 bg-black rounded-full" />}
         </span>
       )}
+
       <animated.div
-        className='h-full w-full'
+        className='h-full w-full will-change-transform'
         style={{
           opacity: enterSpring.opacity,
           transform: to(
@@ -291,11 +288,10 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         }}
       >
         {isVisible && (
-          <animated.img
+          <img
             src={photo.thumbnail}
             alt={photo.title}
-            className='h-full w-full object-cover'
-            style={{ opacity: imageSpring.opacity }}
+            className='h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105'
             onLoad={() => setIsLoaded(true)}
           />
         )}
@@ -304,8 +300,9 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       {hasVideo && (
         <video
           ref={videoRef}
-          className='pointer-events-none absolute inset-0 z-10 h-full w-full object-cover transition-opacity duration-200'
-          style={{ opacity: isVideoPlaying ? 1 : 0 }}
+          className={`pointer-events-none absolute inset-0 z-0 h-full w-full object-cover transition-opacity duration-500 ${
+            isVideoPlaying ? 'opacity-100' : 'opacity-0'
+          }`}
           muted
           playsInline
           preload='metadata'
@@ -313,66 +310,29 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         />
       )}
 
-      {!isLoaded && (
-        <div className='absolute inset-0 skeleton rounded-2xl' />
-      )}
-
-      <animated.div
-        className='absolute inset-0 hidden flex-col justify-end bg-gradient-to-t from-black/[0.92] via-black/50 to-transparent p-5 md:flex lg:p-6'
-        style={{
-          opacity: hoverSpring.overlayOpacity,
-          transform: hoverSpring.overlayY.to(
-            (y) => `translate3d(0, ${y}px, 0)`,
-          ),
-        }}
+      <div 
+        className='absolute inset-x-0 bottom-0 z-20 flex flex-col justify-end p-6 opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-gradient-to-t from-black/80 via-black/20 to-transparent'
       >
-        <h3 className='font-display truncate text-xl text-white lg:text-2xl'>
+        <h3 className='font-serif text-xl text-white tracking-wide'>
           {photo.filename}
         </h3>
-
-        {photo.visualDescription && (
-          <p className='mt-1.5 text-xs font-light tracking-wide text-white/80 line-clamp-2'>
-            {photo.visualDescription}
-          </p>
-        )}
-
-        <p className='mt-1.5 text-xs font-light tracking-wide text-white/60'>
-          {photo.format} <span className='mx-1.5 opacity-30'>·</span>{' '}
-          {photo.width} × {photo.height}{' '}
-          <span className='mx-1.5 opacity-30'>·</span> {photo.size}
-        </p>
-      </animated.div>
-
-      <div className='absolute inset-x-0 bottom-0 block bg-gradient-to-t from-black/[0.92] via-black/50 to-transparent px-4 pb-4 pt-12 md:hidden'>
-        {photo.isLive && (
-          <span className='mb-2 inline-flex items-center gap-1.5 rounded-full border border-[#c9a962]/30 bg-[#c9a962]/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-[#c9a962]'>
-            <span className='h-1.5 w-1.5 rounded-full bg-[#c9a962]/80' />
-            {isConvertingVideo ? '转换中' : '实况'}
-          </span>
-        )}
-        <div className='flex flex-col gap-1'>
-          <p className='truncate text-sm font-medium text-white'>
-            {photo.filename ?? '--'}
-          </p>
-          {photo.visualDescription && (
-            <p className='truncate text-xs text-white/60'>
-              {photo.visualDescription}
-            </p>
+        
+        <div className='mt-2 flex items-center gap-3 text-[10px] font-medium tracking-widest text-white/60 uppercase'>
+          <span>{photo.width} × {photo.height}</span>
+          {photo.format && (
+            <>
+              <span className='h-0.5 w-0.5 rounded-full bg-white/40' />
+              <span>{photo.format}</span>
+            </>
           )}
         </div>
       </div>
-
+      
       {photo.isLive && (
-        <span className='absolute left-4 top-4 hidden items-center gap-1.5 rounded-full border border-[#c9a962]/30 bg-[#c9a962]/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.15em] text-[#c9a962] md:inline-flex'>
-          <span className='h-1.5 w-1.5 rounded-full bg-[#c9a962]/80' />
-          {isConvertingVideo ? '转换中' : '实况'}
-        </span>
-      )}
-
-      {videoError && (
-        <span className='absolute bottom-2 right-2 z-20 rounded bg-black/50 px-2 py-1 text-[10px] text-rose-200'>
-          {videoError}
-        </span>
+        <div className='absolute left-4 top-4 z-20 flex items-center gap-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100'>
+          <div className={`h-1.5 w-1.5 rounded-full ${isConvertingVideo ? 'bg-white/50 animate-pulse' : 'bg-white'}`} />
+          <span className="text-[10px] font-medium tracking-widest text-white uppercase">Live</span>
+        </div>
       )}
     </animated.div>
   );

@@ -8,12 +8,16 @@ interface ProcessingProgressProps {
 }
 
 const STAGE_LABELS: Record<string, string> = {
+  hash: "哈希计算",
   thumbnail: "缩略图生成",
   exif: "EXIF 提取",
+  region: "区域解析",
+  privacy: "隐私脱敏",
   ocr: "OCR 识别",
   color: "主色提取",
   blur: "模糊检测",
   phash: "感知哈希",
+  finalize: "元数据组装",
 };
 
 const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ stages }) => {
@@ -55,6 +59,9 @@ const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ stages }) => {
                 <span className="text-xs text-gray-500">
                   {Math.round(stage.progress)}%
                 </span>
+              )}
+              {stage.status !== "processing" && typeof stage.duration_ms === "number" && (
+                <span className="text-xs text-gray-500">{stage.duration_ms}ms</span>
               )}
             </div>
 

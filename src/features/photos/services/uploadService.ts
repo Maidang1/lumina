@@ -204,7 +204,9 @@ export class UploadService {
 
   async updateImageMetadata(
     imageId: string,
-    updates: { description?: string; original_filename?: string }
+    updates: Partial<
+      Pick<ImageMetadata, "description" | "original_filename" | "privacy" | "geo" | "processing">
+    >
   ): Promise<ImageMetadata> {
     const uploadToken = this.getUploadToken();
     if (!uploadToken) {

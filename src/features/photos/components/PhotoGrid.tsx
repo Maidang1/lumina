@@ -32,8 +32,8 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({
   onToggleSelect,
 }) => {
   return (
-    <div className="w-full py-3">
-      <div className="columns-2 gap-4 space-y-4 md:columns-3 md:gap-5 md:space-y-5 lg:columns-4">
+    <div className="w-full py-10 px-4">
+      <div className="columns-1 gap-8 space-y-8 sm:columns-2 md:columns-3 lg:columns-4 xl:gap-10">
         {photos.map((photo, index) => (
           <PhotoCard 
             key={photo.id} 

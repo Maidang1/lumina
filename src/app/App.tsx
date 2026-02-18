@@ -29,13 +29,6 @@ interface PhotoOpenTransition {
 const FAVORITE_STORAGE_KEY = "lumina.photo_favorites";
 const TAG_STORAGE_KEY = "lumina.photo_tags";
 
-const getModeButtonClass = (isActive: boolean): string =>
-  `inline-flex h-9 items-center rounded-lg border px-3 text-xs transition ${
-    isActive
-      ? "border-[#c9a962]/35 bg-[#c9a962]/15 text-[#e8d19a]"
-      : "border-white/[0.08] bg-white/[0.03] text-zinc-300 hover:border-white/[0.14]"
-  }`;
-
 const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
   const [routePhoto, setRoutePhoto] = useState<Photo | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -211,50 +204,47 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
 
   return (
     <div className="min-h-screen">
-      <div className="app-background" aria-hidden="true" />
-      <div className="app-vignette" aria-hidden="true" />
-      <header className="sticky top-5 z-30 px-5 sm:px-8">
-        <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between rounded-2xl border border-white/[0.04] bg-white/[0.02] px-6 text-sm shadow-[0_4px_24px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-3xl sm:px-8">
-          <div className="flex min-w-0 items-center gap-5 sm:gap-6">
-            <div className="flex items-center gap-3.5">
-              <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#c9a962]/15 to-transparent">
-                <div className="absolute inset-0 rounded-xl border border-[#c9a962]/20" />
-                <Aperture size={16} className="text-[#c9a962]" strokeWidth={1.5} />
-              </div>
-              <span className="font-display text-lg tracking-wide text-white sm:text-xl">
-                Lumina
-              </span>
-            </div>
-            <div className="h-5 w-px bg-white/[0.06]" />
-            <Badge variant="secondary" className="border-white/[0.04] bg-white/[0.02] font-mono text-[11px] font-normal tracking-wide text-zinc-300">
-              {photos.length}
-            </Badge>
+      <header className="sticky top-0 z-30 w-full border-b border-lumina-border-subtle bg-lumina-bg/80 backdrop-blur-md">
+        <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between px-6 sm:px-10">
+          <div className="flex items-center gap-6">
+            <span className="font-serif text-3xl tracking-tight text-lumina-text">
+              Lumina
+            </span>
+            <div className="h-3 w-px bg-lumina-border" />
+            <span className="pt-0.5 font-mono text-xs tracking-wider text-lumina-muted uppercase">
+              Portfolio
+            </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className={getModeButtonClass(viewMode === "grid")}
-              onClick={() => setViewMode("grid")}
-            >
-              网格
-            </button>
-            <button
-              type="button"
-              className={getModeButtonClass(viewMode === "map")}
-              onClick={() => setViewMode("map")}
-            >
-              地图
-            </button>
-            {isDeleteTokenConfigured && (
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-6 text-sm font-medium">
               <button
                 type="button"
-                className={getModeButtonClass(isBatchMode)}
-                onClick={handleToggleBatchMode}
+                className={`transition-colors duration-300 ${viewMode === "grid" ? "text-white" : "text-white/40 hover:text-white/70"}`}
+                onClick={() => setViewMode("grid")}
               >
-                批量
+                Gallery
               </button>
-            )}
+              <button
+                type="button"
+                className={`transition-colors duration-300 ${viewMode === "map" ? "text-white" : "text-white/40 hover:text-white/70"}`}
+                onClick={() => setViewMode("map")}
+              >
+                Map
+              </button>
+              {isDeleteTokenConfigured && (
+                <button
+                  type="button"
+                  className={`transition-colors duration-300 ${isBatchMode ? "text-white" : "text-white/40 hover:text-white/70"}`}
+                  onClick={handleToggleBatchMode}
+                >
+                  Manage
+                </button>
+              )}
+            </div>
+            
+            <div className="h-4 w-px bg-lumina-border-subtle" />
+            
             <UploadButton onClick={() => setIsUploadModalOpen(true)} />
           </div>
         </div>

@@ -1,6 +1,20 @@
 import React, { useMemo, useState } from "react";
 import { ChevronDown, Loader2, MapPin, Share2 } from "lucide-react";
 import { Photo } from "@/features/photos/types";
+import {
+  getRegionBoundary,
+  reverseGeocodeToRegion,
+} from "@/features/photos/services/geoRegionService";
+import { uploadService } from "@/features/photos/services/uploadService";
+import { buildMapSharePoster } from "@/features/photos/services/mapSharePoster";
+import {
+  GeoJsonGeometry,
+  RegionAggregate,
+  RegionBoundaryResult,
+  RegionInfo,
+} from "@/features/photos/types/map";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import { Button } from "@/shared/ui/button";
 
 interface PhotoMapViewProps {
   photos: Photo[];
@@ -8,9 +22,10 @@ interface PhotoMapViewProps {
 }
 
 interface GeoPoint {
+  key: string;
   photo: Photo;
-  lat: number;
-  lng: number;
+  coordinates: { lat: number; lng: number } | null;
+  regionFromMetadata: RegionInfo | null;
   monthKey: string;
 }
 
@@ -18,8 +33,11 @@ interface LeafletWindow extends Window {
   L?: {
     map: (element: HTMLElement, options?: Record<string, unknown>) => LeafletMap;
     tileLayer: (url: string, options?: Record<string, unknown>) => LeafletLayer;
-    circleMarker: (latLng: [number, number], options?: Record<string, unknown>) => LeafletCircleMarker;
     layerGroup: () => LeafletLayerGroup;
+    geoJSON: (
+      data: GeoJsonGeometry,
+      options?: { style?: () => Record<string, unknown> }
+    ) => LeafletGeoJsonLayer;
     latLngBounds: (latLngs: [number, number][]) => LeafletBounds;
   };
   leafletImage?: (
@@ -32,37 +50,27 @@ interface LeafletMap {
   setView: (center: [number, number], zoom: number) => void;
   fitBounds: (bounds: LeafletBounds, options?: Record<string, unknown>) => void;
   setMaxBounds: (bounds: LeafletBounds) => void;
-  getCenter: () => { lat: number; lng: number };
-  getZoom: () => number;
-  on: (event: string, handler: () => void) => LeafletMap;
   remove: () => void;
-  addLayer: (layer: unknown) => void;
-  removeLayer: (layer: unknown) => void;
+  on: (event: string, handler: () => void) => LeafletMap;
   invalidateSize: () => void;
 }
 
 interface LeafletLayer {
   addTo: (map: LeafletMap) => LeafletLayer;
-  on?: (event: string, handler: () => void) => LeafletLayer;
-}
-
-interface LeafletCircleMarker {
-  bindTooltip: (text: string) => LeafletCircleMarker;
-  on: (event: string, handler: () => void) => LeafletCircleMarker;
 }
 
 interface LeafletLayerGroup {
   addTo: (map: LeafletMap) => LeafletLayerGroup;
   clearLayers: () => void;
-  addLayer: (layer: LeafletCircleMarker) => void;
+}
+
+interface LeafletGeoJsonLayer {
+  addTo: (layerGroup: LeafletLayerGroup) => LeafletGeoJsonLayer;
+  bindTooltip: (text: string) => LeafletGeoJsonLayer;
+  on: (event: string, handler: () => void) => LeafletGeoJsonLayer;
 }
 
 interface LeafletBounds {}
-
-interface LocationSummary {
-  country: string;
-  region: string;
-}
 
 const ASIA_BOUNDS: [number, number][] = [
   [-10, 25],
@@ -83,91 +91,47 @@ const MAP_THEME_PRESET = {
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; CARTO',
   overlayAttribution:
     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; Stadia Maps &copy; Stamen Design',
-  pointColor: "#f1d8a3",
 };
 
-const roundCoordinate = (value: number): number => Math.round(value * 10) / 10;
+const UNKNOWN_REGION: RegionInfo = {
+  country: "中国",
+  province: "未知省份",
+  city: "未知城市",
+  district: "未知区县",
+  displayName: "未知地区",
+  cacheKey: "CN|未知省份|未知城市",
+};
 
-const toLocationKey = (lat: number, lng: number): string => `${roundCoordinate(lat)},${roundCoordinate(lng)}`;
+const parseCoordinate = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
 
-interface GroupedLocation {
-  lat: number;
-  lng: number;
-  count: number;
-  samples: string[];
-}
+const getPhotoCoordinates = (photo: Photo): { lat: number; lng: number } | null => {
+  const exif = (photo.metadata?.exif ?? {}) as Record<string, unknown>;
+  const lat = parseCoordinate(exif.GPSLatitude);
+  const lng = parseCoordinate(exif.GPSLongitude);
+  if (lat === null || lng === null) return null;
+  return { lat, lng };
+};
 
-interface TimelinePanelProps {
-  activeMonth: string;
-  pointsCount: number;
-  monthBuckets: [string, number][];
-  groupedLocations: GroupedLocation[];
-  onMonthChange: (month: string) => void;
-  onLocationClick: (group: GroupedLocation) => void;
-  className?: string;
-  monthListClassName?: string;
-  locationListClassName?: string;
-}
+const toPointKey = (photo: Photo): string => photo.id;
 
-const TimelinePanel: React.FC<TimelinePanelProps> = ({
-  activeMonth,
-  pointsCount,
-  monthBuckets,
-  groupedLocations,
-  onMonthChange,
-  onLocationClick,
-  className,
-  monthListClassName,
-  locationListClassName,
-}) => {
-  return (
-    <aside className={className}>
-      <p className='mb-2 text-xs text-zinc-400'>时间线</p>
-      <button
-        type='button'
-        onClick={() => onMonthChange("all")}
-        className={`mb-2 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs transition ${
-          activeMonth === "all" ? "bg-white/[0.12] text-white" : "text-zinc-300 hover:bg-white/[0.06]"
-        }`}
-      >
-        <span>全部时间</span>
-        <span>{pointsCount}</span>
-      </button>
-      <div className={monthListClassName}>
-        {monthBuckets.map(([month, count]) => (
-          <button
-            key={month}
-            type='button'
-            onClick={() => onMonthChange(month)}
-            className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs transition ${
-              activeMonth === month ? "bg-[#c9a962]/20 text-[#e8d19a]" : "text-zinc-300 hover:bg-white/[0.06]"
-            }`}
-          >
-            <span>{month}</span>
-            <span>{count}</span>
-          </button>
-        ))}
-      </div>
-      <div className='mt-3 border-t border-white/[0.08] pt-3'>
-        <p className='mb-2 text-xs text-zinc-400'>位置聚合</p>
-        <div className={locationListClassName}>
-          {groupedLocations.slice(0, 30).map((group, index) => (
-            <button
-              key={`loc-group-${group.lat}-${group.lng}`}
-              type='button'
-              onClick={() => onLocationClick(group)}
-              className='flex w-full items-start justify-between rounded-md px-2 py-1.5 text-left text-xs text-zinc-300 transition hover:bg-white/[0.06]'
-            >
-              <span className='max-w-[62%] truncate'>
-                区域 {String(index + 1).padStart(2, "0")} · {group.samples[0]}
-              </span>
-              <span className='font-mono text-[10px] text-zinc-400'>{group.count} 张</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </aside>
-  );
+const getPhotoRegionFromMetadata = (photo: Photo): RegionInfo | null => {
+  const region = photo.metadata?.geo?.region;
+  if (!region) return null;
+  return {
+    country: region.country || "中国",
+    province: region.province || "未知省份",
+    city: region.city || "未知城市",
+    district: "未知区县",
+    displayName: region.display_name || `${region.province}·${region.city}`,
+    cacheKey: region.cache_key || `CN|${region.province}|${region.city}`,
+  };
 };
 
 const ensureLeafletAssets = async (): Promise<void> => {
@@ -238,27 +202,110 @@ const ensureLeafletImageAsset = async (): Promise<void> => {
   });
 };
 
-const parseCoordinate = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number.parseFloat(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
+interface SidePanelProps {
+  activeMonth: string;
+  monthBuckets: [string, number][];
+  onMonthChange: (month: string) => void;
+  regionAggregates: RegionAggregate[];
+  selectedRegionKey: string | null;
+  onRegionClick: (aggregate: RegionAggregate) => void;
+  boundaryByRegionKey: Record<string, RegionBoundaryResult | null>;
+  isResolvingRegions: boolean;
+  isLoadingBoundaries: boolean;
+  className?: string;
+  monthListClassName?: string;
+  regionListClassName?: string;
+}
+
+const SidePanel: React.FC<SidePanelProps> = ({
+  activeMonth,
+  monthBuckets,
+  onMonthChange,
+  regionAggregates,
+  selectedRegionKey,
+  onRegionClick,
+  boundaryByRegionKey,
+  isResolvingRegions,
+  isLoadingBoundaries,
+  className,
+  monthListClassName,
+  regionListClassName,
+}) => {
+  return (
+    <aside className={className}>
+      <p className='mb-2 text-xs text-lumina-muted'>时间线</p>
+      <button
+        type='button'
+        onClick={() => onMonthChange("all")}
+        className={`mb-2 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs transition ${
+          activeMonth === "all" ? "bg-lumina-surface text-lumina-text" : "text-lumina-text-secondary hover:bg-lumina-surface"
+        }`}
+      >
+        <span>全部时间</span>
+        <span>{regionAggregates.reduce((sum, item) => sum + item.count, 0)} 点</span>
+      </button>
+      <div className={monthListClassName}>
+        {monthBuckets.map(([month, count]) => (
+          <button
+            key={month}
+            type='button'
+            onClick={() => onMonthChange(month)}
+            className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs transition ${
+              activeMonth === month ? "bg-lumina-accent-muted text-lumina-accent" : "text-lumina-text-secondary hover:bg-lumina-surface"
+            }`}
+          >
+            <span>{month}</span>
+            <span>{count}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className='mt-3 border-t border-lumina-border pt-3'>
+        <div className='mb-2 flex items-center justify-between'>
+          <p className='text-xs text-lumina-muted'>行政区足迹</p>
+          {(isResolvingRegions || isLoadingBoundaries) && <Loader2 size={12} className='animate-spin text-lumina-muted' />}
+        </div>
+        <div className={regionListClassName}>
+          {regionAggregates.slice(0, 40).map((aggregate) => {
+            const isSelected = selectedRegionKey === aggregate.key;
+            const boundary = boundaryByRegionKey[aggregate.key];
+            const levelLabel = boundary?.level === "district" ? "区" : boundary?.level === "city" ? "市" : boundary?.level === "province" ? "省" : "无边界";
+            return (
+              <button
+                key={aggregate.key}
+                type='button'
+                onClick={() => onRegionClick(aggregate)}
+                className={`w-full rounded-md px-2 py-2 text-left text-xs transition ${
+                  isSelected ? "bg-lumina-accent-muted text-lumina-accent" : "text-lumina-text-secondary hover:bg-lumina-surface"
+                }`}
+              >
+                <div className='flex items-start justify-between gap-2'>
+                  <span className='line-clamp-2'>{aggregate.region.displayName}</span>
+                  <span className='font-mono text-[10px] text-lumina-muted'>{aggregate.count}</span>
+                </div>
+                <div className='mt-1 text-[10px] text-lumina-muted'>边界级别：{levelLabel}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </aside>
+  );
 };
 
-const getPhotoCoordinates = (photo: Photo): { lat: number; lng: number } | null => {
-  const exif = (photo.metadata?.exif ?? {}) as Record<string, unknown>;
-  const lat = parseCoordinate(exif.GPSLatitude);
-  const lng = parseCoordinate(exif.GPSLongitude);
-  if (lat === null || lng === null) {
-    return null;
-  }
-  return { lat, lng };
+const getIntensity = (count: number, maxCount: number): 1 | 2 | 3 => {
+  if (maxCount <= 1) return 2;
+  const ratio = count / maxCount;
+  if (ratio >= 0.66) return 3;
+  if (ratio >= 0.33) return 2;
+  return 1;
+};
+
+const getTimeRangeLabel = (activeMonth: string, monthBuckets: [string, number][]): string => {
+  if (activeMonth !== "all") return activeMonth;
+  if (monthBuckets.length === 0) return "未知时间";
+  const sorted = [...monthBuckets].sort((a, b) => a[0].localeCompare(b[0]));
+  return `${sorted[0][0]} - ${sorted[sorted.length - 1][0]}`;
 };
 
 const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => {
@@ -267,19 +314,30 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
   const [mapError, setMapError] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [isMobilePanelOpen, setIsMobilePanelOpen] = useState(false);
+  const [isResolvingRegions, setIsResolvingRegions] = useState(false);
+  const [isLoadingBoundaries, setIsLoadingBoundaries] = useState(false);
+  const [selectedRegionKey, setSelectedRegionKey] = useState<string | null>(null);
+  const [regionByPointKey, setRegionByPointKey] = useState<Record<string, RegionInfo>>({});
+  const [boundaryByRegionKey, setBoundaryByRegionKey] = useState<Record<string, RegionBoundaryResult | null>>({});
+  const [isPosterPreviewOpen, setIsPosterPreviewOpen] = useState(false);
+  const [posterPreviewUrl, setPosterPreviewUrl] = useState<string | null>(null);
+  const [posterFileName, setPosterFileName] = useState<string>("lumina-footprint.png");
+  const [isPosterActionRunning, setIsPosterActionRunning] = useState(false);
 
   const mapContainerRef = React.useRef<HTMLDivElement | null>(null);
   const mapRef = React.useRef<LeafletMap | null>(null);
-  const markerLayerRef = React.useRef<LeafletLayerGroup | null>(null);
-  const baseTileLayerRef = React.useRef<LeafletLayer | null>(null);
-  const overlayTileLayerRef = React.useRef<LeafletLayer | null>(null);
-  const locationCacheRef = React.useRef<Map<string, LocationSummary>>(new Map());
+  const regionLayerRef = React.useRef<LeafletLayerGroup | null>(null);
+  const lastAutoFitKeyRef = React.useRef<string>("");
+  const posterBlobRef = React.useRef<Blob | null>(null);
+  const backfilledPhotoIdsRef = React.useRef<Set<string>>(new Set());
+  const boundaryRetryCountRef = React.useRef<Record<string, number>>({});
 
   const points = useMemo<GeoPoint[]>(() => {
     return photos
       .map((photo) => {
         const coords = getPhotoCoordinates(photo);
-        if (!coords) return null;
+        const regionFromMetadata = getPhotoRegionFromMetadata(photo);
+        if (!coords && !regionFromMetadata) return null;
 
         const date = new Date(photo.exif.date);
         const monthKey = Number.isNaN(date.getTime())
@@ -287,9 +345,10 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
           : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
         return {
+          key: toPointKey(photo),
           photo,
-          lat: coords.lat,
-          lng: coords.lng,
+          coordinates: coords,
+          regionFromMetadata,
           monthKey,
         };
       })
@@ -304,28 +363,42 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
     return Array.from(counts.entries()).sort((a, b) => b[0].localeCompare(a[0]));
   }, [points]);
 
-  const visiblePoints = useMemo(() => {
-    return points.filter((point) => activeMonth === "all" || point.monthKey === activeMonth);
-  }, [activeMonth, points]);
+  const visiblePoints = useMemo(
+    () => points.filter((point) => activeMonth === "all" || point.monthKey === activeMonth),
+    [activeMonth, points]
+  );
 
-  const groupedLocations = useMemo(() => {
-    const groups = new Map<string, GroupedLocation>();
+  const regionAggregates = useMemo<RegionAggregate[]>(() => {
+    const grouped = new Map<string, RegionAggregate>();
+
     for (const point of visiblePoints) {
-      const lat = roundCoordinate(point.lat);
-      const lng = roundCoordinate(point.lng);
-      const key = toLocationKey(lat, lng);
-      const existing = groups.get(key);
+      const region = point.regionFromMetadata ?? regionByPointKey[point.key] ?? UNKNOWN_REGION;
+      const existing = grouped.get(region.cacheKey);
       if (!existing) {
-        groups.set(key, { lat, lng, count: 1, samples: [point.photo.filename] });
+        grouped.set(region.cacheKey, {
+          key: region.cacheKey,
+          region,
+          count: 1,
+          photos: [point.photo],
+          representative: point.coordinates
+            ? { lat: point.coordinates.lat, lng: point.coordinates.lng }
+            : undefined,
+        });
         continue;
       }
       existing.count += 1;
-      if (existing.samples.length < 3) {
-        existing.samples.push(point.photo.filename);
+      if (!existing.representative && point.coordinates) {
+        existing.representative = { lat: point.coordinates.lat, lng: point.coordinates.lng };
+      }
+      if (existing.photos.length < 10) {
+        existing.photos.push(point.photo);
       }
     }
-    return Array.from(groups.values()).sort((a, b) => b.count - a.count);
-  }, [visiblePoints]);
+
+    return Array.from(grouped.values()).sort((a, b) => b.count - a.count);
+  }, [regionByPointKey, visiblePoints]);
+
+  const timeRangeLabel = useMemo(() => getTimeRangeLabel(activeMonth, monthBuckets), [activeMonth, monthBuckets]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -348,38 +421,29 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
             maxZoom: 18,
             zoomControl: false,
             maxBoundsViscosity: 1.0,
+            // leaflet-image 对 Canvas 渲染层兼容更稳定，确保区域高亮能导出
+            preferCanvas: true,
           });
 
-          const baseTileLayer = L.tileLayer(MAP_THEME_PRESET.baseTileUrl, {
+          L.tileLayer(MAP_THEME_PRESET.baseTileUrl, {
             crossOrigin: true,
             attribution: MAP_THEME_PRESET.baseAttribution,
             noWrap: true,
           }).addTo(map);
-          baseTileLayerRef.current = baseTileLayer;
 
-          const overlayTileLayer = L.tileLayer(MAP_THEME_PRESET.overlayTileUrl, {
+          L.tileLayer(MAP_THEME_PRESET.overlayTileUrl, {
             crossOrigin: true,
             attribution: MAP_THEME_PRESET.overlayAttribution,
             noWrap: true,
             opacity: 0.72,
           }).addTo(map);
-          overlayTileLayerRef.current = overlayTileLayer;
 
           map.setMaxBounds(asiaBounds);
           map.setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
-          map.on("moveend", () => {
-            const center = map.getCenter();
-            const zoom = map.getZoom();
-            console.log("[Map]", "center:", { lat: center.lat, lng: center.lng }, "zoom:", zoom);
-          });
-          map.on("zoomend", () => {
-            const center = map.getCenter();
-            const zoom = map.getZoom();
-            console.log("[Map]", "center:", { lat: center.lat, lng: center.lng }, "zoom:", zoom);
-          });
-          mapRef.current = map;
+          map.on("moveend", () => map.invalidateSize());
 
-          markerLayerRef.current = L.layerGroup().addTo(map);
+          mapRef.current = map;
+          regionLayerRef.current = L.layerGroup().addTo(map);
         }
 
         setMapReady(true);
@@ -397,56 +461,195 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
   }, []);
 
   React.useEffect(() => {
+    let cancelled = false;
+
+    const unresolved = visiblePoints.filter(
+      (point) => !point.regionFromMetadata && !regionByPointKey[point.key] && point.coordinates
+    );
+    if (unresolved.length === 0) return;
+
+    const resolveRegions = async (): Promise<void> => {
+      setIsResolvingRegions(true);
+      const updates: Record<string, RegionInfo> = {};
+
+      await Promise.all(
+        unresolved.map(async (point) => {
+          if (!point.coordinates) return;
+          const region = await reverseGeocodeToRegion(point.coordinates.lat, point.coordinates.lng);
+          updates[point.key] = region;
+
+          const hasUploadToken = uploadService.hasUploadToken();
+          const hasMetadataRegion = Boolean(point.photo.metadata?.geo?.region);
+          if (!hasUploadToken || hasMetadataRegion || backfilledPhotoIdsRef.current.has(point.photo.id)) {
+            return;
+          }
+
+          backfilledPhotoIdsRef.current.add(point.photo.id);
+          const legacyPrivacy = point.photo.metadata?.privacy;
+          await uploadService
+            .updateImageMetadata(point.photo.id, {
+              geo: {
+                region: {
+                  country: region.country,
+                  province: region.province,
+                  city: region.city,
+                  display_name: `${region.province}·${region.city}`,
+                  cache_key: `CN|${region.province}|${region.city}`,
+                  source: "nominatim",
+                  resolved_at: new Date().toISOString(),
+                },
+              },
+              ...(legacyPrivacy
+                ? {
+                    privacy: {
+                      ...legacyPrivacy,
+                      exif_gps_removed: true,
+                    },
+                  }
+                : {}),
+            })
+            .catch(() => {
+              backfilledPhotoIdsRef.current.delete(point.photo.id);
+            });
+        })
+      );
+
+      if (!cancelled && Object.keys(updates).length > 0) {
+        setRegionByPointKey((prev) => ({ ...prev, ...updates }));
+      }
+
+      if (!cancelled) {
+        setIsResolvingRegions(false);
+      }
+    };
+
+    void resolveRegions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [regionByPointKey, visiblePoints]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const MAX_BOUNDARY_RETRY = 2;
+    const unresolved = regionAggregates.filter(
+      (aggregate) =>
+        aggregate.region.displayName !== "未知地区" &&
+        (!(aggregate.key in boundaryByRegionKey) ||
+          (boundaryByRegionKey[aggregate.key] === null &&
+            (boundaryRetryCountRef.current[aggregate.key] ?? 0) < MAX_BOUNDARY_RETRY))
+    );
+    if (unresolved.length === 0) return;
+
+    const loadBoundaries = async (): Promise<void> => {
+      setIsLoadingBoundaries(true);
+      const updates: Record<string, RegionBoundaryResult | null> = {};
+
+      await Promise.all(
+        unresolved.map(async (aggregate) => {
+          const boundary = await getRegionBoundary(aggregate.region);
+          updates[aggregate.key] = boundary;
+          if (boundary === null) {
+            boundaryRetryCountRef.current[aggregate.key] =
+              (boundaryRetryCountRef.current[aggregate.key] ?? 0) + 1;
+          } else {
+            boundaryRetryCountRef.current[aggregate.key] = 0;
+          }
+        })
+      );
+
+      if (!cancelled && Object.keys(updates).length > 0) {
+        setBoundaryByRegionKey((prev) => ({ ...prev, ...updates }));
+      }
+      if (!cancelled) {
+        setIsLoadingBoundaries(false);
+      }
+    };
+
+    void loadBoundaries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [boundaryByRegionKey, regionAggregates]);
+
+  React.useEffect(() => {
+    if (!mapReady) return;
+
     const map = mapRef.current;
-    const markerLayer = markerLayerRef.current;
+    const regionLayer = regionLayerRef.current;
     const windowWithLeaflet = window as LeafletWindow;
     const L = windowWithLeaflet.L;
-    if (!map || !markerLayer || !L) return;
+    if (!map || !regionLayer || !L) return;
 
-    markerLayer.clearLayers();
+    regionLayer.clearLayers();
 
+    const maxCount = Math.max(...regionAggregates.map((item) => item.count), 1);
     const coordinates: [number, number][] = [];
-    for (const point of visiblePoints) {
-      const lat = roundCoordinate(point.lat);
-      const lng = roundCoordinate(point.lng);
-      coordinates.push([lat, lng]);
 
-      const marker = L.circleMarker([lat, lng], {
-        radius: 4,
-        color: MAP_THEME_PRESET.pointColor,
-        fillColor: MAP_THEME_PRESET.pointColor,
-        fillOpacity: 1,
-        weight: 0,
+    for (const aggregate of regionAggregates) {
+      if (aggregate.representative) {
+        coordinates.push([aggregate.representative.lat, aggregate.representative.lng]);
+      }
+      const boundary = boundaryByRegionKey[aggregate.key];
+      if (!boundary) continue;
+
+      const intensity = getIntensity(aggregate.count, maxCount);
+      const isSelected = selectedRegionKey === aggregate.key;
+      const fillOpacity = intensity === 3 ? 0.56 : intensity === 2 ? 0.42 : 0.32;
+      const strokeWidth = isSelected ? 2.8 : intensity === 3 ? 2.2 : 1.6;
+
+      const layer = L.geoJSON(boundary.geojson, {
+        style: () => ({
+          color: isSelected ? "#D4AF37" : intensity === 3 ? "#D4AF37" : intensity === 2 ? "#b99758" : "#8a7a48",
+          weight: strokeWidth,
+          opacity: isSelected ? 0.96 : 0.82,
+          fillColor: intensity === 3 ? "#D4AF37" : intensity === 2 ? "#b99758" : "#8a7a48",
+          fillOpacity,
+        }),
       })
-        .bindTooltip(point.photo.filename)
-        .on("click", () => onPhotoClick(point.photo));
-      markerLayer.addLayer(marker);
+        .bindTooltip(`${aggregate.region.displayName} · ${aggregate.count} 张`)
+        .on("click", () => {
+          setSelectedRegionKey(aggregate.key);
+          if (aggregate.photos[0]) {
+            onPhotoClick(aggregate.photos[0]);
+          }
+        });
+
+      layer.addTo(regionLayer);
     }
 
     if (coordinates.length === 0) {
       map.setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
+      return;
     }
 
-    window.setTimeout(() => {
-      map.invalidateSize();
-    }, 50);
-  }, [mapReady, onPhotoClick, visiblePoints]);
+    const fitKey = `${activeMonth}:${coordinates.length}:${Object.keys(boundaryByRegionKey).length}`;
+    if (lastAutoFitKeyRef.current !== fitKey) {
+      map.fitBounds(L.latLngBounds(coordinates), { padding: [36, 36], maxZoom: 8 });
+      lastAutoFitKeyRef.current = fitKey;
+    }
+  }, [
+    activeMonth,
+    boundaryByRegionKey,
+    mapReady,
+    onPhotoClick,
+    regionAggregates,
+    selectedRegionKey,
+  ]);
 
   React.useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    const handleResize = (): void => {
-      map.invalidateSize();
-    };
-
+    const handleResize = (): void => map.invalidateSize();
     window.addEventListener("resize", handleResize);
 
     const observer =
       typeof ResizeObserver !== "undefined" && mapContainerRef.current
-        ? new ResizeObserver(() => {
-            map.invalidateSize();
-          })
+        ? new ResizeObserver(() => map.invalidateSize())
         : null;
 
     if (observer && mapContainerRef.current) {
@@ -461,13 +664,14 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
 
   React.useEffect(() => {
     return () => {
+      if (posterPreviewUrl) {
+        URL.revokeObjectURL(posterPreviewUrl);
+      }
       mapRef.current?.remove();
       mapRef.current = null;
-      markerLayerRef.current = null;
-      baseTileLayerRef.current = null;
-      overlayTileLayerRef.current = null;
+      regionLayerRef.current = null;
     };
-  }, []);
+  }, [posterPreviewUrl]);
 
   const captureCurrentMapCanvas = React.useCallback(async (): Promise<HTMLCanvasElement> => {
     await ensureLeafletImageAsset();
@@ -482,6 +686,11 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
       throw new Error("地图截图组件加载失败");
     }
 
+    // 等待一帧，确保最新的 GeoJSON 高亮样式已经完成绘制
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+
     return await new Promise<HTMLCanvasElement>((resolve, reject) => {
       leafletImage(map, (error, canvas) => {
         if (error || !canvas) {
@@ -493,47 +702,6 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
     });
   }, []);
 
-  const reverseGeocode = React.useCallback(async (lat: number, lng: number): Promise<LocationSummary> => {
-    const key = `${lat.toFixed(1)},${lng.toFixed(1)}`;
-    const cached = locationCacheRef.current.get(key);
-    if (cached) return cached;
-
-    try {
-      const url = new URL("https://nominatim.openstreetmap.org/reverse");
-      url.searchParams.set("format", "jsonv2");
-      url.searchParams.set("lat", String(lat));
-      url.searchParams.set("lon", String(lng));
-      url.searchParams.set("zoom", "6");
-      url.searchParams.set("addressdetails", "1");
-
-      const response = await fetch(url.toString(), {
-        headers: {
-          "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-        },
-      });
-      if (!response.ok) throw new Error("reverse geocode failed");
-
-      const data = (await response.json()) as { address?: Record<string, string> };
-      const address = data.address ?? {};
-      const summary: LocationSummary = {
-        country: address.country || "未知国家",
-        region:
-          address.state ||
-          address.province ||
-          address.region ||
-          address.city ||
-          address.county ||
-          "未知地区",
-      };
-      locationCacheRef.current.set(key, summary);
-      return summary;
-    } catch {
-      const summary: LocationSummary = { country: "未知国家", region: "未知地区" };
-      locationCacheRef.current.set(key, summary);
-      return summary;
-    }
-  }, []);
-
   const handleShareMap = React.useCallback(async (): Promise<void> => {
     if (visiblePoints.length === 0) {
       window.alert("当前没有可分享的地图点位");
@@ -543,110 +711,88 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
     setIsSharing(true);
     try {
       const mapCanvas = await captureCurrentMapCanvas();
-      const sampleGroups = groupedLocations.slice(0, 10);
-      const summaries = await Promise.all(sampleGroups.map((group) => reverseGeocode(group.lat, group.lng)));
-      const countries = Array.from(new Set(summaries.map((item) => item.country))).slice(0, 6);
-      const regions = Array.from(new Set(summaries.map((item) => item.region))).slice(0, 8);
-
-      const output = document.createElement("canvas");
-      output.width = 1600;
-      output.height = 1000;
-      const ctx = output.getContext("2d");
-      if (!ctx) {
-        throw new Error("无法生成分享图片");
+      const { blob, filename } = await buildMapSharePoster({
+        mapCanvas,
+        regionAggregates,
+        visiblePointsCount: visiblePoints.length,
+        timeRangeLabel,
+      });
+      if (posterPreviewUrl) {
+        URL.revokeObjectURL(posterPreviewUrl);
       }
-
-      ctx.drawImage(mapCanvas, 0, 0, output.width, output.height);
-      const overlay = ctx.createLinearGradient(0, 0, 0, output.height);
-      overlay.addColorStop(0, "rgba(5,6,10,0.25)");
-      overlay.addColorStop(1, "rgba(5,6,10,0.8)");
-      ctx.fillStyle = overlay;
-      ctx.fillRect(0, 0, output.width, output.height);
-
-      ctx.fillStyle = "rgba(10,10,14,0.78)";
-      ctx.fillRect(70, 70, 620, 320);
-      ctx.strokeStyle = "rgba(255,255,255,0.12)";
-      ctx.strokeRect(70, 70, 620, 320);
-
-      ctx.fillStyle = "#f3d79f";
-      ctx.font = "600 44px 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-      ctx.fillText("我去过哪些国家和地区？", 108, 145);
-
-      ctx.fillStyle = "rgba(255,255,255,0.86)";
-      ctx.font = "400 28px 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-      ctx.fillText(`拍摄点位 ${visiblePoints.length} 个`, 108, 198);
-
-      ctx.font = "400 24px 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-      ctx.fillStyle = "rgba(255,255,255,0.9)";
-      ctx.fillText(`国家：${countries.join("、") || "未知"}`, 108, 248);
-      ctx.fillText(`地区：${regions.join("、") || "未知"}`, 108, 292);
-
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
-      ctx.font = "400 20px 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-      ctx.fillText("Generated by Lumina Map Share", 108, 350);
-
-      const blob = await new Promise<Blob | null>((resolve) => output.toBlob(resolve, "image/png"));
-      if (!blob) {
-        throw new Error("图片导出失败");
-      }
-
-      if ("clipboard" in navigator && "write" in navigator.clipboard) {
-        try {
-          await navigator.clipboard.write([
-            new ClipboardItem({
-              "image/png": blob,
-            }),
-          ]);
-          window.alert("地图分享图已复制到剪贴板");
-        } catch {
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = "lumina-map-share.png";
-          link.click();
-          URL.revokeObjectURL(url);
-          window.alert("浏览器不支持直接复制，已下载图片");
-        }
-      } else {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "lumina-map-share.png";
-        link.click();
-        URL.revokeObjectURL(url);
-        window.alert("浏览器不支持直接复制，已下载图片");
-      }
+      const previewUrl = URL.createObjectURL(blob);
+      posterBlobRef.current = blob;
+      setPosterFileName(filename);
+      setPosterPreviewUrl(previewUrl);
+      setIsPosterPreviewOpen(true);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "生成分享图失败";
-      window.alert(message);
+      window.alert(error instanceof Error ? error.message : "生成分享图失败");
     } finally {
       setIsSharing(false);
     }
-  }, [captureCurrentMapCanvas, groupedLocations, reverseGeocode, visiblePoints.length]);
+  }, [captureCurrentMapCanvas, posterPreviewUrl, regionAggregates, timeRangeLabel, visiblePoints.length]);
 
-  const handleGroupedLocationClick = React.useCallback((group: GroupedLocation): void => {
-    const target = visiblePoints.find(
-      (point) => toLocationKey(point.lat, point.lng) === toLocationKey(group.lat, group.lng)
-    );
-    if (target) {
-      onPhotoClick(target.photo);
+  const handleDownloadPoster = React.useCallback((): void => {
+    const blob = posterBlobRef.current;
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = posterFileName;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [posterFileName]);
+
+  const handleCopyPoster = React.useCallback(async (): Promise<void> => {
+    const blob = posterBlobRef.current;
+    if (!blob) return;
+    if (!("clipboard" in navigator) || !("write" in navigator.clipboard)) {
+      window.alert("当前浏览器不支持复制图片，请使用下载");
+      return;
     }
-  }, [onPhotoClick, visiblePoints]);
+
+    setIsPosterActionRunning(true);
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "image/png": blob,
+        }),
+      ]);
+      window.alert("海报已复制到剪贴板");
+    } catch {
+      window.alert("复制失败，请使用下载");
+    } finally {
+      setIsPosterActionRunning(false);
+    }
+  }, []);
+
+  const handleRegionClick = React.useCallback(
+    (aggregate: RegionAggregate): void => {
+      setSelectedRegionKey(aggregate.key);
+      if (aggregate.representative) {
+        mapRef.current?.setView([aggregate.representative.lat, aggregate.representative.lng], 8);
+      }
+      if (aggregate.photos[0]) {
+        onPhotoClick(aggregate.photos[0]);
+      }
+    },
+    [onPhotoClick]
+  );
 
   return (
-    <section className='flex h-full min-h-0 flex-col rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 shadow-[0_14px_44px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:p-5'>
+    <section className='flex h-full min-h-0 flex-col rounded-2xl border border-lumina-border bg-lumina-surface/30 p-4 shadow-[0_14px_44px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:p-5'>
       <div className='mb-3 flex flex-wrap items-center justify-between gap-3'>
-        <div className='flex items-center gap-2 text-zinc-200'>
+        <div className='flex items-center gap-2 text-lumina-text'>
           <MapPin size={14} />
-          <h2 className='text-sm'>地图视图</h2>
-          <span className='rounded-md border border-white/[0.08] bg-black/20 px-2 py-0.5 text-[11px] text-zinc-400'>
-            {visiblePoints.length} 个点位
+          <h2 className='text-sm'>地图足迹</h2>
+          <span className='rounded-md border border-lumina-border bg-lumina-bg/50 px-2 py-0.5 text-[11px] text-lumina-muted'>
+            {visiblePoints.length} 点位 / {regionAggregates.length} 区域
           </span>
         </div>
 
         <div className='flex items-center gap-2'>
-          <span className='inline-flex h-8 items-center rounded-lg border border-[#c9a962]/25 bg-[#c9a962]/10 px-3 text-xs text-[#d8bd80]'>
-            轮廓地图
+          <span className='inline-flex h-8 items-center rounded-lg border border-lumina-accent-muted bg-lumina-accent-muted px-3 text-xs text-lumina-accent'>
+            区级高亮
           </span>
           <button
             type='button'
@@ -654,24 +800,24 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
               void handleShareMap();
             }}
             disabled={isSharing}
-            className='inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.12] bg-black/30 px-3 text-xs text-zinc-200 transition hover:border-white/[0.22] disabled:cursor-not-allowed disabled:opacity-60'
+            className='inline-flex h-8 items-center gap-1.5 rounded-lg border border-lumina-border bg-lumina-surface/50 px-3 text-xs text-lumina-text-secondary transition hover:border-lumina-border-subtle hover:bg-lumina-surface disabled:cursor-not-allowed disabled:opacity-60'
           >
             {isSharing ? <Loader2 size={12} className='animate-spin' /> : <Share2 size={12} />}
-            分享地图
+            分享海报
           </button>
           <button
             type='button'
-            className='inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.12] bg-black/30 px-3 text-xs text-zinc-200 transition hover:border-white/[0.22] lg:hidden'
+            className='inline-flex h-8 items-center gap-1.5 rounded-lg border border-lumina-border bg-lumina-surface/50 px-3 text-xs text-lumina-text-secondary transition hover:border-lumina-border-subtle hover:bg-lumina-surface lg:hidden'
             onClick={() => setIsMobilePanelOpen((prev) => !prev)}
           >
-            时间线
+            区域列表
             <ChevronDown size={12} className={`transition-transform ${isMobilePanelOpen ? "rotate-180" : ""}`} />
           </button>
         </div>
       </div>
 
-      <div className='grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]'>
-        <div className='relative h-full min-h-[420px] overflow-hidden rounded-xl border border-white/[0.08] bg-[#0f2031]'>
+      <div className='grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]'>
+        <div className='relative h-full min-h-[420px] overflow-hidden rounded-xl border border-lumina-border bg-lumina-surface-elevated'>
           <style>{`
             .leaflet-tooltip {
               background: rgba(8, 8, 10, 0.85);
@@ -692,7 +838,7 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
           <div ref={mapContainerRef} className='h-full w-full' />
 
           {!mapReady && !mapError && (
-            <div className='absolute inset-0 flex items-center justify-center text-xs text-zinc-400'>
+            <div className='absolute inset-0 flex items-center justify-center text-xs text-lumina-muted'>
               正在加载 OpenStreetMap...
             </div>
           )}
@@ -704,38 +850,79 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
           )}
 
           {mapReady && visiblePoints.length === 0 && (
-            <div className='pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-zinc-300/90'>
-              没有可显示的地理坐标（图片无 GPS 信息）
+            <div className='pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-lumina-text-secondary/90'>
+              没有可显示的地理区域信息
             </div>
           )}
         </div>
 
-        <TimelinePanel
+        <SidePanel
           activeMonth={activeMonth}
-          pointsCount={points.length}
           monthBuckets={monthBuckets}
-          groupedLocations={groupedLocations}
           onMonthChange={setActiveMonth}
-          onLocationClick={handleGroupedLocationClick}
-          className='hidden min-h-0 rounded-xl border border-white/[0.08] bg-black/25 p-3 lg:block'
-          monthListClassName='max-h-[38svh] space-y-1 overflow-auto pr-1 lg:max-h-[46svh]'
-          locationListClassName='max-h-[20svh] space-y-1 overflow-auto pr-1 lg:max-h-[24svh]'
+          regionAggregates={regionAggregates}
+          selectedRegionKey={selectedRegionKey}
+          onRegionClick={handleRegionClick}
+          boundaryByRegionKey={boundaryByRegionKey}
+          isResolvingRegions={isResolvingRegions}
+          isLoadingBoundaries={isLoadingBoundaries}
+          className='hidden min-h-0 rounded-xl border border-lumina-border bg-lumina-surface/50 p-3 lg:block'
+          monthListClassName='max-h-[30svh] space-y-1 overflow-auto pr-1 lg:max-h-[36svh]'
+          regionListClassName='max-h-[32svh] space-y-1 overflow-auto pr-1'
         />
       </div>
 
       {isMobilePanelOpen && (
-        <TimelinePanel
+        <SidePanel
           activeMonth={activeMonth}
-          pointsCount={points.length}
           monthBuckets={monthBuckets}
-          groupedLocations={groupedLocations}
           onMonthChange={setActiveMonth}
-          onLocationClick={handleGroupedLocationClick}
-          className='mt-3 rounded-xl border border-white/[0.08] bg-black/25 p-3 lg:hidden'
+          regionAggregates={regionAggregates}
+          selectedRegionKey={selectedRegionKey}
+          onRegionClick={handleRegionClick}
+          boundaryByRegionKey={boundaryByRegionKey}
+          isResolvingRegions={isResolvingRegions}
+          isLoadingBoundaries={isLoadingBoundaries}
+          className='mt-3 rounded-xl border border-lumina-border bg-lumina-surface/50 p-3 lg:hidden'
           monthListClassName='max-h-[24svh] space-y-1 overflow-auto pr-1'
-          locationListClassName='max-h-[22svh] space-y-1 overflow-auto pr-1'
+          regionListClassName='max-h-[24svh] space-y-1 overflow-auto pr-1'
         />
       )}
+
+      <Dialog
+        open={isPosterPreviewOpen}
+        onOpenChange={(open) => {
+          setIsPosterPreviewOpen(open);
+          if (!open) {
+            posterBlobRef.current = null;
+            if (posterPreviewUrl) {
+              URL.revokeObjectURL(posterPreviewUrl);
+              setPosterPreviewUrl(null);
+            }
+          }
+        }}
+      >
+        <DialogContent className='mx-4 w-full max-w-[1160px] border-lumina-border bg-lumina-bg p-4 sm:p-5'>
+          <DialogHeader className='mb-3'>
+            <DialogTitle className='text-base'>旅行海报预览</DialogTitle>
+          </DialogHeader>
+          <div className='overflow-hidden rounded-lg border border-lumina-border bg-lumina-surface/50'>
+            {posterPreviewUrl ? (
+              <img src={posterPreviewUrl} alt='旅行海报预览' className='h-auto w-full object-contain' />
+            ) : (
+              <div className='flex h-[360px] items-center justify-center text-sm text-lumina-muted'>预览不可用</div>
+            )}
+          </div>
+          <DialogFooter className='mt-4'>
+            <Button variant='outline' onClick={handleDownloadPoster} disabled={!posterPreviewUrl || isPosterActionRunning}>
+              下载 PNG
+            </Button>
+            <Button variant='default' onClick={() => void handleCopyPoster()} disabled={!posterPreviewUrl || isPosterActionRunning}>
+              {isPosterActionRunning ? "复制中..." : "复制到剪贴板"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };

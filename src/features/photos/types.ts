@@ -73,6 +73,20 @@ export interface PrivacyInfo {
   exif_gps_removed: boolean;
 }
 
+export interface GeoRegion {
+  country: string;
+  province: string;
+  city: string;
+  display_name: string;
+  cache_key: string;
+  source: "nominatim";
+  resolved_at: string;
+}
+
+export interface GeoInfo {
+  region?: GeoRegion;
+}
+
 export interface Dimensions {
   width: number;
   height: number;
@@ -108,8 +122,19 @@ export interface DerivedData {
   ocr: OcrInfo;
 }
 
+export interface StageDuration {
+  stage_id: string;
+  duration_ms: number;
+}
+
+export interface ProcessingSummary {
+  total_ms: number;
+  concurrency_profile: string;
+  stage_durations: StageDuration[];
+}
+
 export interface ImageMetadata {
-  schema_version: "1.0" | "1.1";
+  schema_version: "1.0" | "1.1" | "1.2";
   image_id: string;
   original_filename?: string;
   description?: string;
@@ -131,7 +156,11 @@ export interface ImageMetadata {
   };
   exif?: ExifSummary;
   privacy: PrivacyInfo;
+  geo?: GeoInfo;
   derived: DerivedData;
+  processing?: {
+    summary: ProcessingSummary;
+  };
 }
 
 export interface UploadResult {
@@ -171,6 +200,16 @@ export interface ProcessingStage {
   status: ProcessingStatus;
   progress: number;
   error?: string;
+  started_at?: number;
+  completed_at?: number;
+  duration_ms?: number;
+}
+
+export interface ProcessingTaskMetric {
+  task_id: string;
+  status: "completed" | "failed" | "skipped";
+  duration_ms: number;
+  degraded?: boolean;
 }
 
 export interface UploadQueueItem {
@@ -186,6 +225,9 @@ export interface UploadQueueItem {
   error?: string;
   thumbnail?: string;
   retryCount?: number;
+  workerSlot?: number;
+  processingSummary?: ProcessingSummary;
+  taskMetrics?: ProcessingTaskMetric[];
 }
 
 export interface UploadConfig {

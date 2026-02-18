@@ -9,7 +9,7 @@ export interface Env {
 }
 
 export interface ImageMetadata {
-  schema_version: "1.0" | "1.1";
+  schema_version: "1.0" | "1.1" | "1.2";
   image_id: string;
   original_filename?: string;
   description?: string;
@@ -31,7 +31,28 @@ export interface ImageMetadata {
   };
   exif?: ExifSummary;
   privacy: PrivacyInfo;
+  geo?: {
+    region?: {
+      country: string;
+      province: string;
+      city: string;
+      display_name: string;
+      cache_key: string;
+      source: "nominatim";
+      resolved_at: string;
+    };
+  };
   derived: DerivedData;
+  processing?: {
+    summary: {
+      total_ms: number;
+      concurrency_profile: string;
+      stage_durations: Array<{
+        stage_id: string;
+        duration_ms: number;
+      }>;
+    };
+  };
 }
 
 interface FileMeta {

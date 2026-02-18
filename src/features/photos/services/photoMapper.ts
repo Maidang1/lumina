@@ -74,7 +74,7 @@ export function metadataToPhoto(metadata: ImageMetadata): Photo {
         }
       : { type: "none" },
     title: metadata.original_filename || metadata.exif?.Model || "Untitled",
-    location: "",
+    location: metadata.geo?.region?.display_name || "",
     category: "",
     width: metadata.derived.dimensions.width,
     height: metadata.derived.dimensions.height,

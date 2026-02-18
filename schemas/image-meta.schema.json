@@ -4,11 +4,11 @@
   "title": "Image Metadata",
   "description": "Metadata schema for uploaded images in Lumina",
   "type": "object",
-  "required": ["schema_version", "image_id", "timestamps", "files", "derived"],
+  "required": ["schema_version", "image_id", "timestamps", "files", "privacy", "derived"],
   "properties": {
     "schema_version": {
       "type": "string",
-      "enum": ["1.0", "1.1"],
+      "enum": ["1.0", "1.1", "1.2"],
       "description": "Schema version for future compatibility"
     },
     "image_id": {
@@ -104,6 +104,38 @@
         }
       }
     },
+    "geo": {
+      "type": "object",
+      "properties": {
+        "region": {
+          "type": "object",
+          "required": [
+            "country",
+            "province",
+            "city",
+            "display_name",
+            "cache_key",
+            "source",
+            "resolved_at"
+          ],
+          "properties": {
+            "country": { "type": "string", "minLength": 1 },
+            "province": { "type": "string", "minLength": 1 },
+            "city": { "type": "string", "minLength": 1 },
+            "display_name": { "type": "string", "minLength": 1 },
+            "cache_key": { "type": "string", "minLength": 1 },
+            "source": {
+              "type": "string",
+              "enum": ["nominatim"]
+            },
+            "resolved_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    },
     "derived": {
       "type": "object",
       "required": ["dimensions", "dominant_color", "blur", "phash", "ocr"],
@@ -180,6 +212,37 @@
               "type": "string",
               "maxLength": 2000,
               "description": "Extracted text summary"
+            }
+          }
+        }
+      }
+    },
+    "processing": {
+      "type": "object",
+      "required": ["summary"],
+      "properties": {
+        "summary": {
+          "type": "object",
+          "required": ["total_ms", "concurrency_profile", "stage_durations"],
+          "properties": {
+            "total_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "concurrency_profile": {
+              "type": "string",
+              "minLength": 1
+            },
+            "stage_durations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["stage_id", "duration_ms"],
+                "properties": {
+                  "stage_id": { "type": "string", "minLength": 1 },
+                  "duration_ms": { "type": "number", "minimum": 0 }
+                }
+              }
             }
           }
         }

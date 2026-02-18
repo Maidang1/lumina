@@ -56,18 +56,26 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         return tokenError;
       }
 
-      const body = await request.json();
-      const { description, original_filename } = body as { description?: string; original_filename?: string };
+      const body = await request.json() as Record<string, unknown>;
 
       const github = createGitHubClient(env);
       const file = await github.getFile(imageIdToMetaPath(imageId));
       const metadata = JSON.parse(atob(file.content)) as ImageMetadata;
 
-      if (description !== undefined) {
-        metadata.description = description;
+      if (typeof body.description === "string") {
+        metadata.description = body.description;
       }
-      if (original_filename !== undefined) {
-        metadata.original_filename = original_filename;
+      if (typeof body.original_filename === "string") {
+        metadata.original_filename = body.original_filename;
+      }
+      if (isPrivacyInfo(body.privacy)) {
+        metadata.privacy = body.privacy;
+      }
+      if (isGeoRegionPayload(body.geo)) {
+        metadata.geo = body.geo;
+      }
+      if (isProcessingPayload(body.processing)) {
+        metadata.processing = body.processing;
       }
 
       await github.updateImageMetadata(metadata);
@@ -100,3 +108,46 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return errorResponse(env, "Failed to delete image", 500);
   }
 };
+
+function isPrivacyInfo(value: unknown): value is ImageMetadata["privacy"] {
+  if (!value || typeof value !== "object") return false;
+  const casted = value as Record<string, unknown>;
+  return (
+    typeof casted.original_contains_gps === "boolean" &&
+    typeof casted.exif_gps_removed === "boolean"
+  );
+}
+
+function isGeoRegionPayload(value: unknown): value is NonNullable<ImageMetadata["geo"]> {
+  if (!value || typeof value !== "object") return false;
+  const casted = value as Record<string, unknown>;
+  if (!casted.region || typeof casted.region !== "object") return false;
+  const region = casted.region as Record<string, unknown>;
+  return (
+    typeof region.country === "string" &&
+    typeof region.province === "string" &&
+    typeof region.city === "string" &&
+    typeof region.display_name === "string" &&
+    typeof region.cache_key === "string" &&
+    region.source === "nominatim" &&
+    typeof region.resolved_at === "string"
+  );
+}
+
+function isProcessingPayload(value: unknown): value is NonNullable<ImageMetadata["processing"]> {
+  if (!value || typeof value !== "object") return false;
+  const casted = value as Record<string, unknown>;
+  if (!casted.summary || typeof casted.summary !== "object") return false;
+  const summary = casted.summary as Record<string, unknown>;
+  if (typeof summary.total_ms !== "number" || typeof summary.concurrency_profile !== "string") {
+    return false;
+  }
+  if (!Array.isArray(summary.stage_durations)) {
+    return false;
+  }
+  return summary.stage_durations.every((item) => {
+    if (!item || typeof item !== "object") return false;
+    const stage = item as Record<string, unknown>;
+    return typeof stage.stage_id === "string" && typeof stage.duration_ms === "number";
+  });
+}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HardDriveUpload, Loader2, X } from "lucide-react";
 import {
   Dialog,
@@ -51,12 +51,26 @@ const UploadModal: React.FC<UploadModalProps> = ({
   const pendingDescriptionResolverRef = useRef<
     ((value: { description?: string }) => void) | null
   >(null);
+  const pendingDescriptionQueueRef = useRef<
+    Array<{
+      params: { originalFilename: string; initialDescription?: string };
+      resolve: (value: { description?: string }) => void;
+    }>
+  >([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const liveStillInputRef = useRef<HTMLInputElement>(null);
   const liveVideoInputRef = useRef<HTMLInputElement>(null);
-  const processingRef = useRef(false);
+  const inFlightRef = useRef<Set<string>>(new Set());
   const queueRef = useRef<UploadQueueItem[]>([]);
+
+  const workerCount = useMemo(() => {
+    const hardware =
+      typeof navigator !== "undefined" && navigator.hardwareConcurrency
+        ? navigator.hardwareConcurrency
+        : 4;
+    return Math.min(4, Math.max(2, Math.floor(hardware / 2)));
+  }, []);
 
   useEffect(() => {
     setUploadToken(uploadService.getUploadToken());
@@ -65,6 +79,16 @@ const UploadModal: React.FC<UploadModalProps> = ({
   useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
+
+  const pumpDescriptionQueue = useCallback(() => {
+    if (pendingDescriptionResolverRef.current || pendingDescriptionItem) {
+      return;
+    }
+    const next = pendingDescriptionQueueRef.current.shift();
+    if (!next) return;
+    pendingDescriptionResolverRef.current = next.resolve;
+    setPendingDescriptionItem(next.params);
+  }, [pendingDescriptionItem]);
 
   const updateItemById = useCallback((id: string, updates: Partial<UploadQueueItem>) => {
     setQueue((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
@@ -90,66 +114,86 @@ const UploadModal: React.FC<UploadModalProps> = ({
   const requestDescription = useCallback(
     (params: { originalFilename: string; initialDescription?: string }) =>
       new Promise<{ description?: string }>((resolve) => {
-        pendingDescriptionResolverRef.current = resolve;
-        setPendingDescriptionItem(params);
+        pendingDescriptionQueueRef.current.push({ params, resolve });
+        pumpDescriptionQueue();
       }),
-    []
+    [pumpDescriptionQueue]
   );
 
   const processFile = useCallback(
-    async (item: UploadQueueItem) => {
+    async (item: UploadQueueItem, workerSlot: number) => {
+      if (inFlightRef.current.has(item.id)) {
+        return;
+      }
+      inFlightRef.current.add(item.id);
       const maxRetries = 2;
       let attempt = 0;
-      while (attempt <= maxRetries) {
-        updateItemById(item.id, { status: "processing", retryCount: attempt, error: undefined });
-        try {
-          await processUploadItem({
-            item,
-            requestDescription,
-            updateItem: (updates) => updateItemById(item.id, updates),
-            updateStage: (stageId, updates) => updateStageById(item.id, stageId, updates),
-            onUploadComplete,
-          });
-          return;
-        } catch (error) {
-          console.error("Processing failed:", error);
-          if (attempt < maxRetries) {
-            await new Promise((resolve) => {
-              window.setTimeout(resolve, 800 * (attempt + 1));
-            });
-            attempt += 1;
-            continue;
-          }
+      try {
+        while (attempt <= maxRetries) {
           updateItemById(item.id, {
-            status: "failed",
-            error: error instanceof Error ? error.message : "处理失败",
+            status: "processing",
             retryCount: attempt,
+            error: undefined,
+            workerSlot,
           });
-          return;
+          try {
+            await processUploadItem({
+              item,
+              requestDescription,
+              updateItem: (updates) => updateItemById(item.id, updates),
+              updateStage: (stageId, updates) => updateStageById(item.id, stageId, updates),
+              onUploadComplete,
+            });
+            return;
+          } catch (error) {
+            console.error("Processing failed:", error);
+            if (attempt < maxRetries) {
+              await new Promise((resolve) => {
+                window.setTimeout(resolve, 800 * (attempt + 1));
+              });
+              attempt += 1;
+              continue;
+            }
+            updateItemById(item.id, {
+              status: "failed",
+              error: error instanceof Error ? error.message : "处理失败",
+              retryCount: attempt,
+            });
+            return;
+          }
         }
+      } finally {
+        inFlightRef.current.delete(item.id);
       }
     },
     [onUploadComplete, requestDescription, updateItemById, updateStageById]
   );
 
-  const processQueue = useCallback(async () => {
-    if (processingRef.current) return;
-    const pendingItem = queue.find((item) => item.status === "queued");
-    if (!pendingItem) return;
+  useEffect(() => {
+    const activeCount = queue.filter(
+      (item) => item.status === "processing" || item.status === "uploading"
+    ).length;
+    const availableSlots = Math.max(0, workerCount - activeCount);
+    if (availableSlots <= 0) return;
+    const pendingItems = queue.filter((item) => item.status === "queued").slice(0, availableSlots);
+    if (pendingItems.length === 0) return;
 
-    processingRef.current = true;
-    try {
-      await processFile(pendingItem);
-    } finally {
-      processingRef.current = false;
-    }
-  }, [processFile, queue]);
+    pendingItems.forEach((item, index) => {
+      const slot = activeCount + index + 1;
+      void processFile(item, slot);
+    });
+  }, [processFile, queue, workerCount]);
 
   useEffect(() => {
-    if (queue.some((item) => item.status === "queued")) {
-      void processQueue();
+    if (!isOpen) {
+      inFlightRef.current.clear();
+      pendingDescriptionResolverRef.current?.({});
+      pendingDescriptionResolverRef.current = null;
+      pendingDescriptionQueueRef.current.forEach((entry) => entry.resolve({}));
+      pendingDescriptionQueueRef.current = [];
+      setPendingDescriptionItem(null);
     }
-  }, [processQueue, queue]);
+  }, [isOpen]);
 
   const makeQueueId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -290,6 +334,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
   );
 
   const removeItem = useCallback((id: string) => {
+    inFlightRef.current.delete(id);
     setQueue((prev) => {
       const item = prev.find((entry) => entry.id === id);
       if (item?.thumbnail) {
@@ -308,6 +353,11 @@ const UploadModal: React.FC<UploadModalProps> = ({
               status: "queued",
               progress: 0,
               error: undefined,
+              metadata: undefined,
+              result: undefined,
+              processingSummary: undefined,
+              taskMetrics: undefined,
+              workerSlot: undefined,
               stages: createInitialStages(),
             }
           : item
@@ -320,17 +370,26 @@ const UploadModal: React.FC<UploadModalProps> = ({
     pendingDescriptionResolverRef.current = null;
     resolver?.({ description: description.trim() });
     setPendingDescriptionItem(null);
-  }, []);
+    window.setTimeout(() => {
+      pumpDescriptionQueue();
+    }, 0);
+  }, [pumpDescriptionQueue]);
 
   const handleSkipDescription = useCallback(() => {
     const resolver = pendingDescriptionResolverRef.current;
     pendingDescriptionResolverRef.current = null;
     resolver?.({});
     setPendingDescriptionItem(null);
-  }, []);
+    window.setTimeout(() => {
+      pumpDescriptionQueue();
+    }, 0);
+  }, [pumpDescriptionQueue]);
 
   const completedCount = queue.filter((item) => item.status === "completed").length;
   const failedCount = queue.filter((item) => item.status === "failed").length;
+  const activeWorkers = queue.filter(
+    (item) => item.status === "processing" || item.status === "uploading"
+  ).length;
   const allCompleted = queue.length > 0 && completedCount === queue.length;
   const totalBytes = queue.reduce((sum, item) => {
     return sum + item.file.size + (item.liveVideoFile?.size || 0);
@@ -351,7 +410,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-hidden border border-white/10 bg-[#111111] p-0 shadow-[0_40px_120px_rgba(0,0,0,0.75)]">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-hidden border border-white/5 bg-[#050505] p-0 shadow-[0_40px_120px_rgba(0,0,0,0.75)]">
         <DialogHeader className="space-y-0 border-b border-white/10 bg-gradient-to-r from-[#151515] via-[#1b1b1b] to-[#151515] px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -408,6 +467,8 @@ const UploadModal: React.FC<UploadModalProps> = ({
               queue={queue}
               totalBytes={totalBytes}
               failedCount={failedCount}
+              workerCount={workerCount}
+              activeWorkers={activeWorkers}
               onRemoveItem={removeItem}
               onRetryItem={retryItem}
             />

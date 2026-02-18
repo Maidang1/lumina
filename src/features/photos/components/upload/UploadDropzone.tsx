@@ -48,7 +48,7 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
         "before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_55%)] before:content-['']",
         isDragging
           ? "border-[#c9a962]/60 bg-[#c9a962]/10 shadow-[0_0_0_1px_rgba(201,169,98,0.25)]"
-          : "border-white/10 bg-[#171717] hover:border-white/20"
+          : "border-white/5 bg-[#0A0A0A] hover:border-white/20"
       )}
       onDrop={onDrop}
       onDragOver={onDragOver}

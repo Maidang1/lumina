@@ -125,7 +125,7 @@ const DialogContent: React.FC<DialogContentProps> = ({
     >
       <div
         className={cn(
-          "relative w-full rounded-lg border border-white/10 bg-[#1a1a1a] text-gray-200 shadow-xl",
+          "relative w-full border border-lumina-border bg-lumina-bg text-lumina-text-secondary shadow-2xl",
           className,
         )}
         {...props}
@@ -144,7 +144,7 @@ const DialogHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
 const DialogTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({
   className,
   ...props
-}) => <h2 className={cn("text-lg font-semibold text-white", className)} {...props} />;
+}) => <h2 className={cn("text-lg font-semibold text-lumina-text", className)} {...props} />;
 
 const DialogFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   className,
