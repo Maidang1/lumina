@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { animated, to, useSpring } from '@react-spring/web';
+import { Star } from 'lucide-react';
 import { Photo } from '@/features/photos/types';
 import { videoLoaderManager } from '@/features/photos/services/videoLoaderManager';
 import { useLivePhotoControls } from './hooks/useLivePhotoControls';
@@ -18,12 +19,22 @@ interface PhotoCardProps {
       borderRadius: number;
     }
   ) => void;
+  isFavorite: boolean;
+  onToggleFavorite: (photoId: string) => void;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (photoId: string) => void;
 }
 
 const PhotoCard: React.FC<PhotoCardProps> = ({
   photo,
   index,
   onClick,
+  isFavorite,
+  onToggleFavorite,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelect,
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -204,10 +215,20 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       role='button'
       tabIndex={0}
       aria-label={`查看图片 ${photo.title}`}
-      onClick={() => onClick(photo, getTransitionSource())}
+      onClick={() => {
+        if (selectionMode) {
+          onToggleSelect?.(photo.id);
+          return;
+        }
+        onClick(photo, getTransitionSource());
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
+          if (selectionMode) {
+            onToggleSelect?.(photo.id);
+            return;
+          }
           onClick(photo, getTransitionSource());
         }
       }}
@@ -229,6 +250,36 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       <div className='pointer-events-none absolute inset-0 rounded-2xl border border-white/[0.04] opacity-0 transition-opacity duration-300 group-hover:opacity-100' 
            style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%, rgba(255,255,255,0.01) 100%)' }} 
       />
+      <button
+        type='button'
+        aria-label={isFavorite ? '取消收藏' : '收藏'}
+        className='absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white/80 backdrop-blur-sm transition hover:border-white/40 hover:text-white'
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (selectionMode) {
+            onToggleSelect?.(photo.id);
+            return;
+          }
+          onToggleFavorite(photo.id);
+        }}
+      >
+        <Star
+          size={14}
+          className={isFavorite ? 'fill-[#c9a962] text-[#c9a962]' : ''}
+        />
+      </button>
+      {selectionMode && (
+        <span
+          className={`absolute left-3 top-3 z-20 inline-flex h-6 min-w-6 items-center justify-center rounded-full border text-[10px] ${
+            isSelected
+              ? "border-[#c9a962]/60 bg-[#c9a962]/30 text-[#f7e6bc]"
+              : "border-white/30 bg-black/55 text-zinc-300"
+          }`}
+        >
+          {isSelected ? "✓" : ""}
+        </span>
+      )}
       <animated.div
         className='h-full w-full'
         style={{

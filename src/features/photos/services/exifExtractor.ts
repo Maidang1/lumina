@@ -7,46 +7,6 @@ export interface ExifResult {
   rawExif: Record<string, unknown> | null;
 }
 
-const GPS_TAGS = [
-  "GPSLatitude",
-  "GPSLongitude",
-  "GPSLatitudeRef",
-  "GPSLongitudeRef",
-  "GPSAltitude",
-  "GPSAltitudeRef",
-  "GPSImgDirection",
-  "GPSImgDirectionRef",
-  "GPSTimeStamp",
-  "GPSDateStamp",
-  "GPSAreaInformation",
-  "GPSDOP",
-  "GPSMeasureMode",
-  "GPSProcessingMethod",
-  "GPSVersionID",
-  "latitude",
-  "longitude",
-];
-
-function hasGPSData(exif: Record<string, unknown> | null): boolean {
-  if (!exif) return false;
-
-  for (const tag of GPS_TAGS) {
-    if (exif[tag] !== undefined) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function removeGPSData(exif: Record<string, unknown>): Record<string, unknown> {
-  const cleaned = { ...exif };
-  for (const tag of GPS_TAGS) {
-    delete cleaned[tag];
-  }
-  return cleaned;
-}
-
 function formatExposureTime(value: number | undefined): number | undefined {
   return value;
 }
@@ -84,44 +44,55 @@ export async function extractExif(file: File | Blob): Promise<ExifResult> {
       typeof fullExif === "object" && fullExif !== null
         ? (fullExif as Record<string, unknown>)
         : {};
-    const cleanedExif = removeGPSData(exifSource);
+    const sourceExif = exifSource;
 
     const exifSummary: ExifSummary = {};
 
-    if (cleanedExif.Make) exifSummary.Make = String(cleanedExif.Make);
-    if (cleanedExif.Model) exifSummary.Model = String(cleanedExif.Model);
-    if (cleanedExif.LensModel) exifSummary.LensModel = String(cleanedExif.LensModel);
-    if (cleanedExif.DateTimeOriginal) {
-      exifSummary.DateTimeOriginal = new Date(cleanedExif.DateTimeOriginal as Date).toISOString();
-    } else if (cleanedExif.CreateDate) {
-      exifSummary.DateTimeOriginal = new Date(cleanedExif.CreateDate as Date).toISOString();
+    if (sourceExif.Make) exifSummary.Make = String(sourceExif.Make);
+    if (sourceExif.Model) exifSummary.Model = String(sourceExif.Model);
+    if (sourceExif.LensModel) exifSummary.LensModel = String(sourceExif.LensModel);
+    if (sourceExif.DateTimeOriginal) {
+      exifSummary.DateTimeOriginal = new Date(sourceExif.DateTimeOriginal as Date).toISOString();
+    } else if (sourceExif.CreateDate) {
+      exifSummary.DateTimeOriginal = new Date(sourceExif.CreateDate as Date).toISOString();
     }
-    if (cleanedExif.ExposureTime) {
-      exifSummary.ExposureTime = formatExposureTime(cleanedExif.ExposureTime as number);
+    if (sourceExif.ExposureTime) {
+      exifSummary.ExposureTime = formatExposureTime(sourceExif.ExposureTime as number);
     }
-    if (cleanedExif.FNumber || cleanedExif.ApertureValue) {
+    if (sourceExif.FNumber || sourceExif.ApertureValue) {
       exifSummary.FNumber = formatAperture(
-        (cleanedExif.FNumber || cleanedExif.ApertureValue) as number
+        (sourceExif.FNumber || sourceExif.ApertureValue) as number
       );
     }
-    if (cleanedExif.ISO) exifSummary.ISO = cleanedExif.ISO as number;
-    if (cleanedExif.FocalLength) {
-      exifSummary.FocalLength = cleanedExif.FocalLength as number;
+    if (sourceExif.ISO) exifSummary.ISO = sourceExif.ISO as number;
+    if (sourceExif.FocalLength) {
+      exifSummary.FocalLength = sourceExif.FocalLength as number;
     }
-    if (cleanedExif.Orientation) {
-      exifSummary.Orientation = cleanedExif.Orientation as number;
+    if (sourceExif.Orientation) {
+      exifSummary.Orientation = sourceExif.Orientation as number;
     }
-    if (cleanedExif.Software) exifSummary.Software = String(cleanedExif.Software);
-    if (cleanedExif.Artist) exifSummary.Artist = String(cleanedExif.Artist);
-    if (cleanedExif.Copyright) exifSummary.Copyright = String(cleanedExif.Copyright);
+    if (sourceExif.Software) exifSummary.Software = String(sourceExif.Software);
+    if (sourceExif.Artist) exifSummary.Artist = String(sourceExif.Artist);
+    if (sourceExif.Copyright) exifSummary.Copyright = String(sourceExif.Copyright);
+    if (gpsData && typeof gpsData === "object") {
+      const raw = gpsData as Record<string, unknown>;
+      const latitude = typeof raw.latitude === "number" ? raw.latitude : undefined;
+      const longitude = typeof raw.longitude === "number" ? raw.longitude : undefined;
+      if (latitude !== undefined) {
+        exifSummary.GPSLatitude = latitude;
+      }
+      if (longitude !== undefined) {
+        exifSummary.GPSLongitude = longitude;
+      }
+    }
 
     return {
       exif: exifSummary,
       privacy: {
         original_contains_gps: originalContainsGPS,
-        exif_gps_removed: originalContainsGPS,
+        exif_gps_removed: false,
       },
-      rawExif: cleanedExif,
+      rawExif: sourceExif,
     };
   } catch (error) {
     console.warn("EXIF extraction failed:", error);

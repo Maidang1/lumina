@@ -6,6 +6,7 @@ import {
   imageIdToMetaPath,
   errorResponse,
   corsHeaders,
+  validateSignedAssetAccess,
 } from "../../../../_utils";
 
 export const onRequest: PagesFunction<Env> = async (context) => {
@@ -37,6 +38,11 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 
   try {
+    const signatureError = await validateSignedAssetAccess(request, env, imageId, type);
+    if (signatureError) {
+      return signatureError;
+    }
+
     const github = createGitHubClient(env);
     const metaFile = await github.getFile(imageIdToMetaPath(imageId));
     const metadata = JSON.parse(atob(metaFile.content)) as ImageMetadata;

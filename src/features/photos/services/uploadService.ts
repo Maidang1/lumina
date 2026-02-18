@@ -10,6 +10,12 @@ export interface DeleteImageResult {
   deleted_paths: string[];
 }
 
+export interface SignedShareResult {
+  url: string;
+  expires_in_seconds: number;
+  type: "original" | "thumb" | "live";
+}
+
 const DEFAULT_OPTIONS: UploadOptions = {
   apiUrl: "/api",
   timeout: 120000,
@@ -215,6 +221,34 @@ export class UploadService {
     });
 
     return this.parseJson<ImageMetadata>(response, `Failed to update metadata: ${response.status}`);
+  }
+
+  async createSignedShareUrl(
+    imageId: string,
+    type: "original" | "thumb" | "live" = "original",
+    expiresInSeconds: number = 24 * 60 * 60
+  ): Promise<SignedShareResult> {
+    const uploadToken = this.getUploadToken();
+    if (!uploadToken) {
+      throw new ApiRequestError("Missing UPLOAD_TOKEN. Please configure it before creating share links.", 401);
+    }
+
+    const response = await fetch(this.getEndpoint(`${this.getImagePath(imageId)}/share`), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Upload-Token": uploadToken,
+      },
+      body: JSON.stringify({
+        type,
+        expires_in_seconds: expiresInSeconds,
+      }),
+    });
+
+    return this.parseJson<SignedShareResult>(
+      response,
+      `Failed to create signed share url: ${response.status}`
+    );
   }
 }
 

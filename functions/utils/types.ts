@@ -5,6 +5,7 @@ export interface Env {
   GH_BRANCH: string;
   ALLOW_ORIGIN: string;
   UPLOAD_TOKEN: string;
+  SHARE_SIGNING_SECRET?: string;
 }
 
 export interface ImageMetadata {
@@ -48,6 +49,8 @@ interface ExifSummary {
   Make?: string;
   Model?: string;
   LensModel?: string;
+  GPSLatitude?: number;
+  GPSLongitude?: number;
   DateTimeOriginal?: string;
   ExposureTime?: number;
   FNumber?: number;

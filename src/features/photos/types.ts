@@ -55,6 +55,8 @@ export interface ExifSummary {
   Make?: string;
   Model?: string;
   LensModel?: string;
+  GPSLatitude?: number;
+  GPSLongitude?: number;
   DateTimeOriginal?: string;
   ExposureTime?: number;
   FNumber?: number;
@@ -183,6 +185,7 @@ export interface UploadQueueItem {
   result?: UploadResult;
   error?: string;
   thumbnail?: string;
+  retryCount?: number;
 }
 
 export interface UploadConfig {

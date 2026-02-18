@@ -98,21 +98,35 @@ const UploadModal: React.FC<UploadModalProps> = ({
 
   const processFile = useCallback(
     async (item: UploadQueueItem) => {
-      updateItemById(item.id, { status: "processing" });
-      try {
-        await processUploadItem({
-          item,
-          requestDescription,
-          updateItem: (updates) => updateItemById(item.id, updates),
-          updateStage: (stageId, updates) => updateStageById(item.id, stageId, updates),
-          onUploadComplete,
-        });
-      } catch (error) {
-        console.error("Processing failed:", error);
-        updateItemById(item.id, {
-          status: "failed",
-          error: error instanceof Error ? error.message : "处理失败",
-        });
+      const maxRetries = 2;
+      let attempt = 0;
+      while (attempt <= maxRetries) {
+        updateItemById(item.id, { status: "processing", retryCount: attempt, error: undefined });
+        try {
+          await processUploadItem({
+            item,
+            requestDescription,
+            updateItem: (updates) => updateItemById(item.id, updates),
+            updateStage: (stageId, updates) => updateStageById(item.id, stageId, updates),
+            onUploadComplete,
+          });
+          return;
+        } catch (error) {
+          console.error("Processing failed:", error);
+          if (attempt < maxRetries) {
+            await new Promise((resolve) => {
+              window.setTimeout(resolve, 800 * (attempt + 1));
+            });
+            attempt += 1;
+            continue;
+          }
+          updateItemById(item.id, {
+            status: "failed",
+            error: error instanceof Error ? error.message : "处理失败",
+            retryCount: attempt,
+          });
+          return;
+        }
       }
     },
     [onUploadComplete, requestDescription, updateItemById, updateStageById]
@@ -285,6 +299,22 @@ const UploadModal: React.FC<UploadModalProps> = ({
     });
   }, []);
 
+  const retryItem = useCallback((id: string) => {
+    setQueue((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              status: "queued",
+              progress: 0,
+              error: undefined,
+              stages: createInitialStages(),
+            }
+          : item
+      )
+    );
+  }, []);
+
   const handleSaveDescription = useCallback((description: string) => {
     const resolver = pendingDescriptionResolverRef.current;
     pendingDescriptionResolverRef.current = null;
@@ -379,6 +409,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
               totalBytes={totalBytes}
               failedCount={failedCount}
               onRemoveItem={removeItem}
+              onRetryItem={retryItem}
             />
           </div>
         </ScrollArea>

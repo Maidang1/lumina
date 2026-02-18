@@ -2,12 +2,15 @@ import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { Photo, ImageMetadata } from "@/features/photos/types";
 import PhotoGrid from "@/features/photos/components/PhotoGrid";
 import PhotoDetail from "@/features/photos/components/PhotoDetail";
+import PhotoMapView from "@/features/photos/components/PhotoMapView";
 import UploadButton from "@/features/photos/components/UploadButton";
 import UploadModal from "@/features/photos/components/UploadModal";
+import { useBatchPhotoActions } from "@/features/photos/components/hooks/useBatchPhotoActions";
 import { Aperture } from "lucide-react";
 import { uploadService } from "@/features/photos/services/uploadService";
 import { metadataToPhoto } from "@/features/photos/services/photoMapper";
 import { Badge } from "@/shared/ui/badge";
+import { useLocalStorageState } from "@/shared/lib/useLocalStorageState";
 import { Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 
 interface GalleryShellProps {
@@ -23,6 +26,16 @@ interface PhotoOpenTransition {
   borderRadius: number;
 }
 
+const FAVORITE_STORAGE_KEY = "lumina.photo_favorites";
+const TAG_STORAGE_KEY = "lumina.photo_tags";
+
+const getModeButtonClass = (isActive: boolean): string =>
+  `inline-flex h-9 items-center rounded-lg border px-3 text-xs transition ${
+    isActive
+      ? "border-[#c9a962]/35 bg-[#c9a962]/15 text-[#e8d19a]"
+      : "border-white/[0.08] bg-white/[0.03] text-zinc-300 hover:border-white/[0.14]"
+  }`;
+
 const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
   const [routePhoto, setRoutePhoto] = useState<Photo | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -31,7 +44,12 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
   const [isDeleteTokenConfigured, setIsDeleteTokenConfigured] = useState(false);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [openTransition, setOpenTransition] = useState<PhotoOpenTransition | null>(null);
+  const [favoriteIdList, setFavoriteIdList] = useLocalStorageState<string[]>(FAVORITE_STORAGE_KEY, []);
+  const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
+  const [photoTags, setPhotoTags] = useLocalStorageState<Record<string, string[]>>(TAG_STORAGE_KEY, {});
   const navigate = useNavigate();
+
+  const favoriteIds = useMemo(() => new Set(favoriteIdList), [favoriteIdList]);
 
   const navigateToPhoto = useCallback((photoId: string): void => {
     navigate(`/photos/${encodeURIComponent(photoId)}`);
@@ -88,6 +106,11 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
     return photos.find((photo) => photo.id === routePhotoId) ?? routePhoto;
   }, [photos, routePhoto, routePhotoId]);
 
+  const selectedPhotoIndex = useMemo(() => {
+    if (!selectedPhoto) return -1;
+    return photos.findIndex((photo) => photo.id === selectedPhoto.id);
+  }, [photos, selectedPhoto]);
+
   useEffect(() => {
     if (!routePhotoId) {
       setRoutePhoto(null);
@@ -132,6 +155,11 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
     if (deletingPhotoId === photoId) {
       return;
     }
+    if (!uploadService.hasUploadToken()) {
+      setIsDeleteTokenConfigured(false);
+      window.alert("缺少 upload_token，无法删除。");
+      return;
+    }
 
     try {
       setDeletingPhotoId(photoId);
@@ -148,6 +176,38 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
       setIsDeleteTokenConfigured(uploadService.hasUploadToken());
     }
   }, [deletingPhotoId, navigate, routePhotoId]);
+
+  const handleToggleFavorite = useCallback((photoId: string): void => {
+    setFavoriteIdList((prev) => {
+      const next = new Set(prev);
+      if (next.has(photoId)) {
+        next.delete(photoId);
+      } else {
+        next.add(photoId);
+      }
+      return Array.from(next);
+    });
+  }, [setFavoriteIdList]);
+
+  const {
+    isBatchMode,
+    selectedIds,
+    handleBatchSelectToggle,
+    handleBatchDelete,
+    handleBatchFavorite,
+    handleBatchDownload,
+    handleBatchTag,
+    handleToggleBatchMode,
+    handleSelectAllVisible,
+    handleClearSelection,
+  } = useBatchPhotoActions({
+    photos,
+    isDeleteTokenConfigured,
+    setFavoriteIdList,
+    setPhotoTags,
+    onDeletePhoto: handleDeletePhoto,
+    onDeleteTokenMissing: () => setIsDeleteTokenConfigured(false),
+  });
 
   return (
     <div className="min-h-screen">
@@ -172,12 +232,90 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className={getModeButtonClass(viewMode === "grid")}
+              onClick={() => setViewMode("grid")}
+            >
+              网格
+            </button>
+            <button
+              type="button"
+              className={getModeButtonClass(viewMode === "map")}
+              onClick={() => setViewMode("map")}
+            >
+              地图
+            </button>
+            {isDeleteTokenConfigured && (
+              <button
+                type="button"
+                className={getModeButtonClass(isBatchMode)}
+                onClick={handleToggleBatchMode}
+              >
+                批量
+              </button>
+            )}
             <UploadButton onClick={() => setIsUploadModalOpen(true)} />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto mt-8 w-full max-w-[1440px] flex-grow px-5 pb-12 sm:px-8 sm:pb-16">
+      <main
+        className={
+          viewMode === "map"
+            ? "mx-auto mt-4 h-[calc(100svh-128px)] w-full max-w-[1440px] flex-grow px-5 pb-4 sm:px-8 sm:pb-6"
+            : "mx-auto mt-8 w-full max-w-[1440px] flex-grow px-5 pb-12 sm:px-8 sm:pb-16"
+        }
+      >
+        {isBatchMode && (
+          <div className='mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-zinc-300 shadow-[0_10px_40px_rgba(0,0,0,0.35)]'>
+            <span className='mr-2 text-zinc-400'>已选 {selectedIds.size}</span>
+            <button
+              type='button'
+              className='rounded-md border border-white/[0.12] px-2 py-1 hover:bg-white/[0.08]'
+              onClick={handleSelectAllVisible}
+            >
+              全选当前结果
+            </button>
+            <button
+              type='button'
+              className='rounded-md border border-white/[0.12] px-2 py-1 hover:bg-white/[0.08]'
+              onClick={handleClearSelection}
+            >
+              清空
+            </button>
+            <button
+              type='button'
+              className='rounded-md border border-white/[0.12] px-2 py-1 hover:bg-white/[0.08]'
+              onClick={handleBatchFavorite}
+            >
+              批量收藏
+            </button>
+            <button
+              type='button'
+              className='rounded-md border border-white/[0.12] px-2 py-1 hover:bg-white/[0.08]'
+              onClick={handleBatchTag}
+            >
+              批量标签
+            </button>
+            <button
+              type='button'
+              className='rounded-md border border-white/[0.12] px-2 py-1 hover:bg-white/[0.08]'
+              onClick={handleBatchDownload}
+            >
+              批量下载
+            </button>
+            <button
+              type='button'
+              className='rounded-md border border-rose-300/40 px-2 py-1 text-rose-200 hover:bg-rose-500/20'
+              onClick={() => {
+                void handleBatchDelete();
+              }}
+            >
+              批量删除
+            </button>
+          </div>
+        )}
         {isLoading ? (
           <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4">
             <div className="relative">
@@ -186,13 +324,30 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
             <p className="text-xs font-light tracking-wide text-zinc-400">加载相册中...</p>
           </div>
         ) : (
-          <PhotoGrid
-            photos={photos}
-            onPhotoClick={(photo, transitionSource) => {
-              setOpenTransition(transitionSource);
-              navigateToPhoto(photo.id);
-            }}
-          />
+          <>
+            {viewMode === "grid" ? (
+              <PhotoGrid
+                photos={photos}
+                onPhotoClick={(photo, transitionSource) => {
+                  setOpenTransition(transitionSource);
+                  navigateToPhoto(photo.id);
+                }}
+                favoriteIds={favoriteIds}
+                onToggleFavorite={handleToggleFavorite}
+                selectionMode={isBatchMode}
+                selectedIds={selectedIds}
+                onToggleSelect={handleBatchSelectToggle}
+              />
+            ) : (
+              <PhotoMapView
+                photos={photos}
+                onPhotoClick={(photo) => {
+                  setOpenTransition(null);
+                  navigateToPhoto(photo.id);
+                }}
+              />
+            )}
+          </>
         )}
       </main>
 
@@ -204,6 +359,21 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
           isDeleting={deletingPhotoId === selectedPhoto.id}
           onDelete={handleDeletePhoto}
           openingTransition={openTransition && openTransition.photoId === selectedPhoto.id ? openTransition : null}
+          isFavorite={favoriteIds.has(selectedPhoto.id)}
+          onToggleFavorite={handleToggleFavorite}
+          tags={photoTags[selectedPhoto.id] ?? []}
+          canPrev={selectedPhotoIndex > 0}
+          canNext={selectedPhotoIndex >= 0 && selectedPhotoIndex < photos.length - 1}
+          onPrev={() => {
+            if (selectedPhotoIndex <= 0) return;
+            setOpenTransition(null);
+            navigateToPhoto(photos[selectedPhotoIndex - 1].id);
+          }}
+          onNext={() => {
+            if (selectedPhotoIndex < 0 || selectedPhotoIndex >= photos.length - 1) return;
+            setOpenTransition(null);
+            navigateToPhoto(photos[selectedPhotoIndex + 1].id);
+          }}
         />
       )}
 

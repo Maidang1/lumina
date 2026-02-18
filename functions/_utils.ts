@@ -12,6 +12,7 @@ export {
 export { corsHeaders, errorResponse, jsonResponse, validateUploadToken } from "./utils/http";
 
 export { createGitHubClient, GitHubClient } from "./utils/github";
+export { buildSignedAssetUrl, validateSignedAssetAccess } from "./utils/share";
 
 export type {
   Env,

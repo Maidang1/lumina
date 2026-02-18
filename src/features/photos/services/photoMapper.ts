@@ -1,9 +1,5 @@
 import { ImageMetadata, Photo } from "@/features/photos/types";
 
-const GH_OWNER = "Maidang1";
-const GH_REPO = "photos";
-const GH_BRANCH = "main";
-
 function guessExtension(mime: string): string {
   const mimeMap: Record<string, string> = {
     "image/jpeg": "jpg",
@@ -22,15 +18,6 @@ function imageIdToObjectPath(imageId: string): string {
   const p1 = hex.slice(0, 2);
   const p2 = hex.slice(2, 4);
   return `objects/${p1}/${p2}/sha256_${hex}`;
-}
-
-function toRawGitHubUrl(path: string): string {
-  const normalizedPath = path
-    .split("/")
-    .filter(Boolean)
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-  return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${normalizedPath}`;
 }
 
 function getOriginalPath(metadata: ImageMetadata): string {
@@ -74,8 +61,8 @@ export function metadataToPhoto(metadata: ImageMetadata): Photo {
     : undefined;
   return {
     id: metadata.image_id,
-    url: toRawGitHubUrl(getOriginalPath(metadata)),
-    thumbnail: toRawGitHubUrl(getThumbPath(metadata)),
+    url: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/original`,
+    thumbnail: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/thumb`,
     isLive,
     liveUrl,
     liveMime: metadata.files.live_video?.mime,

@@ -3,6 +3,7 @@ import {
   Calendar,
   FileText,
   Loader2,
+  Star,
   Trash2,
 } from "lucide-react";
 import { Photo } from "@/features/photos/types";
@@ -18,22 +19,40 @@ import {
 
 interface PhotoDetailInfoPanelProps {
   photo: Photo;
+  isFavorite: boolean;
+  tags: string[];
   hasVideo: boolean;
   isConvertingVideo: boolean;
   livePlaybackError: string | null;
   canDelete: boolean;
   isDeleting: boolean;
   onDeleteClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onToggleFavorite?: (photoId: string) => void;
+  shareMode: "private" | "public";
+  onChangeShareMode: (next: "private" | "public") => void;
+  watermarkPreviewEnabled: boolean;
+  onToggleWatermarkPreview: (next: boolean) => void;
+  onGenerateShareLink: () => void;
+  shareLink: string;
 }
 
 const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
   photo,
+  isFavorite,
+  tags,
   hasVideo,
   isConvertingVideo,
   livePlaybackError,
   canDelete,
   isDeleting,
   onDeleteClick,
+  onToggleFavorite,
+  shareMode,
+  onChangeShareMode,
+  watermarkPreviewEnabled,
+  onToggleWatermarkPreview,
+  onGenerateShareLink,
+  shareLink,
 }) => {
   const metadata = photo.metadata;
 
@@ -43,6 +62,19 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
         <div>
           <h2 className='font-display text-2xl tracking-wide text-white md:text-3xl'>{photo.title}</h2>
           <div className='mt-3 flex flex-wrap items-center gap-2'>
+            <button
+              type='button'
+              className='inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs text-zinc-300 transition hover:border-white/[0.14] hover:text-white'
+              onClick={() => {
+                onToggleFavorite?.(photo.id);
+              }}
+            >
+              <Star
+                size={12}
+                className={isFavorite ? "fill-[#c9a962] text-[#c9a962]" : "text-zinc-400"}
+              />
+              {isFavorite ? "已收藏" : "收藏"}
+            </button>
             <Badge variant='outline' className='gap-2 border-white/[0.04] bg-white/[0.02] px-3 py-1.5 text-xs font-normal text-zinc-400'>
               <Calendar size={12} className='text-zinc-400' />
               <span>{photo.exif.date}</span>
@@ -60,6 +92,18 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
               <p className='text-sm leading-relaxed text-zinc-300'>
                 {photo.visualDescription}
               </p>
+            </div>
+          )}
+          {tags.length > 0 && (
+            <div className='mt-3 flex flex-wrap gap-2'>
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className='rounded-full border border-white/[0.1] bg-black/25 px-2.5 py-1 text-[11px] text-zinc-300'
+                >
+                  #{tag}
+                </span>
+              ))}
             </div>
           )}
         </div>
@@ -139,6 +183,58 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
                 <span className='max-w-[62%] break-all text-right font-mono text-[10px] text-zinc-400'>{metadata.image_id}</span>
               </div>
             </>
+          )}
+        </div>
+
+        <div className='space-y-2 border-t border-white/[0.06] pt-3'>
+          <p className='text-xs text-zinc-400'>分享设置</p>
+          <div className='flex items-center gap-2'>
+            <button
+              type='button'
+              className={`rounded-md border px-2 py-1 text-xs ${
+                shareMode === "private"
+                  ? "border-[#c9a962]/40 bg-[#c9a962]/15 text-[#e8d19a]"
+                  : "border-white/[0.1] text-zinc-300"
+              }`}
+              onClick={() => onChangeShareMode("private")}
+            >
+              私密
+            </button>
+            <button
+              type='button'
+              className={`rounded-md border px-2 py-1 text-xs ${
+                shareMode === "public"
+                  ? "border-[#c9a962]/40 bg-[#c9a962]/15 text-[#e8d19a]"
+                  : "border-white/[0.1] text-zinc-300"
+              }`}
+              onClick={() => onChangeShareMode("public")}
+            >
+              公开
+            </button>
+            <button
+              type='button'
+              className={`rounded-md border px-2 py-1 text-xs ${
+                watermarkPreviewEnabled
+                  ? "border-[#c9a962]/40 bg-[#c9a962]/15 text-[#e8d19a]"
+                  : "border-white/[0.1] text-zinc-300"
+              }`}
+              onClick={() => onToggleWatermarkPreview(!watermarkPreviewEnabled)}
+            >
+              水印预览
+            </button>
+          </div>
+          <Button
+            size='sm'
+            variant='outline'
+            className='h-8 border-white/[0.12] bg-black/30 px-3 text-xs text-zinc-200'
+            onClick={onGenerateShareLink}
+          >
+            生成 24h 分享链接
+          </Button>
+          {shareLink && (
+            <p className='break-all rounded-md border border-white/[0.08] bg-black/25 px-2 py-1 text-[11px] text-zinc-300'>
+              {shareLink}
+            </p>
           )}
         </div>
 

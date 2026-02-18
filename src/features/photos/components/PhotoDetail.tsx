@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { animated, useSpring } from "@react-spring/web";
-import { Loader2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { Photo } from "@/features/photos/types";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/shared/ui/dialog";
 import { videoLoaderManager } from "@/features/photos/services/videoLoaderManager";
+import { uploadService } from "@/features/photos/services/uploadService";
 import { useLivePhotoControls } from "./hooks/useLivePhotoControls";
 import PhotoDetailInfoPanel from "./photo-detail/PhotoDetailInfoPanel";
 
@@ -13,6 +14,13 @@ interface PhotoDetailProps {
   canDelete?: boolean;
   isDeleting?: boolean;
   onDelete?: (photoId: string) => Promise<void>;
+  isFavorite?: boolean;
+  onToggleFavorite?: (photoId: string) => void;
+  tags?: string[];
+  canPrev?: boolean;
+  canNext?: boolean;
+  onPrev?: () => void;
+  onNext?: () => void;
   openingTransition?: {
     photoId: string;
     left: number;
@@ -29,6 +37,13 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   canDelete = false,
   isDeleting = false,
   onDelete,
+  isFavorite = false,
+  onToggleFavorite,
+  tags = [],
+  canPrev = false,
+  canNext = false,
+  onPrev,
+  onNext,
   openingTransition = null,
 }) => {
   const [isOriginalLoaded, setIsOriginalLoaded] = useState(false);
@@ -37,6 +52,9 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [isConvertingVideo, setIsConvertingVideo] = useState(false);
   const [livePlaybackError, setLivePlaybackError] = useState<string | null>(null);
+  const [shareMode, setShareMode] = useState<"private" | "public">("private");
+  const [watermarkPreviewEnabled, setWatermarkPreviewEnabled] = useState(false);
+  const [shareLink, setShareLink] = useState<string>("");
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [liveFrameSize, setLiveFrameSize] = useState<{ width: number; height: number } | null>(null);
   const [launchTargetRect, setLaunchTargetRect] = useState<{
@@ -46,6 +64,10 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     height: number;
   } | null>(null);
   const [isLaunchAnimating, setIsLaunchAnimating] = useState(false);
+  const [closingTransition, setClosingTransition] = useState<{
+    from: { left: number; top: number; width: number; height: number };
+    to: { left: number; top: number; width: number; height: number; borderRadius: number };
+  } | null>(null);
 
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
   const thumbnailImageRef = useRef<HTMLImageElement | null>(null);
@@ -215,6 +237,23 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   }, [hasVideo, isVideoReady, photo.videoSource]);
 
   useEffect(() => {
+    const handleKey = (event: KeyboardEvent): void => {
+      if (event.key === "ArrowLeft" && canPrev) {
+        event.preventDefault();
+        onPrev?.();
+      }
+      if (event.key === "ArrowRight" && canNext) {
+        event.preventDefault();
+        onNext?.();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [canNext, canPrev, onNext, onPrev]);
+
+  useEffect(() => {
     return () => {
       stopVideo();
     };
@@ -235,6 +274,23 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     },
     [handleDelete]
   );
+
+  const generateShareLink = useCallback(async () => {
+    try {
+      const shareType = photo.isLive && shareMode === "public" ? "live" : "original";
+      const result = await uploadService.createSignedShareUrl(photo.id, shareType, 24 * 60 * 60);
+      const link = result.url;
+      setShareLink(link);
+      try {
+        await navigator.clipboard.writeText(link);
+      } catch {
+        // ignore clipboard failures; link is still shown in panel
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "生成签名分享链接失败";
+      window.alert(message);
+    }
+  }, [photo.id, photo.isLive, shareMode]);
 
   const shellSpring = useSpring({
     immediate: prefersReducedMotion,
@@ -338,13 +394,74 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     config: { tension: 240, friction: 28 },
   });
 
+  const closeSpring = useSpring({
+    immediate: !closingTransition,
+    from: {
+      left: closingTransition?.from.left ?? 0,
+      top: closingTransition?.from.top ?? 0,
+      width: closingTransition?.from.width ?? 1,
+      height: closingTransition?.from.height ?? 1,
+      radius: 0,
+      opacity: 1,
+    },
+    to: closingTransition
+      ? {
+          left: closingTransition.to.left,
+          top: closingTransition.to.top,
+          width: closingTransition.to.width,
+          height: closingTransition.to.height,
+          radius: closingTransition.to.borderRadius,
+          opacity: 0.3,
+        }
+      : {
+          left: 0,
+          top: 0,
+          width: 1,
+          height: 1,
+          radius: 0,
+          opacity: 0,
+        },
+    config: { tension: 260, friction: 26 },
+  });
+
+  const handleRequestClose = useCallback(() => {
+    if (closingTransition) return;
+    stopVideo();
+    if (prefersReducedMotion || !openingTransition || openingTransition.photoId !== photo.id) {
+      onClose();
+      return;
+    }
+    const rect = imagePanelRef.current?.getBoundingClientRect();
+    if (!rect) {
+      onClose();
+      return;
+    }
+    setClosingTransition({
+      from: {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      },
+      to: {
+        left: openingTransition.left,
+        top: openingTransition.top,
+        width: openingTransition.width,
+        height: openingTransition.height,
+        borderRadius: openingTransition.borderRadius,
+      },
+    });
+    window.setTimeout(() => {
+      onClose();
+    }, 280);
+  }, [closingTransition, onClose, openingTransition, photo.id, prefersReducedMotion, stopVideo]);
+
   return (
     <Dialog
       open={true}
       onOpenChange={(open) => {
         if (!open) {
-          stopVideo();
-          onClose();
+          handleRequestClose();
         }
       }}
     >
@@ -356,6 +473,26 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           <DialogClose className='absolute right-6 top-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-white/[0.06] bg-black/50 text-white/80 shadow-[0_4px_24px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-300 hover:border-white/[0.12] hover:bg-black/70 hover:text-white'>
             <X size={20} strokeWidth={1.5} />
           </DialogClose>
+          {canPrev && (
+            <button
+              type='button'
+              className='absolute left-6 top-1/2 z-40 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/45 text-zinc-100 backdrop-blur-xl transition hover:border-white/[0.15]'
+              onClick={onPrev}
+              aria-label='上一张'
+            >
+              <ChevronLeft size={20} />
+            </button>
+          )}
+          {canNext && (
+            <button
+              type='button'
+              className='absolute right-[calc(460px+24px)] top-1/2 z-40 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/45 text-zinc-100 backdrop-blur-xl transition hover:border-white/[0.15] lg:flex'
+              onClick={onNext}
+              aria-label='下一张'
+            >
+              <ChevronRight size={20} />
+            </button>
+          )}
 
           <animated.div
             ref={imagePanelRef}
@@ -401,6 +538,13 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
                   style={{ opacity: imageSpring.opacity }}
                   onLoad={() => setIsOriginalLoaded(true)}
                 />
+                {watermarkPreviewEnabled && (
+                  <div className='pointer-events-none absolute inset-0 flex items-end justify-end p-6'>
+                    <div className='rounded-md border border-white/25 bg-black/45 px-3 py-1 text-xs tracking-wider text-white/90 backdrop-blur-sm'>
+                      © Lumina Preview
+                    </div>
+                  </div>
+                )}
 
                 {!isOriginalLoaded && (
                   <div className='absolute bottom-3 right-3 z-30 flex items-center gap-2 rounded-lg border border-white/[0.08] bg-black/70 px-2.5 py-1.5 backdrop-blur-md'>
@@ -452,12 +596,23 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           >
             <PhotoDetailInfoPanel
               photo={photo}
+              isFavorite={isFavorite}
+              tags={tags}
               hasVideo={hasVideo}
               isConvertingVideo={isConvertingVideo}
               livePlaybackError={livePlaybackError}
               canDelete={canDelete}
               isDeleting={isDeleting}
               onDeleteClick={handleDeleteClick}
+              onToggleFavorite={onToggleFavorite}
+              shareMode={shareMode}
+              onChangeShareMode={setShareMode}
+              watermarkPreviewEnabled={watermarkPreviewEnabled}
+              onToggleWatermarkPreview={setWatermarkPreviewEnabled}
+              onGenerateShareLink={() => {
+                void generateShareLink();
+              }}
+              shareLink={shareLink}
             />
           </animated.div>
         </animated.div>
@@ -484,6 +639,26 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
               />
             </animated.div>
           )}
+        {closingTransition && (
+          <animated.div
+            className='pointer-events-none fixed z-[90] overflow-hidden bg-black shadow-[0_24px_80px_rgba(0,0,0,0.55)]'
+            style={{
+              left: closeSpring.left,
+              top: closeSpring.top,
+              width: closeSpring.width,
+              height: closeSpring.height,
+              borderRadius: closeSpring.radius,
+              opacity: closeSpring.opacity,
+            }}
+          >
+            <img
+              src={photo.thumbnail}
+              alt=''
+              aria-hidden='true'
+              className='h-full w-full object-cover'
+            />
+          </animated.div>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -71,6 +71,8 @@ Cloudflare Pages Functions (`.dev.vars` locally / Cloudflare dashboard in produc
 
 - `GITHUB_TOKEN`: PAT with `repo` scope
 - `ALLOW_ORIGIN`: CORS allowlist origin (e.g. `http://localhost:3000`)
+- `UPLOAD_TOKEN`: upload/update/delete/share 管理令牌
+- `SHARE_SIGNING_SECRET` (optional but recommended): signed share URL HMAC secret
 
 Configured in `wrangler.toml`:
 

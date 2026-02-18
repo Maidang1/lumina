@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Image as ImageIcon,
   Loader2,
+  RotateCcw,
   Sparkles,
   X,
 } from "lucide-react";
@@ -21,6 +22,7 @@ interface UploadQueuePanelProps {
   totalBytes: number;
   failedCount: number;
   onRemoveItem: (id: string) => void;
+  onRetryItem: (id: string) => void;
 }
 
 const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
@@ -28,6 +30,7 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   totalBytes,
   failedCount,
   onRemoveItem,
+  onRetryItem,
 }) => {
   if (queue.length === 0) {
     return null;
@@ -131,6 +134,16 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                       >
                         <X size={14} />
                       </Button>
+                      {item.status === "failed" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onRetryItem(item.id)}
+                          className="h-7 w-7 rounded-full text-gray-500 hover:bg-white/10 hover:text-emerald-300"
+                        >
+                          <RotateCcw size={14} />
+                        </Button>
+                      )}
                     </div>
                   </div>
 
@@ -165,6 +178,11 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                     <div className="flex items-center gap-2 text-sm text-red-300">
                       <AlertCircle size={16} />
                       <span>{item.error || "处理失败"}</span>
+                      {typeof item.retryCount === "number" && (
+                        <span className="text-xs text-red-200/80">
+                          (已重试 {item.retryCount} 次)
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

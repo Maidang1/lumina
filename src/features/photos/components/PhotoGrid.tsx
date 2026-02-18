@@ -15,11 +15,21 @@ interface PhotoGridProps {
       borderRadius: number;
     }
   ) => void;
+  favoriteIds: Set<string>;
+  onToggleFavorite: (photoId: string) => void;
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (photoId: string) => void;
 }
 
 const PhotoGrid: React.FC<PhotoGridProps> = ({
   photos,
   onPhotoClick,
+  favoriteIds,
+  onToggleFavorite,
+  selectionMode = false,
+  selectedIds = new Set(),
+  onToggleSelect,
 }) => {
   return (
     <div className="w-full py-3">
@@ -30,6 +40,11 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({
             photo={photo} 
             index={index}
             onClick={onPhotoClick}
+            isFavorite={favoriteIds.has(photo.id)}
+            onToggleFavorite={onToggleFavorite}
+            selectionMode={selectionMode}
+            isSelected={selectedIds.has(photo.id)}
+            onToggleSelect={onToggleSelect}
           />
         ))}
       </div>
