@@ -68,9 +68,12 @@ interface LeafletGeoJsonLayer {
   addTo: (layerGroup: LeafletLayerGroup) => LeafletGeoJsonLayer;
   bindTooltip: (text: string) => LeafletGeoJsonLayer;
   on: (event: string, handler: () => void) => LeafletGeoJsonLayer;
+  getBounds: () => LeafletBounds;
 }
 
-interface LeafletBounds {}
+interface LeafletBounds {
+    extend: (bounds: LeafletBounds) => void;
+}
 
 const ASIA_BOUNDS: [number, number][] = [
   [-10, 25],
@@ -233,57 +236,64 @@ const SidePanel: React.FC<SidePanelProps> = ({
 }) => {
   return (
     <aside className={className}>
-      <p className='mb-2 text-xs text-lumina-muted'>时间线</p>
-      <button
-        type='button'
-        onClick={() => onMonthChange("all")}
-        className={`mb-2 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs transition ${
-          activeMonth === "all" ? "bg-lumina-surface text-lumina-text" : "text-lumina-text-secondary hover:bg-lumina-surface"
-        }`}
-      >
-        <span>全部时间</span>
-        <span>{regionAggregates.reduce((sum, item) => sum + item.count, 0)} 点</span>
-      </button>
+      <div className='mb-2 flex items-center justify-between'>
+        <p className='text-xs font-medium text-gray-400'>时间线</p>
+        <span className='text-[10px] text-gray-500'>
+          {regionAggregates.reduce((sum, item) => sum + item.count, 0)} 点
+        </span>
+      </div>
+      
       <div className={monthListClassName}>
+        <button
+          type='button'
+          onClick={() => onMonthChange("all")}
+          className={`shrink-0 rounded-lg px-2 py-1 text-xs transition ${
+            activeMonth === "all" 
+              ? "bg-white/10 text-white" 
+              : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+          }`}
+        >
+          全部
+        </button>
         {monthBuckets.map(([month, count]) => (
           <button
             key={month}
             type='button'
             onClick={() => onMonthChange(month)}
-            className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs transition ${
-              activeMonth === month ? "bg-lumina-accent-muted text-lumina-accent" : "text-lumina-text-secondary hover:bg-lumina-surface"
+            className={`shrink-0 rounded-lg px-2 py-1 text-xs transition ${
+              activeMonth === month 
+                ? "bg-white/10 text-white" 
+                : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
             }`}
           >
-            <span>{month}</span>
-            <span>{count}</span>
+            {month} <span className='opacity-50'>{count}</span>
           </button>
         ))}
       </div>
 
-      <div className='mt-3 border-t border-lumina-border pt-3'>
+      <div className='mt-2 border-t border-white/5 pt-2'>
         <div className='mb-2 flex items-center justify-between'>
-          <p className='text-xs text-lumina-muted'>行政区足迹</p>
-          {(isResolvingRegions || isLoadingBoundaries) && <Loader2 size={12} className='animate-spin text-lumina-muted' />}
+          <p className='text-xs font-medium text-gray-400'>区域</p>
+          {(isResolvingRegions || isLoadingBoundaries) && <Loader2 size={12} className='animate-spin text-gray-500' />}
         </div>
         <div className={regionListClassName}>
           {regionAggregates.slice(0, 40).map((aggregate) => {
             const isSelected = selectedRegionKey === aggregate.key;
-            const boundary = boundaryByRegionKey[aggregate.key];
-            const levelLabel = boundary?.level === "district" ? "区" : boundary?.level === "city" ? "市" : boundary?.level === "province" ? "省" : "无边界";
             return (
               <button
                 key={aggregate.key}
                 type='button'
                 onClick={() => onRegionClick(aggregate)}
-                className={`w-full rounded-md px-2 py-2 text-left text-xs transition ${
-                  isSelected ? "bg-lumina-accent-muted text-lumina-accent" : "text-lumina-text-secondary hover:bg-lumina-surface"
+                className={`w-full rounded-md px-2 py-1.5 text-left text-xs transition ${
+                  isSelected 
+                    ? "bg-white/10 text-white" 
+                    : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
                 }`}
               >
-                <div className='flex items-start justify-between gap-2'>
-                  <span className='line-clamp-2'>{aggregate.region.displayName}</span>
-                  <span className='font-mono text-[10px] text-lumina-muted'>{aggregate.count}</span>
+                <div className='flex items-center justify-between gap-2'>
+                  <span className='line-clamp-1'>{aggregate.region.displayName}</span>
+                  <span className='font-mono text-[10px] text-gray-500'>{aggregate.count}</span>
                 </div>
-                <div className='mt-1 text-[10px] text-lumina-muted'>边界级别：{levelLabel}</div>
               </button>
             );
           })}
@@ -368,16 +378,25 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
     [activeMonth, points]
   );
 
-  const regionAggregates = useMemo<RegionAggregate[]>(() => {
+  const provinceAggregates = useMemo<RegionAggregate[]>(() => {
     const grouped = new Map<string, RegionAggregate>();
 
     for (const point of visiblePoints) {
       const region = point.regionFromMetadata ?? regionByPointKey[point.key] ?? UNKNOWN_REGION;
-      const existing = grouped.get(region.cacheKey);
+      // Use province as the key for aggregation
+      const provinceKey = `CN|${region.province}`;
+      
+      const existing = grouped.get(provinceKey);
       if (!existing) {
-        grouped.set(region.cacheKey, {
-          key: region.cacheKey,
-          region,
+        grouped.set(provinceKey, {
+          key: provinceKey,
+          region: {
+            ...region,
+            city: "", // Clear city/district for province level
+            district: "",
+            displayName: region.province,
+            cacheKey: provinceKey,
+          },
           count: 1,
           photos: [point.photo],
           representative: point.coordinates
@@ -387,6 +406,8 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
         continue;
       }
       existing.count += 1;
+      // Update representative point to be the average or just the first one?
+      // For now, keep the first one or update if not set
       if (!existing.representative && point.coordinates) {
         existing.representative = { lat: point.coordinates.lat, lng: point.coordinates.lng };
       }
@@ -534,7 +555,7 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
     let cancelled = false;
 
     const MAX_BOUNDARY_RETRY = 2;
-    const unresolved = regionAggregates.filter(
+    const unresolved = provinceAggregates.filter(
       (aggregate) =>
         aggregate.region.displayName !== "未知地区" &&
         (!(aggregate.key in boundaryByRegionKey) ||
@@ -549,7 +570,9 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
 
       await Promise.all(
         unresolved.map(async (aggregate) => {
-          const boundary = await getRegionBoundary(aggregate.region);
+          // Force province level boundary search
+          const provinceRegion = { ...aggregate.region, city: "未知城市", district: "未知区县" };
+          const boundary = await getRegionBoundary(provinceRegion);
           updates[aggregate.key] = boundary;
           if (boundary === null) {
             boundaryRetryCountRef.current[aggregate.key] =
@@ -573,7 +596,7 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
     return () => {
       cancelled = true;
     };
-  }, [boundaryByRegionKey, regionAggregates]);
+  }, [boundaryByRegionKey, provinceAggregates]);
 
   React.useEffect(() => {
     if (!mapReady) return;
@@ -586,28 +609,31 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
 
     regionLayer.clearLayers();
 
-    const maxCount = Math.max(...regionAggregates.map((item) => item.count), 1);
+    const maxCount = Math.max(...provinceAggregates.map((item) => item.count), 1);
     const coordinates: [number, number][] = [];
 
-    for (const aggregate of regionAggregates) {
-      if (aggregate.representative) {
-        coordinates.push([aggregate.representative.lat, aggregate.representative.lng]);
-      }
+    // Collect all points for bounds calculation
+    visiblePoints.forEach(p => {
+        if (p.coordinates) {
+            coordinates.push([p.coordinates.lat, p.coordinates.lng]);
+        }
+    });
+
+    for (const aggregate of provinceAggregates) {
       const boundary = boundaryByRegionKey[aggregate.key];
       if (!boundary) continue;
 
       const intensity = getIntensity(aggregate.count, maxCount);
       const isSelected = selectedRegionKey === aggregate.key;
-      const fillOpacity = intensity === 3 ? 0.56 : intensity === 2 ? 0.42 : 0.32;
-      const strokeWidth = isSelected ? 2.8 : intensity === 3 ? 2.2 : 1.6;
+      const strokeWidth = isSelected ? 2 : 1;
 
       const layer = L.geoJSON(boundary.geojson, {
         style: () => ({
-          color: isSelected ? "#D4AF37" : intensity === 3 ? "#D4AF37" : intensity === 2 ? "#b99758" : "#8a7a48",
+          color: isSelected ? "#ffffff" : "#a1a1aa", // white : zinc-400
           weight: strokeWidth,
-          opacity: isSelected ? 0.96 : 0.82,
-          fillColor: intensity === 3 ? "#D4AF37" : intensity === 2 ? "#b99758" : "#8a7a48",
-          fillOpacity,
+          opacity: isSelected ? 1 : 0.8,
+          fillColor: isSelected ? "#ffffff" : "#d4d4d8", // white : zinc-300
+          fillOpacity: isSelected ? 0.3 : 0.15,
         }),
       })
         .bindTooltip(`${aggregate.region.displayName} · ${aggregate.count} 张`)
@@ -628,7 +654,18 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
 
     const fitKey = `${activeMonth}:${coordinates.length}:${Object.keys(boundaryByRegionKey).length}`;
     if (lastAutoFitKeyRef.current !== fitKey) {
-      map.fitBounds(L.latLngBounds(coordinates), { padding: [36, 36], maxZoom: 8 });
+      // Add padding to bounds
+      const bounds = L.latLngBounds(coordinates);
+      // Extend bounds to include boundaries if available
+      provinceAggregates.forEach(agg => {
+          const boundary = boundaryByRegionKey[agg.key];
+          if (boundary && boundary.geojson) {
+             const layer = L.geoJSON(boundary.geojson);
+             bounds.extend(layer.getBounds());
+          }
+      });
+      
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 8 });
       lastAutoFitKeyRef.current = fitKey;
     }
   }, [
@@ -636,8 +673,9 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
     boundaryByRegionKey,
     mapReady,
     onPhotoClick,
-    regionAggregates,
+    provinceAggregates,
     selectedRegionKey,
+    visiblePoints
   ]);
 
   React.useEffect(() => {
@@ -713,7 +751,7 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
       const mapCanvas = await captureCurrentMapCanvas();
       const { blob, filename } = await buildMapSharePoster({
         mapCanvas,
-        regionAggregates,
+        regionAggregates: provinceAggregates,
         visiblePointsCount: visiblePoints.length,
         timeRangeLabel,
       });
@@ -730,7 +768,7 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
     } finally {
       setIsSharing(false);
     }
-  }, [captureCurrentMapCanvas, posterPreviewUrl, regionAggregates, timeRangeLabel, visiblePoints.length]);
+  }, [captureCurrentMapCanvas, posterPreviewUrl, provinceAggregates, timeRangeLabel, visiblePoints.length]);
 
   const handleDownloadPoster = React.useCallback((): void => {
     const blob = posterBlobRef.current;
@@ -780,114 +818,90 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
   );
 
   return (
-    <section className='flex h-full min-h-0 flex-col rounded-2xl border border-lumina-border bg-lumina-surface/30 p-4 shadow-[0_14px_44px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:p-5'>
-      <div className='mb-3 flex flex-wrap items-center justify-between gap-3'>
-        <div className='flex items-center gap-2 text-lumina-text'>
-          <MapPin size={14} />
-          <h2 className='text-sm'>地图足迹</h2>
-          <span className='rounded-md border border-lumina-border bg-lumina-bg/50 px-2 py-0.5 text-[11px] text-lumina-muted'>
-            {visiblePoints.length} 点位 / {regionAggregates.length} 区域
+    <section className='relative flex h-full min-h-0 flex-col overflow-hidden bg-[#0a0a0a]'>
+      <div className='absolute left-4 top-4 z-[400] flex flex-wrap items-center gap-3 rounded-2xl border border-white/[0.12] bg-[#141414]/88 px-4 py-2.5 shadow-[0_14px_38px_rgba(0,0,0,0.42)] backdrop-blur-lg transition-colors duration-200 hover:bg-[#161616]/95'>
+        <div className='flex items-center gap-2 text-gray-200'>
+          <MapPin size={16} className="text-gray-400" />
+          <h2 className='text-sm font-medium'>地图足迹</h2>
+          <span className='rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-gray-400'>
+            {visiblePoints.length} 点位
           </span>
-        </div>
-
-        <div className='flex items-center gap-2'>
-          <span className='inline-flex h-8 items-center rounded-lg border border-lumina-accent-muted bg-lumina-accent-muted px-3 text-xs text-lumina-accent'>
-            区级高亮
-          </span>
-          <button
-            type='button'
-            onClick={() => {
-              void handleShareMap();
-            }}
-            disabled={isSharing}
-            className='inline-flex h-8 items-center gap-1.5 rounded-lg border border-lumina-border bg-lumina-surface/50 px-3 text-xs text-lumina-text-secondary transition hover:border-lumina-border-subtle hover:bg-lumina-surface disabled:cursor-not-allowed disabled:opacity-60'
-          >
-            {isSharing ? <Loader2 size={12} className='animate-spin' /> : <Share2 size={12} />}
-            分享海报
-          </button>
-          <button
-            type='button'
-            className='inline-flex h-8 items-center gap-1.5 rounded-lg border border-lumina-border bg-lumina-surface/50 px-3 text-xs text-lumina-text-secondary transition hover:border-lumina-border-subtle hover:bg-lumina-surface lg:hidden'
-            onClick={() => setIsMobilePanelOpen((prev) => !prev)}
-          >
-            区域列表
-            <ChevronDown size={12} className={`transition-transform ${isMobilePanelOpen ? "rotate-180" : ""}`} />
-          </button>
         </div>
       </div>
 
-      <div className='grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]'>
-        <div className='relative h-full min-h-[420px] overflow-hidden rounded-xl border border-lumina-border bg-lumina-surface-elevated'>
-          <style>{`
+      <div className='absolute right-4 top-4 z-[400] flex items-center gap-2'>
+        <button
+          type='button'
+          onClick={() => {
+            void handleShareMap();
+          }}
+          disabled={isSharing}
+          className='inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-white/[0.12] bg-[#141414]/90 px-4 text-xs font-medium text-gray-200 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-md transition-colors duration-200 hover:bg-[#181818] disabled:cursor-not-allowed disabled:opacity-60'
+        >
+          {isSharing ? <Loader2 size={14} className='animate-spin' /> : <Share2 size={14} />}
+          <span>分享</span>
+        </button>
+      </div>
+
+      <div className='relative h-full w-full'>
+        <style>{`
             .leaflet-tooltip {
-              background: rgba(8, 8, 10, 0.85);
-              border: 1px solid rgba(255, 255, 255, 0.08);
+              background: rgba(16, 16, 16, 0.92);
+              border: none;
               color: rgba(255, 255, 255, 0.9);
+              border-radius: 8px;
+              padding: 4px 10px;
+              box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+              font-size: 11px;
+              font-weight: 500;
+              backdrop-filter: blur(10px);
             }
             .leaflet-tooltip:before {
-              border-top-color: rgba(8, 8, 10, 0.85) !important;
+              border-top-color: rgba(16, 16, 16, 0.92) !important;
             }
             .leaflet-control-attribution {
-              background: rgba(8, 8, 10, 0.7) !important;
-              color: rgba(255, 255, 255, 0.58) !important;
-              border: 1px solid rgba(255, 255, 255, 0.08);
-              border-bottom: 0;
-              border-right: 0;
+              background: rgba(10, 10, 10, 0.68) !important;
+              color: rgba(255, 255, 255, 0.45) !important;
+              backdrop-filter: blur(4px);
+              border: none;
+              padding: 0 8px;
+              border-top-left-radius: 6px;
+            }
+            .leaflet-container {
+               background: #0a0a0a !important;
             }
           `}</style>
-          <div ref={mapContainerRef} className='h-full w-full' />
+        <div ref={mapContainerRef} className='h-full w-full grayscale-[0.2]' />
 
-          {!mapReady && !mapError && (
-            <div className='absolute inset-0 flex items-center justify-center text-xs text-lumina-muted'>
-              正在加载 OpenStreetMap...
-            </div>
-          )}
+        {!mapReady && !mapError && (
+          <div className='absolute inset-0 flex items-center justify-center text-xs text-gray-500'>
+            正在加载地图...
+          </div>
+        )}
 
-          {mapError && (
-            <div className='absolute inset-0 flex items-center justify-center text-xs text-rose-300'>
-              {mapError}
-            </div>
-          )}
+        {mapError && (
+          <div className='absolute inset-0 flex items-center justify-center text-xs text-red-400'>
+            {mapError}
+          </div>
+        )}
 
-          {mapReady && visiblePoints.length === 0 && (
-            <div className='pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-lumina-text-secondary/90'>
-              没有可显示的地理区域信息
-            </div>
-          )}
+        <div className='absolute bottom-6 right-4 z-[400] w-64 max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#141414]/88 p-3 shadow-[0_14px_36px_rgba(0,0,0,0.42)] backdrop-blur-lg'>
+          <SidePanel
+            activeMonth={activeMonth}
+            monthBuckets={monthBuckets}
+            onMonthChange={setActiveMonth}
+            regionAggregates={provinceAggregates}
+            selectedRegionKey={selectedRegionKey}
+            onRegionClick={handleRegionClick}
+            boundaryByRegionKey={boundaryByRegionKey}
+            isResolvingRegions={isResolvingRegions}
+            isLoadingBoundaries={isLoadingBoundaries}
+            className=''
+            monthListClassName='flex gap-1 overflow-x-auto pb-2 custom-scrollbar'
+            regionListClassName='max-h-[240px] space-y-0.5 overflow-y-auto pr-1 custom-scrollbar'
+          />
         </div>
-
-        <SidePanel
-          activeMonth={activeMonth}
-          monthBuckets={monthBuckets}
-          onMonthChange={setActiveMonth}
-          regionAggregates={regionAggregates}
-          selectedRegionKey={selectedRegionKey}
-          onRegionClick={handleRegionClick}
-          boundaryByRegionKey={boundaryByRegionKey}
-          isResolvingRegions={isResolvingRegions}
-          isLoadingBoundaries={isLoadingBoundaries}
-          className='hidden min-h-0 rounded-xl border border-lumina-border bg-lumina-surface/50 p-3 lg:block'
-          monthListClassName='max-h-[30svh] space-y-1 overflow-auto pr-1 lg:max-h-[36svh]'
-          regionListClassName='max-h-[32svh] space-y-1 overflow-auto pr-1'
-        />
       </div>
-
-      {isMobilePanelOpen && (
-        <SidePanel
-          activeMonth={activeMonth}
-          monthBuckets={monthBuckets}
-          onMonthChange={setActiveMonth}
-          regionAggregates={regionAggregates}
-          selectedRegionKey={selectedRegionKey}
-          onRegionClick={handleRegionClick}
-          boundaryByRegionKey={boundaryByRegionKey}
-          isResolvingRegions={isResolvingRegions}
-          isLoadingBoundaries={isLoadingBoundaries}
-          className='mt-3 rounded-xl border border-lumina-border bg-lumina-surface/50 p-3 lg:hidden'
-          monthListClassName='max-h-[24svh] space-y-1 overflow-auto pr-1'
-          regionListClassName='max-h-[24svh] space-y-1 overflow-auto pr-1'
-        />
-      )}
 
       <Dialog
         open={isPosterPreviewOpen}
@@ -902,19 +916,19 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
           }
         }}
       >
-        <DialogContent className='mx-4 w-full max-w-[1160px] border-lumina-border bg-lumina-bg p-4 sm:p-5'>
+        <DialogContent className='mx-4 w-full max-w-[1160px] border-white/10 bg-[#141414] p-4 sm:p-5'>
           <DialogHeader className='mb-3'>
-            <DialogTitle className='text-base'>旅行海报预览</DialogTitle>
+            <DialogTitle className='text-base text-gray-200'>旅行海报预览</DialogTitle>
           </DialogHeader>
-          <div className='overflow-hidden rounded-lg border border-lumina-border bg-lumina-surface/50'>
+          <div className='overflow-hidden rounded-lg border border-white/10 bg-[#0A0A0A]'>
             {posterPreviewUrl ? (
               <img src={posterPreviewUrl} alt='旅行海报预览' className='h-auto w-full object-contain' />
             ) : (
-              <div className='flex h-[360px] items-center justify-center text-sm text-lumina-muted'>预览不可用</div>
+              <div className='flex h-[360px] items-center justify-center text-sm text-gray-500'>预览不可用</div>
             )}
           </div>
-          <DialogFooter className='mt-4'>
-            <Button variant='outline' onClick={handleDownloadPoster} disabled={!posterPreviewUrl || isPosterActionRunning}>
+          <DialogFooter className='mt-4 gap-2'>
+            <Button variant='outline' onClick={handleDownloadPoster} disabled={!posterPreviewUrl || isPosterActionRunning} className="border-white/10 bg-white/5 text-gray-300 hover:bg-white/10">
               下载 PNG
             </Button>
             <Button variant='default' onClick={() => void handleCopyPoster()} disabled={!posterPreviewUrl || isPosterActionRunning}>

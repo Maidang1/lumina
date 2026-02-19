@@ -269,6 +269,8 @@ const searchBoundary = async (
   url.searchParams.set("namedetails", "1");
   if (targetLevel === "city") {
     url.searchParams.set("featuretype", "city");
+  } else if (targetLevel === "province") {
+    url.searchParams.set("featuretype", "state");
   }
 
   try {

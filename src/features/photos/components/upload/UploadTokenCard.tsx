@@ -1,6 +1,6 @@
 import React from "react";
+import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/ui/badge";
-import { Card, CardContent } from "@/shared/ui/card";
 
 interface UploadTokenCardProps {
   uploadToken: string;
@@ -16,36 +16,37 @@ const UploadTokenCard: React.FC<UploadTokenCardProps> = ({
   onChangeToken,
 }) => {
   return (
-    <Card className="border border-white/10 bg-[#171717]">
-      <CardContent className="space-y-2 p-4">
-        <div className="flex items-center justify-between gap-4">
-          <label htmlFor="upload-token" className="text-sm font-medium text-gray-200">
-            UPLOAD_TOKEN
-          </label>
-          {!isTokenConfigured && (
-            <Badge className="rounded-full border border-[#c9a962]/40 bg-[#c9a962]/10 text-[#d4b97f]">
-              未配置
-            </Badge>
+    <div className="rounded-xl border border-white/10 bg-[#141414] p-4 transition-colors focus-within:border-white/20 hover:border-white/20">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <label htmlFor="upload-token" className="shrink-0 text-sm font-medium text-gray-400">
+          访问令牌
+        </label>
+        <div className="flex-1 space-y-2">
+          <input
+            id="upload-token"
+            type="password"
+            value={uploadToken}
+            onChange={(event) => onChangeToken(event.target.value)}
+            placeholder="输入 UPLOAD_TOKEN (保存在本地)"
+            className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
+          />
+          {tokenError && (
+            <p className="text-xs text-red-400">{tokenError}</p>
           )}
         </div>
-        <input
-          id="upload-token"
-          type="password"
-          value={uploadToken}
-          onChange={(event) => onChangeToken(event.target.value)}
-          placeholder="输入上传令牌（保存在当前浏览器本地）"
-          className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none transition focus:border-[#c9a962]/60"
-        />
-        <p className="text-xs text-gray-400">
-          仅保存在当前浏览器 localStorage，用于上传接口校验。
-        </p>
-        {tokenError && (
-          <div className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-            {tokenError}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        <div className="shrink-0">
+          <Badge 
+            variant="outline" 
+            className={cn(
+              "border-transparent bg-transparent px-0 font-normal",
+              isTokenConfigured ? "text-emerald-500" : "text-gray-500"
+            )}
+          >
+            {isTokenConfigured ? "已配置" : "未配置"}
+          </Badge>
+        </div>
+      </div>
+    </div>
   );
 };
 

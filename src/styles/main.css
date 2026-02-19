@@ -1,18 +1,18 @@
-@import url("https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,600;0,6..96,700;1,6..96,400&family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,600;0,6..96,700;1,6..96,400&family=Space+Grotesk:wght@300;400;500;600&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --lumina-bg: #050505;
+  --lumina-bg: #040404;
   --lumina-surface: #0a0a0a;
-  --lumina-surface-elevated: #121212;
-  --lumina-border: rgba(255, 255, 255, 0.08);
-  --lumina-border-subtle: rgba(255, 255, 255, 0.04);
+  --lumina-surface-elevated: #141414;
+  --lumina-border: rgba(255, 255, 255, 0.1);
+  --lumina-border-subtle: rgba(255, 255, 255, 0.06);
   --lumina-text: #fafafa;
-  --lumina-text-secondary: #a1a1aa;
-  --lumina-muted: #52525b;
+  --lumina-text-secondary: #b0b0bc;
+  --lumina-muted: #63636f;
   --lumina-accent: #D4AF37;
   --lumina-accent-muted: rgba(212, 175, 55, 0.15);
   --lumina-accent-glow: rgba(212, 175, 55, 0.25);
@@ -25,9 +25,12 @@
 
 body {
   min-height: 100vh;
-  background: var(--lumina-bg);
+  background:
+    radial-gradient(1200px 500px at 50% -80px, rgba(255, 255, 255, 0.06), transparent 60%),
+    radial-gradient(900px 450px at 80% 110%, rgba(255, 255, 255, 0.04), transparent 60%),
+    var(--lumina-bg);
   color: var(--lumina-text);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: "Archivo", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
@@ -38,11 +41,7 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background: radial-gradient(
-    circle at 50% 0%, 
-    rgba(255, 255, 255, 0.03) 0%, 
-    transparent 60%
-  );
+  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.03) 0%, transparent 45%);
   pointer-events: none;
   z-index: 0;
 }

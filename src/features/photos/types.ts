@@ -217,12 +217,30 @@ export interface UploadQueueItem {
   file: File;
   liveVideoFile?: File;
   uploadMode: "static" | "live_photo";
-  status: "queued" | "processing" | "uploading" | "completed" | "failed";
+  status:
+    | "queued"
+    | "processing"
+    | "uploading"
+    | "completed"
+    | "failed"
+    | "queued_parse"
+    | "parsing"
+    | "parsed"
+    | "parse_failed"
+    | "ready_to_upload"
+    | "upload_completed"
+    | "upload_failed";
   progress: number;
   stages: ProcessingStage[];
   metadata?: ImageMetadata;
   result?: UploadResult;
   error?: string;
+  parseError?: string;
+  uploadError?: string;
+  editDraft?: {
+    description?: string;
+    original_filename?: string;
+  };
   thumbnail?: string;
   retryCount?: number;
   workerSlot?: number;

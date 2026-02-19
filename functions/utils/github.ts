@@ -6,6 +6,7 @@ import {
   ImageMetadata,
 } from "./types";
 import { imageIdToMetaPath, imageIdToObjectPath } from "./image";
+import { decodeBase64Utf8 } from "./encoding";
 
 const GITHUB_API_VERSION = "2022-11-28";
 const WRITE_INTERVAL_MS = 1100;
@@ -176,7 +177,7 @@ export class GitHubClient {
   async getImageIndex(): Promise<ImageIndexFile | null> {
     try {
       const file = await this.getFile(IMAGE_INDEX_PATH);
-      const content = atob(file.content);
+      const content = decodeBase64Utf8(file.content);
       const parsed = JSON.parse(content) as Partial<ImageIndexFile>;
 
       if (!Array.isArray(parsed.items)) {

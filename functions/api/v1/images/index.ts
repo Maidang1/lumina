@@ -5,6 +5,7 @@ import {
   createGitHubClient,
   isValidImageId,
   buildImageApiUrls,
+  decodeBase64Utf8,
   decodeImageListCursor,
   encodeImageListCursor,
   validateUploadToken,
@@ -165,7 +166,7 @@ async function handleListImages(request: Request, env: Env): Promise<Response> {
           pageEntries.map(async (entry) => {
             try {
               const metaResponse = await github.getFile(entry.meta_path);
-              const content = atob(metaResponse.content);
+              const content = decodeBase64Utf8(metaResponse.content);
               return JSON.parse(content) as ImageMetadata;
             } catch {
               return null;
@@ -209,7 +210,7 @@ async function handleListImages(request: Request, env: Env): Promise<Response> {
           if (metaFile) {
             try {
               const metaResponse = await github.getFile(metaFile.path);
-              const content = atob(metaResponse.content);
+              const content = decodeBase64Utf8(metaResponse.content);
               const meta = JSON.parse(content) as ImageMetadata;
               allImages.push({ image_id: meta.image_id, meta: meta });
             } catch {

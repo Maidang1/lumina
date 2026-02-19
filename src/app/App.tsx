@@ -1,21 +1,15 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
-import { Photo, ImageMetadata } from "@/features/photos/types";
+import { Photo } from "@/features/photos/types";
 import PhotoGrid from "@/features/photos/components/PhotoGrid";
 import PhotoDetail from "@/features/photos/components/PhotoDetail";
 import PhotoMapView from "@/features/photos/components/PhotoMapView";
 import UploadButton from "@/features/photos/components/UploadButton";
-import UploadModal from "@/features/photos/components/UploadModal";
 import { useBatchPhotoActions } from "@/features/photos/components/hooks/useBatchPhotoActions";
-import { Aperture } from "lucide-react";
 import { uploadService } from "@/features/photos/services/uploadService";
 import { metadataToPhoto } from "@/features/photos/services/photoMapper";
-import { Badge } from "@/shared/ui/badge";
 import { useLocalStorageState } from "@/shared/lib/useLocalStorageState";
-import { Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
-
-interface GalleryShellProps {
-  routePhotoId: string | null;
-}
+import UploadPage from "@/features/photos/pages/UploadPage";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 
 interface PhotoOpenTransition {
   photoId: string;
@@ -29,9 +23,9 @@ interface PhotoOpenTransition {
 const FAVORITE_STORAGE_KEY = "lumina.photo_favorites";
 const TAG_STORAGE_KEY = "lumina.photo_tags";
 
-const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
-  const [routePhoto, setRoutePhoto] = useState<Photo | null>(null);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+const GalleryShell: React.FC = () => {
+  const navigate = useNavigate();
+  const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleteTokenConfigured, setIsDeleteTokenConfigured] = useState(false);
@@ -40,22 +34,12 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
   const [favoriteIdList, setFavoriteIdList] = useLocalStorageState<string[]>(FAVORITE_STORAGE_KEY, []);
   const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
   const [photoTags, setPhotoTags] = useLocalStorageState<Record<string, string[]>>(TAG_STORAGE_KEY, {});
-  const navigate = useNavigate();
 
   const favoriteIds = useMemo(() => new Set(favoriteIdList), [favoriteIdList]);
 
-  const navigateToPhoto = useCallback((photoId: string): void => {
-    navigate(`/photos/${encodeURIComponent(photoId)}`);
-  }, [navigate]);
-
-  const closeDetailRoute = useCallback((): void => {
+  const closeDetail = useCallback((): void => {
+    setSelectedPhotoId(null);
     setOpenTransition(null);
-    navigate("/", { replace: true });
-  }, [navigate]);
-
-  const handleUploadComplete = useCallback((metadata: ImageMetadata) => {
-    const newPhoto = metadataToPhoto(metadata);
-    setPhotos((prev) => [newPhoto, ...prev.filter((photo) => photo.id !== metadata.image_id)]);
   }, []);
 
   useEffect(() => {
@@ -95,49 +79,14 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
   }, []);
 
   const selectedPhoto = useMemo(() => {
-    if (!routePhotoId) return null;
-    return photos.find((photo) => photo.id === routePhotoId) ?? routePhoto;
-  }, [photos, routePhoto, routePhotoId]);
+    if (!selectedPhotoId) return null;
+    return photos.find((photo) => photo.id === selectedPhotoId) ?? null;
+  }, [photos, selectedPhotoId]);
 
   const selectedPhotoIndex = useMemo(() => {
     if (!selectedPhoto) return -1;
     return photos.findIndex((photo) => photo.id === selectedPhoto.id);
   }, [photos, selectedPhoto]);
-
-  useEffect(() => {
-    if (!routePhotoId) {
-      setRoutePhoto(null);
-      setOpenTransition(null);
-      return;
-    }
-
-    const existing = photos.find((photo) => photo.id === routePhotoId);
-    if (existing) {
-      setRoutePhoto(existing);
-      return;
-    }
-
-    let cancelled = false;
-    const loadRoutePhoto = async (): Promise<void> => {
-      try {
-        const metadata = await uploadService.getImage(routePhotoId);
-        if (!cancelled) {
-          setRoutePhoto(metadataToPhoto(metadata));
-        }
-      } catch (error) {
-        console.error("Failed to load route photo:", error);
-        if (!cancelled) {
-          navigate("/", { replace: true });
-        }
-      }
-    };
-
-    void loadRoutePhoto();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [navigate, photos, routePhotoId]);
 
   useEffect(() => {
     if (!selectedPhoto) return;
@@ -158,8 +107,9 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
       setDeletingPhotoId(photoId);
       await uploadService.deleteImage(photoId);
       setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
-      if (routePhotoId === photoId) {
-        navigate("/", { replace: true });
+      if (selectedPhotoId === photoId) {
+        setSelectedPhotoId(null);
+        setOpenTransition(null);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "删除失败";
@@ -168,7 +118,7 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
       setDeletingPhotoId((prev) => (prev === photoId ? null : prev));
       setIsDeleteTokenConfigured(uploadService.hasUploadToken());
     }
-  }, [deletingPhotoId, navigate, routePhotoId]);
+  }, [deletingPhotoId, selectedPhotoId]);
 
   const handleToggleFavorite = useCallback((photoId: string): void => {
     setFavoriteIdList((prev) => {
@@ -203,9 +153,9 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
   });
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-30 w-full border-b border-lumina-border-subtle bg-lumina-bg/80 backdrop-blur-md">
-        <div className="mx-auto flex h-20 max-w-[1600px] items-center justify-between px-6 sm:px-10">
+    <div className="min-h-screen bg-black text-white">
+      <header className="sticky top-0 z-30 mx-auto w-full max-w-[1720px]">
+        <div className="mx-auto flex h-20 items-center justify-between border-b border-white/[0.08] bg-[#080808]/90 px-5 shadow-[0_22px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:px-8">
           <div className="flex items-center gap-6">
             <span className="font-serif text-3xl tracking-tight text-lumina-text">
               Lumina
@@ -220,14 +170,14 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
             <div className="flex items-center gap-6 text-sm font-medium">
               <button
                 type="button"
-                className={`transition-colors duration-300 ${viewMode === "grid" ? "text-white" : "text-white/40 hover:text-white/70"}`}
+                className={`cursor-pointer transition-colors duration-200 ${viewMode === "grid" ? "text-white" : "text-white/40 hover:text-white/75"}`}
                 onClick={() => setViewMode("grid")}
               >
                 Gallery
               </button>
               <button
                 type="button"
-                className={`transition-colors duration-300 ${viewMode === "map" ? "text-white" : "text-white/40 hover:text-white/70"}`}
+                className={`cursor-pointer transition-colors duration-200 ${viewMode === "map" ? "text-white" : "text-white/40 hover:text-white/75"}`}
                 onClick={() => setViewMode("map")}
               >
                 Map
@@ -235,7 +185,7 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
               {isDeleteTokenConfigured && (
                 <button
                   type="button"
-                  className={`transition-colors duration-300 ${isBatchMode ? "text-white" : "text-white/40 hover:text-white/70"}`}
+                  className={`cursor-pointer transition-colors duration-200 ${isBatchMode ? "text-white" : "text-white/40 hover:text-white/75"}`}
                   onClick={handleToggleBatchMode}
                 >
                   Manage
@@ -245,7 +195,7 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
             
             <div className="h-4 w-px bg-lumina-border-subtle" />
             
-            <UploadButton onClick={() => setIsUploadModalOpen(true)} />
+            <UploadButton onClick={() => navigate("/upload")} />
           </div>
         </div>
       </header>
@@ -253,51 +203,51 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
       <main
         className={
           viewMode === "map"
-            ? "mx-auto mt-4 h-[calc(100svh-128px)] w-full max-w-[1440px] flex-grow px-5 pb-4 sm:px-8 sm:pb-6"
-            : "mx-auto mt-8 w-full max-w-[1440px] flex-grow px-5 pb-12 sm:px-8 sm:pb-16"
+            ? "mx-auto h-[calc(100svh-80px)] w-full max-w-[1720px] flex-grow overflow-hidden border-t border-white/[0.06] bg-black"
+            : "mx-auto w-full max-w-[1720px] flex-grow"
         }
       >
         {isBatchMode && (
-          <div className='mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-zinc-300 shadow-[0_10px_40px_rgba(0,0,0,0.35)]'>
+          <div className='mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-zinc-300 shadow-[0_14px_40px_rgba(0,0,0,0.4)] backdrop-blur-md'>
             <span className='mr-2 text-zinc-400'>已选 {selectedIds.size}</span>
             <button
               type='button'
-              className='rounded-md border border-white/[0.12] px-2 py-1 hover:bg-white/[0.08]'
+              className='cursor-pointer rounded-md border border-white/[0.14] px-2 py-1 transition-colors duration-200 hover:bg-white/[0.09]'
               onClick={handleSelectAllVisible}
             >
               全选当前结果
             </button>
             <button
               type='button'
-              className='rounded-md border border-white/[0.12] px-2 py-1 hover:bg-white/[0.08]'
+              className='cursor-pointer rounded-md border border-white/[0.14] px-2 py-1 transition-colors duration-200 hover:bg-white/[0.09]'
               onClick={handleClearSelection}
             >
               清空
             </button>
             <button
               type='button'
-              className='rounded-md border border-white/[0.12] px-2 py-1 hover:bg-white/[0.08]'
+              className='cursor-pointer rounded-md border border-white/[0.14] px-2 py-1 transition-colors duration-200 hover:bg-white/[0.09]'
               onClick={handleBatchFavorite}
             >
               批量收藏
             </button>
             <button
               type='button'
-              className='rounded-md border border-white/[0.12] px-2 py-1 hover:bg-white/[0.08]'
+              className='cursor-pointer rounded-md border border-white/[0.14] px-2 py-1 transition-colors duration-200 hover:bg-white/[0.09]'
               onClick={handleBatchTag}
             >
               批量标签
             </button>
             <button
               type='button'
-              className='rounded-md border border-white/[0.12] px-2 py-1 hover:bg-white/[0.08]'
+              className='cursor-pointer rounded-md border border-white/[0.14] px-2 py-1 transition-colors duration-200 hover:bg-white/[0.09]'
               onClick={handleBatchDownload}
             >
               批量下载
             </button>
             <button
               type='button'
-              className='rounded-md border border-rose-300/40 px-2 py-1 text-rose-200 hover:bg-rose-500/20'
+              className='cursor-pointer rounded-md border border-rose-300/40 px-2 py-1 text-rose-200 transition-colors duration-200 hover:bg-rose-500/20'
               onClick={() => {
                 void handleBatchDelete();
               }}
@@ -320,7 +270,7 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
                 photos={photos}
                 onPhotoClick={(photo, transitionSource) => {
                   setOpenTransition(transitionSource);
-                  navigateToPhoto(photo.id);
+                  setSelectedPhotoId(photo.id);
                 }}
                 favoriteIds={favoriteIds}
                 onToggleFavorite={handleToggleFavorite}
@@ -333,7 +283,7 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
                 photos={photos}
                 onPhotoClick={(photo) => {
                   setOpenTransition(null);
-                  navigateToPhoto(photo.id);
+                  setSelectedPhotoId(photo.id);
                 }}
               />
             )}
@@ -344,7 +294,7 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
       {selectedPhoto && (
         <PhotoDetail
           photo={selectedPhoto}
-          onClose={closeDetailRoute}
+          onClose={closeDetail}
           canDelete={isDeleteTokenConfigured}
           isDeleting={deletingPhotoId === selectedPhoto.id}
           onDelete={handleDeletePhoto}
@@ -357,35 +307,24 @@ const GalleryShell: React.FC<GalleryShellProps> = ({ routePhotoId }) => {
           onPrev={() => {
             if (selectedPhotoIndex <= 0) return;
             setOpenTransition(null);
-            navigateToPhoto(photos[selectedPhotoIndex - 1].id);
+            setSelectedPhotoId(photos[selectedPhotoIndex - 1].id);
           }}
           onNext={() => {
             if (selectedPhotoIndex < 0 || selectedPhotoIndex >= photos.length - 1) return;
             setOpenTransition(null);
-            navigateToPhoto(photos[selectedPhotoIndex + 1].id);
+            setSelectedPhotoId(photos[selectedPhotoIndex + 1].id);
           }}
         />
       )}
-
-      <UploadModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
-        onUploadComplete={handleUploadComplete}
-      />
     </div>
   );
-};
-
-const GalleryRoute: React.FC = () => {
-  const { photoId } = useParams();
-  return <GalleryShell routePhotoId={photoId ?? null} />;
 };
 
 const App: React.FC = () => {
   return (
     <Routes>
-      <Route path="/" element={<GalleryRoute />} />
-      <Route path="/photos/:photoId" element={<GalleryRoute />} />
+      <Route path="/" element={<GalleryShell />} />
+      <Route path="/upload" element={<UploadPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -211,7 +211,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   return (
     <animated.div
       ref={cardRef}
-      className='group relative mb-6 break-inside-avoid cursor-pointer overflow-hidden bg-[#050505]'
+      className='group relative mb-0 break-inside-avoid cursor-pointer overflow-hidden bg-[#060606] transition-colors duration-200'
       role='button'
       tabIndex={0}
       aria-label={`View photo ${photo.title}`}
@@ -244,12 +244,12 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         aspectRatio: `${photo.width} / ${photo.height}`,
       }}
     >
-      <div className='absolute inset-0 z-10 transition-opacity duration-500 opacity-0 group-hover:opacity-100 bg-black/20' />
+      <div className='absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-black/70 opacity-80 transition-opacity duration-300 group-hover:opacity-100' />
       
       <button
         type='button'
         aria-label={isFavorite ? 'Unfavorite' : 'Favorite'}
-        className={`absolute right-4 top-4 z-20 transition-all duration-300 ${
+        className={`absolute right-3 top-3 z-20 rounded-full border border-white/20 bg-black/35 p-1.5 transition-all duration-200 ${
           isFavorite ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
         }`}
         onClick={(event) => {
@@ -260,17 +260,17 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       >
         <Star
           size={16}
-          className={isFavorite ? 'fill-white text-white' : 'text-white/70 hover:text-white'}
+          className={isFavorite ? 'fill-white text-white' : 'text-white/75 hover:text-white'}
           strokeWidth={1.5}
         />
       </button>
 
       {selectionMode && (
         <span
-          className={`absolute left-4 top-4 z-20 inline-flex h-5 w-5 items-center justify-center rounded-full border ${
+          className={`absolute left-3 top-3 z-20 inline-flex h-5 w-5 items-center justify-center rounded-full border ${
             isSelected
               ? "border-white bg-white text-black"
-              : "border-white/50 bg-black/20"
+              : "border-white/50 bg-black/45"
           }`}
         >
           {isSelected && <span className="block h-2 w-2 bg-black rounded-full" />}
@@ -291,7 +291,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
           <img
             src={photo.thumbnail}
             alt={photo.title}
-            className='h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105'
+            className='h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]'
             onLoad={() => setIsLoaded(true)}
           />
         )}
@@ -310,14 +310,14 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         />
       )}
 
-      <div 
-        className='absolute inset-x-0 bottom-0 z-20 flex flex-col justify-end p-6 opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-gradient-to-t from-black/80 via-black/20 to-transparent'
+      <div
+        className='absolute inset-x-0 bottom-0 z-20 flex flex-col justify-end p-4 sm:p-5'
       >
-        <h3 className='font-serif text-xl text-white tracking-wide'>
+        <h3 className='font-serif text-lg text-white tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.65)]'>
           {photo.filename}
         </h3>
         
-        <div className='mt-2 flex items-center gap-3 text-[10px] font-medium tracking-widest text-white/60 uppercase'>
+        <div className='mt-1.5 flex items-center gap-3 text-[10px] font-medium tracking-[0.22em] text-white/65 uppercase'>
           <span>{photo.width} × {photo.height}</span>
           {photo.format && (
             <>
@@ -329,8 +329,8 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       </div>
       
       {photo.isLive && (
-        <div className='absolute left-4 top-4 z-20 flex items-center gap-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100'>
-          <div className={`h-1.5 w-1.5 rounded-full ${isConvertingVideo ? 'bg-white/50 animate-pulse' : 'bg-white'}`} />
+        <div className='absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-full border border-white/20 bg-black/45 px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100'>
+          <div className={`h-1.5 w-1.5 rounded-full ${isConvertingVideo ? 'bg-white/60 animate-pulse motion-reduce:animate-none' : 'bg-white'}`} />
           <span className="text-[10px] font-medium tracking-widest text-white uppercase">Live</span>
         </div>
       )}

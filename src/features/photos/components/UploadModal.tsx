@@ -21,7 +21,7 @@ import { uploadService } from "@/features/photos/services/uploadService";
 import DescriptionModal from "./upload/DescriptionModal";
 import UploadDropzone from "./upload/UploadDropzone";
 import UploadQueuePanel from "./upload/UploadQueuePanel";
-import UploadTokenCard from "./upload/UploadTokenCard";
+import UploadSettingsPopover from "./upload/UploadSettingsPopover";
 import { MAX_LIVE_VIDEO_SIZE, createInitialStages } from "./upload/constants";
 import { processUploadItem } from "./upload/processUploadItem";
 
@@ -410,41 +410,43 @@ const UploadModal: React.FC<UploadModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-hidden border border-white/5 bg-[#050505] p-0 shadow-[0_40px_120px_rgba(0,0,0,0.75)]">
-        <DialogHeader className="space-y-0 border-b border-white/10 bg-gradient-to-r from-[#151515] via-[#1b1b1b] to-[#151515] px-6 py-4">
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-hidden rounded-2xl border border-white/[0.1] bg-[#060606] p-0 shadow-[0_42px_120px_rgba(0,0,0,0.78)]">
+        <DialogHeader className="space-y-0 border-b border-white/10 bg-gradient-to-r from-[#111] via-[#171717] to-[#111] px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-white">
                 <HardDriveUpload size={16} />
               </div>
               <div>
                 <DialogTitle className="text-base font-semibold tracking-wide text-white">
                   上传图片
                 </DialogTitle>
-                <p className="text-xs text-gray-400">本地分析后上传到 GitHub 存储</p>
+                <p className="text-xs text-gray-300">本地分析后上传到 GitHub 存储</p>
               </div>
             </div>
-            <DialogClose className="rounded-full border border-white/10 bg-white/5 p-2 text-gray-400 transition-colors hover:text-white">
-              <X size={16} />
-            </DialogClose>
+            <div className="flex items-center gap-2">
+              <UploadSettingsPopover
+                uploadToken={uploadToken}
+                tokenError={tokenError}
+                isTokenConfigured={isTokenConfigured}
+                panelTitle="上传设置"
+                onChangeToken={(next) => {
+                  setUploadToken(next);
+                  uploadService.setUploadToken(next);
+                  if (tokenError) {
+                    setTokenError("");
+                  }
+                }}
+              />
+              <DialogClose className="rounded-full border border-white/15 bg-white/[0.06] p-2 text-gray-300 transition-colors duration-200 hover:text-white">
+                <X size={16} />
+              </DialogClose>
+            </div>
           </div>
         </DialogHeader>
 
         <ScrollArea className="max-h-[70vh] flex-1">
           <div className="space-y-4 p-5 md:p-6">
-            <UploadTokenCard
-              uploadToken={uploadToken}
-              tokenError={tokenError}
-              isTokenConfigured={isTokenConfigured}
-              onChangeToken={(next) => {
-                setUploadToken(next);
-                uploadService.setUploadToken(next);
-                if (tokenError) {
-                  setTokenError("");
-                }
-              }}
-            />
-
             <UploadDropzone
               isDragging={isDragging}
               uploadMode={uploadMode}
@@ -462,6 +464,11 @@ const UploadModal: React.FC<UploadModalProps> = ({
               onLiveStillSelect={handleLiveStillSelect}
               onLiveVideoSelect={handleLiveVideoSelect}
             />
+            {!isTokenConfigured && (
+              <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-200/80">
+                请点击右上角设置图标配置访问令牌，否则无法上传。
+              </div>
+            )}
 
             <UploadQueuePanel
               queue={queue}
@@ -477,9 +484,9 @@ const UploadModal: React.FC<UploadModalProps> = ({
 
         {queue.length > 0 && (
           <>
-            <Separator className="bg-white/10" />
+            <Separator className="bg-white/12" />
             <DialogFooter className="items-center justify-between px-5 py-4 md:px-6">
-              <div className="text-sm text-gray-400">
+              <div className="text-sm text-gray-300">
                 {completedCount} / {queue.length} 完成
               </div>
               <div className="flex items-center gap-2">

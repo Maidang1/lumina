@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { animated, useSpring } from "@react-spring/web";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { animated, useSpring, config } from "@react-spring/web";
 import { ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { Photo } from "@/features/photos/types";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/shared/ui/dialog";
@@ -31,6 +31,17 @@ interface PhotoDetailProps {
   } | null;
 }
 
+interface ImageRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+// 苹果风格的弹性曲线
+const appleSpring = { mass: 0.8, tension: 280, friction: 28 };
+const appleSpringGentle = { mass: 1, tension: 200, friction: 26 };
+
 const PhotoDetail: React.FC<PhotoDetailProps> = ({
   photo,
   onClose,
@@ -57,24 +68,21 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   const [shareLink, setShareLink] = useState<string>("");
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [liveFrameSize, setLiveFrameSize] = useState<{ width: number; height: number } | null>(null);
-  const [launchTargetRect, setLaunchTargetRect] = useState<{
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-  } | null>(null);
-  const [isLaunchAnimating, setIsLaunchAnimating] = useState(false);
-  const [closingTransition, setClosingTransition] = useState<{
-    from: { left: number; top: number; width: number; height: number };
-    to: { left: number; top: number; width: number; height: number; borderRadius: number };
-  } | null>(null);
+
+  // 窗口尺寸状态 - 用于响应窗口 resize 事件
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  // 动画状态
+  const [transitionState, setTransitionState] = useState<"idle" | "opening" | "closing">("idle");
+  const [closingToRect, setClosingToRect] = useState<ImageRect | null>(null);
 
   const liveVideoRef = useRef<HTMLVideoElement | null>(null);
   const thumbnailImageRef = useRef<HTMLImageElement | null>(null);
-  const imagePanelRef = useRef<HTMLDivElement | null>(null);
+  const imageContainerRef = useRef<HTMLDivElement | null>(null);
 
   const hasVideo = photo.videoSource?.type === "live-photo";
 
+  // 检测用户是否偏好减少动画
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     const handleMotionChange = (event: MediaQueryListEvent): void => {
@@ -85,11 +93,24 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     return () => mediaQuery.removeEventListener("change", handleMotionChange);
   }, []);
 
+  // 监听窗口 resize 事件 - 更新 windowSize 以触发 targetRect 重新计算
+  useEffect(() => {
+    const handleResize = (): void => {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  // 重置状态
   useEffect(() => {
     setIsOriginalLoaded(false);
     setLoadProgress(0);
   }, [photo.id]);
 
+  // 加载原图进度
   useEffect(() => {
     let cancelled = false;
 
@@ -135,6 +156,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     };
   }, [photo.id, photo.url]);
 
+  // 视频控制
   const stopVideo = useCallback(() => {
     const video = liveVideoRef.current;
     if (!video) return;
@@ -236,6 +258,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     };
   }, [hasVideo, isVideoReady, photo.videoSource]);
 
+  // 键盘导航
   useEffect(() => {
     const handleKey = (event: KeyboardEvent): void => {
       if (event.key === "ArrowLeft" && canPrev) {
@@ -284,7 +307,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
       try {
         await navigator.clipboard.writeText(link);
       } catch {
-        // ignore clipboard failures; link is still shown in panel
+        // ignore clipboard failures
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "生成签名分享链接失败";
@@ -292,169 +315,169 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     }
   }, [photo.id, photo.isLive, shareMode]);
 
-  const shellSpring = useSpring({
-    immediate: prefersReducedMotion,
-    from: { opacity: prefersReducedMotion ? 1 : 0 },
-    to: { opacity: 1 },
-    config: { tension: 180, friction: 28 },
+  // 计算图片在屏幕中央的目标位置和尺寸
+  const calculateTargetRect = useCallback((): ImageRect => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // 在大屏幕上，图片区域占左边的剩余空间
+    // 在小屏幕上，图片区域占上半部分
+    const isDesktop = vw >= 768;
+    const isLargeDesktop = vw >= 1024;
+    const infoPanelWidth = isLargeDesktop ? 360 : 320; 
+    const availableWidth = isDesktop ? vw - infoPanelWidth : vw;
+    const availableHeight = isDesktop ? vh : vh * 0.45;
+
+    // 计算图片在可用区域内的最佳尺寸（保持宽高比）
+    const imageAspect = photo.width / photo.height;
+    const containerAspect = availableWidth / availableHeight;
+
+    let targetWidth: number;
+    let targetHeight: number;
+
+    if (imageAspect > containerAspect) {
+      // 图片更宽，以宽度为准
+      targetWidth = availableWidth - 48; // padding (reduced)
+      targetHeight = targetWidth / imageAspect;
+    } else {
+      // 图片更高，以高度为准
+      targetHeight = availableHeight - 48;
+      targetWidth = targetHeight * imageAspect;
+    }
+
+    const left = (availableWidth - targetWidth) / 2 + (isDesktop ? 0 : 0);
+    const top = (availableHeight - targetHeight) / 2 + (isDesktop ? 0 : 0);
+
+    return { left, top, width: targetWidth, height: targetHeight };
+  }, [photo.width, photo.height]);
+
+  // 使用 useMemo 在 render 时计算 targetRect，避免在 useEffect 中计算导致首帧为 null
+  const targetRect = useMemo(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    return calculateTargetRect();
+  }, [calculateTargetRect, windowSize]);
+
+  // 初始化动画状态
+  useEffect(() => {
+    if (prefersReducedMotion || !openingTransition || openingTransition.photoId !== photo.id) {
+      setTransitionState("idle");
+      return;
+    }
+
+    setTransitionState("opening");
+
+    // 动画结束后清除状态
+    const timeout = window.setTimeout(() => {
+      setTransitionState("idle");
+    }, 450); // 稍短于动画时长以匹配弹簧配置
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [openingTransition, photo.id, prefersReducedMotion]);
+
+  // 合并的弹簧动画：处理打开和关闭动画
+  const spring = useSpring({
+    immediate: prefersReducedMotion || !openingTransition || openingTransition.photoId !== photo.id || !targetRect,
+    from: openingTransition
+      ? {
+          x: openingTransition.left,
+          y: openingTransition.top,
+          width: openingTransition.width,
+          height: openingTransition.height,
+          borderRadius: openingTransition.borderRadius,
+        }
+      : { x: 0, y: 0, width: 100, height: 100, borderRadius: 0 },
+    to:
+      transitionState === "closing" && closingToRect
+        ? {
+            x: closingToRect.left,
+            y: closingToRect.top,
+            width: closingToRect.width,
+            height: closingToRect.height,
+            borderRadius: openingTransition?.borderRadius || 0,
+          }
+        : targetRect
+          ? {
+              x: targetRect.left,
+              y: targetRect.top,
+              width: targetRect.width,
+              height: targetRect.height,
+              borderRadius: 0,
+            }
+          : { x: 0, y: 0, width: 100, height: 100, borderRadius: 0 },
+    config: transitionState === "closing" ? appleSpringGentle : appleSpring,
+    onRest: () => {
+      // 动画完全结束时的回调
+      if (transitionState === "closing") {
+        onClose();
+      }
+    },
   });
 
-  const imagePanelSpring = useSpring({
-    immediate: prefersReducedMotion,
-    from: { opacity: prefersReducedMotion ? 1 : 0, scale: prefersReducedMotion ? 1 : 0.98 },
-    to: { opacity: 1, scale: 1 },
-    config: { tension: 200, friction: 30 },
+  // 背景遮罩动画 - 独立于主弹簧
+  const overlaySpring = useSpring({
+    opacity: transitionState === "closing" ? 0 : 1,
+    config: { tension: 300, friction: 30 },
   });
 
-  const infoPanelSpring = useSpring({
-    immediate: prefersReducedMotion,
-    from: { opacity: prefersReducedMotion ? 1 : 0, x: prefersReducedMotion ? 0 : 32 },
-    to: { opacity: 1, x: 0 },
-    config: { tension: 200, friction: 32 },
-  });
-
+  // 图片透明度（用于原图加载淡入）
   const imageSpring = useSpring({
     opacity: isOriginalLoaded ? 1 : 0,
     config: { tension: 180, friction: 28 },
   });
 
-  useEffect(() => {
-    if (
-      prefersReducedMotion ||
-      !openingTransition ||
-      openingTransition.photoId !== photo.id
-    ) {
-      setIsLaunchAnimating(false);
-      setLaunchTargetRect(null);
-      return;
-    }
-
-    setIsLaunchAnimating(true);
-    const animationFrame = window.requestAnimationFrame(() => {
-      const rect = imagePanelRef.current?.getBoundingClientRect();
-      if (!rect) {
-        setIsLaunchAnimating(false);
-        return;
-      }
-
-      setLaunchTargetRect({
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-        height: rect.height,
-      });
-    });
-
-    const timeout = window.setTimeout(() => {
-      setIsLaunchAnimating(false);
-    }, 480);
-
-    return () => {
-      window.cancelAnimationFrame(animationFrame);
-      window.clearTimeout(timeout);
-    };
-  }, [openingTransition, photo.id, prefersReducedMotion]);
-
-  const launchSpring = useSpring({
-    immediate:
-      prefersReducedMotion ||
-      !openingTransition ||
-      !launchTargetRect ||
-      !isLaunchAnimating ||
-      openingTransition.photoId !== photo.id,
-    from: {
-      left: openingTransition?.left ?? window.innerWidth / 2,
-      top: openingTransition?.top ?? window.innerHeight / 2,
-      width: openingTransition?.width ?? 1,
-      height: openingTransition?.height ?? 1,
-      radius: openingTransition?.borderRadius ?? 16,
-      opacity: 1,
-    },
-    to:
-      isLaunchAnimating &&
-      openingTransition &&
-      launchTargetRect &&
-      openingTransition.photoId === photo.id
-        ? {
-            left: launchTargetRect.left,
-            top: launchTargetRect.top,
-            width: launchTargetRect.width,
-            height: launchTargetRect.height,
-            radius: 0,
-            opacity: 0,
-          }
-        : {
-            left: launchTargetRect?.left ?? openingTransition?.left ?? 0,
-            top: launchTargetRect?.top ?? openingTransition?.top ?? 0,
-            width: launchTargetRect?.width ?? openingTransition?.width ?? 1,
-            height: launchTargetRect?.height ?? openingTransition?.height ?? 1,
-            radius: 0,
-            opacity: 0,
-          },
-    config: { tension: 240, friction: 28 },
+  // 控制按钮动画（关闭按钮和导航按钮）
+  const controlsSpring = useSpring({
+    opacity: transitionState === "closing" ? 0 : 1,
+    transform: transitionState === "closing" 
+      ? "translateY(-10px)" 
+      : "translateY(0px)",
+    delay: prefersReducedMotion ? 0 : (transitionState === "opening" ? 100 : 0),
+    config: prefersReducedMotion ? { duration: 0 } : appleSpringGentle,
   });
 
-  const closeSpring = useSpring({
-    immediate: !closingTransition,
-    from: {
-      left: closingTransition?.from.left ?? 0,
-      top: closingTransition?.from.top ?? 0,
-      width: closingTransition?.from.width ?? 1,
-      height: closingTransition?.from.height ?? 1,
-      radius: 0,
-      opacity: 1,
-    },
-    to: closingTransition
-      ? {
-          left: closingTransition.to.left,
-          top: closingTransition.to.top,
-          width: closingTransition.to.width,
-          height: closingTransition.to.height,
-          radius: closingTransition.to.borderRadius,
-          opacity: 0.3,
-        }
-      : {
-          left: 0,
-          top: 0,
-          width: 1,
-          height: 1,
-          radius: 0,
-          opacity: 0,
-        },
-    config: { tension: 260, friction: 26 },
+  // 信息面板动画
+  const infoPanelSpring = useSpring({
+    opacity: transitionState === "closing" ? 0 : 1,
+    transform: transitionState === "closing" 
+      ? "translateX(20px)" 
+      : "translateX(0px)",
+    config: prefersReducedMotion ? { duration: 0 } : appleSpringGentle,
   });
 
+  // 处理关闭
   const handleRequestClose = useCallback(() => {
-    if (closingTransition) return;
+    if (transitionState === "closing") return;
     stopVideo();
+
     if (prefersReducedMotion || !openingTransition || openingTransition.photoId !== photo.id) {
       onClose();
       return;
     }
-    const rect = imagePanelRef.current?.getBoundingClientRect();
-    if (!rect) {
+
+    // 获取当前图片位置
+    const container = imageContainerRef.current;
+    if (!container) {
       onClose();
       return;
     }
-    setClosingTransition({
-      from: {
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-        height: rect.height,
-      },
-      to: {
-        left: openingTransition.left,
-        top: openingTransition.top,
-        width: openingTransition.width,
-        height: openingTransition.height,
-        borderRadius: openingTransition.borderRadius,
-      },
+
+    // 设置关闭目标为原始缩略图位置
+    setClosingToRect({
+      left: openingTransition.left,
+      top: openingTransition.top,
+      width: openingTransition.width,
+      height: openingTransition.height,
     });
-    window.setTimeout(() => {
-      onClose();
-    }, 280);
-  }, [closingTransition, onClose, openingTransition, photo.id, prefersReducedMotion, stopVideo]);
+    setTransitionState("closing");
+  }, [transitionState, onClose, openingTransition, photo.id, prefersReducedMotion, stopVideo]);
+
+  // 是否使用动画
+  const useAnimation = openingTransition && openingTransition.photoId === photo.id && (transitionState !== "idle");
+  const isClosing = transitionState === "closing";
 
   return (
     <Dialog
@@ -466,104 +489,131 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
       }}
     >
       <DialogContent
-        overlayClassName='bg-[#08080a]/[0.98] backdrop-blur-xl'
-        className='h-screen max-w-none overflow-hidden rounded-none border-0 bg-transparent p-0'
+        overlayClassName="bg-transparent"
+        className="h-screen max-w-none overflow-hidden rounded-none border-0 bg-transparent p-0"
       >
-        <animated.div className='relative flex h-full w-full flex-col overflow-hidden md:flex-row' style={{ opacity: shellSpring.opacity }}>
-          <DialogClose className='absolute right-6 top-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-white/[0.06] bg-black/50 text-white/80 shadow-[0_4px_24px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition-all duration-300 hover:border-white/[0.12] hover:bg-black/70 hover:text-white'>
-            <X size={20} strokeWidth={1.5} />
-          </DialogClose>
-          {canPrev && (
-            <button
-              type='button'
-              className='absolute left-6 top-1/2 z-40 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/45 text-zinc-100 backdrop-blur-xl transition hover:border-white/[0.15]'
-              onClick={onPrev}
-              aria-label='上一张'
-            >
-              <ChevronLeft size={20} />
-            </button>
-          )}
-          {canNext && (
-            <button
-              type='button'
-              className='absolute right-[calc(460px+24px)] top-1/2 z-40 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/45 text-zinc-100 backdrop-blur-xl transition hover:border-white/[0.15] lg:flex'
-              onClick={onNext}
-              aria-label='下一张'
-            >
-              <ChevronRight size={20} />
-            </button>
-          )}
+        {/* 背景遮罩 - 使用模糊的缩略图作为背景 */}
+        <animated.div
+          className="fixed inset-0 z-0 bg-black/95"
+          style={{
+            opacity: overlaySpring.opacity,
+          }}
+        >
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 blur-3xl saturate-150"
+            style={{ 
+              backgroundImage: `url(${photo.thumbnail})`,
+              transform: 'scale(1.2)',
+            }} 
+          />
+          <div className="absolute inset-0 bg-black/20" />
+        </animated.div>
 
-          <animated.div
-            ref={imagePanelRef}
-            className='relative flex h-[45svh] min-w-0 flex-1 items-center justify-center overflow-hidden bg-black p-4 md:h-full md:p-8'
-            style={{
-              opacity: imagePanelSpring.opacity,
-              transform: imagePanelSpring.scale.to((value) => `scale(${value})`),
+        {/* 关闭按钮 */}
+        <animated.div style={{ 
+          opacity: overlaySpring.opacity,
+          transform: controlsSpring.transform,
+        }}>
+          <DialogClose className="fixed right-6 top-6 z-50 flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-black/20 text-white/70 backdrop-blur-md transition-all duration-200 hover:bg-black/40 hover:text-white">
+            <X size={18} strokeWidth={1.5} />
+          </DialogClose>
+        </animated.div>
+
+        {/* 导航按钮 */}
+        {canPrev && (
+          <animated.button
+            type="button"
+            className="fixed left-6 top-1/2 z-40 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/40 text-white/70 backdrop-blur-xl transition hover:border-white/[0.15] hover:text-white"
+            style={{ 
+              opacity: overlaySpring.opacity,
+              transform: controlsSpring.transform,
             }}
+            onClick={onPrev}
+            aria-label="上一张"
+          >
+            <ChevronLeft size={22} />
+          </animated.button>
+        )}
+        {canNext && (
+          <animated.button
+            type="button"
+            className="fixed right-[calc(460px+24px)] top-1/2 z-40 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/40 text-white/70 backdrop-blur-xl transition hover:border-white/[0.15] hover:text-white lg:flex"
+            style={{ 
+              opacity: overlaySpring.opacity,
+              transform: controlsSpring.transform,
+            }}
+            onClick={onNext}
+            aria-label="下一张"
+          >
+            <ChevronRight size={22} />
+          </animated.button>
+        )}
+
+        {/* 主内容区域 */}
+        <animated.div
+          className="relative flex h-full w-full flex-col overflow-hidden md:flex-row"
+          style={{ opacity: overlaySpring.opacity }}
+        >
+          {/* 图片区域 */}
+          <div
+            ref={imageContainerRef}
+            className="relative flex h-[45svh] min-w-0 flex-1 items-center justify-center overflow-hidden bg-transparent p-4 md:h-full md:p-6"
             onMouseDown={handleLongPressStart}
             onMouseUp={handleLongPressEnd}
             onMouseLeave={handleLongPressEnd}
             onTouchStart={handleLongPressStart}
             onTouchEnd={handleLongPressEnd}
           >
-            <div className='pointer-events-none absolute inset-0 overflow-hidden'>
-              <img
-                src={photo.thumbnail}
-                alt=''
-                aria-hidden='true'
-                className='absolute inset-0 h-full w-full scale-125 object-cover opacity-65 blur-3xl'
-              />
-              <div className='absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(20,20,24,0.05)_0%,rgba(8,8,10,0.75)_78%)]' />
-              <div className='absolute inset-y-0 right-0 w-[22%] bg-gradient-to-l from-black/60 to-transparent' />
-              <div className='absolute inset-y-0 left-0 w-[18%] bg-gradient-to-r from-black/45 to-transparent' />
-            </div>
+            <DialogTitle className="sr-only">{photo.title}</DialogTitle>
 
-            <DialogTitle className='sr-only'>{photo.title}</DialogTitle>
+            {/* 动画图片层 - 打开和关闭都使用同一个弹簧 */}
+            {useAnimation && (
+              <animated.div
+                className="pointer-events-none fixed z-[60] overflow-hidden shadow-2xl"
+                style={{
+                  left: spring.x,
+                  top: spring.y,
+                  width: spring.width,
+                  height: spring.height,
+                  borderRadius: spring.borderRadius,
+                }}
+              >
+                <img
+                  src={photo.thumbnail}
+                  alt={photo.title}
+                  className="h-full w-full object-contain"
+                />
+              </animated.div>
+            )}
 
-            <div className='relative z-10 flex h-full w-full min-w-0 items-center justify-center overflow-hidden'>
-              <div className='relative flex h-full w-full items-center justify-center overflow-hidden'>
+            {/* 静态图片（动画结束后显示） */}
+            <div
+              className={`relative z-10 flex h-full w-full min-w-0 items-center justify-center overflow-hidden transition-opacity duration-200 ${
+                useAnimation ? "opacity-0" : "opacity-100"
+              }`}
+            >
+              <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
                 <animated.img
                   ref={thumbnailImageRef}
                   src={photo.thumbnail}
                   alt={photo.title}
-                  className='absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain shadow-2xl'
+                  className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain"
                   style={{ opacity: imageSpring.opacity.to((value) => 1 - value) }}
                 />
 
                 <animated.img
                   src={photo.url}
                   alt={photo.title}
-                  className='absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain shadow-2xl'
+                  className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain"
                   style={{ opacity: imageSpring.opacity }}
                   onLoad={() => setIsOriginalLoaded(true)}
                 />
-                {watermarkPreviewEnabled && (
-                  <div className='pointer-events-none absolute inset-0 flex items-end justify-end p-6'>
-                    <div className='rounded-md border border-white/25 bg-black/45 px-3 py-1 text-xs tracking-wider text-white/90 backdrop-blur-sm'>
-                      © Lumina Preview
-                    </div>
-                  </div>
-                )}
-
-                {!isOriginalLoaded && (
-                  <div className='absolute bottom-3 right-3 z-30 flex items-center gap-2 rounded-lg border border-white/[0.08] bg-black/70 px-2.5 py-1.5 backdrop-blur-md'>
-                    <Loader2 className='h-3 w-3 animate-spin text-white/60' />
-                    <span className='text-[10px] text-white/50'>原图 {loadProgress}%</span>
-                    <div className='h-1 w-10 overflow-hidden rounded-full bg-white/[0.1]'>
-                      <div
-                        className='h-full rounded-full bg-[#c9a962]/60 transition-all duration-300'
-                        style={{ width: `${loadProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
 
               {hasVideo && (
                 <video
                   ref={liveVideoRef}
-                  className='pointer-events-none absolute left-1/2 top-1/2 object-cover shadow-2xl transition-opacity duration-200'
+                  className="pointer-events-none absolute left-1/2 top-1/2 object-cover shadow-2xl transition-opacity duration-200"
                   style={{
                     opacity: isLivePlaying ? 1 : 0,
                     width: liveFrameSize?.width,
@@ -572,26 +622,40 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
                   }}
                   muted
                   playsInline
-                  preload='metadata'
+                  preload="metadata"
                   poster={photo.thumbnail}
                   onEnded={stopVideo}
                 />
               )}
 
               {hasVideo && (
-                <div className='pointer-events-none absolute left-5 top-5 z-20 flex items-center gap-2 rounded-full border border-[#c9a962]/25 bg-black/50 px-3 py-1.5 backdrop-blur-sm'>
-                  <span className='h-1.5 w-1.5 rounded-full bg-[#c9a962]/80' />
-                  <span className='text-[10px] font-medium uppercase tracking-[0.15em] text-[#c9a962]'>实况</span>
+                <div className="pointer-events-none absolute left-5 top-5 z-20 flex items-center gap-2 rounded-full border border-[#c9a962]/25 bg-black/50 px-3 py-1.5 backdrop-blur-sm">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#c9a962]/80" />
+                  <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-[#c9a962]">实况</span>
+                </div>
+              )}
+
+              {!isOriginalLoaded && (
+                <div className="absolute bottom-3 right-3 z-30 flex items-center gap-2 rounded-lg border border-white/[0.08] bg-black/70 px-2.5 py-1.5 backdrop-blur-md">
+                  <Loader2 className="h-3 w-3 animate-spin text-white/60" />
+                  <span className="text-[10px] text-white/50">原图 {loadProgress}%</span>
+                  <div className="h-1 w-10 overflow-hidden rounded-full bg-white/[0.1]">
+                    <div
+                      className="h-full rounded-full bg-[#c9a962]/60 transition-all duration-300"
+                      style={{ width: `${loadProgress}%` }}
+                    />
+                  </div>
                 </div>
               )}
             </div>
-          </animated.div>
+          </div>
 
+          {/* 信息面板 */}
           <animated.div
-            className='h-[55svh] w-full md:h-full md:w-[420px] lg:w-[460px]'
+            className="h-[55svh] w-full border-l border-white/10 bg-black/40 backdrop-blur-xl md:h-full md:w-[320px] lg:w-[360px]"
             style={{
-              opacity: infoPanelSpring.opacity,
-              transform: infoPanelSpring.x.to((value) => `translate3d(${value}px, 0, 0)`),
+              opacity: overlaySpring.opacity,
+              transform: infoPanelSpring.transform,
             }}
           >
             <PhotoDetailInfoPanel
@@ -616,49 +680,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
             />
           </animated.div>
         </animated.div>
-        {openingTransition &&
-          launchTargetRect &&
-          openingTransition.photoId === photo.id &&
-          isLaunchAnimating && (
-            <animated.div
-              className='pointer-events-none fixed z-[80] overflow-hidden bg-black shadow-[0_24px_80px_rgba(0,0,0,0.55)]'
-              style={{
-                left: launchSpring.left,
-                top: launchSpring.top,
-                width: launchSpring.width,
-                height: launchSpring.height,
-                borderRadius: launchSpring.radius,
-                opacity: launchSpring.opacity,
-              }}
-            >
-              <img
-                src={photo.thumbnail}
-                alt=''
-                aria-hidden='true'
-                className='h-full w-full object-cover'
-              />
-            </animated.div>
-          )}
-        {closingTransition && (
-          <animated.div
-            className='pointer-events-none fixed z-[90] overflow-hidden bg-black shadow-[0_24px_80px_rgba(0,0,0,0.55)]'
-            style={{
-              left: closeSpring.left,
-              top: closeSpring.top,
-              width: closeSpring.width,
-              height: closeSpring.height,
-              borderRadius: closeSpring.radius,
-              opacity: closeSpring.opacity,
-            }}
-          >
-            <img
-              src={photo.thumbnail}
-              alt=''
-              aria-hidden='true'
-              className='h-full w-full object-cover'
-            />
-          </animated.div>
-        )}
       </DialogContent>
     </Dialog>
   );

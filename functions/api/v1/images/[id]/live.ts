@@ -2,6 +2,7 @@ import {
   Env,
   ImageMetadata,
   createGitHubClient,
+  decodeBase64Utf8,
   isValidImageId,
   imageIdToMetaPath,
   errorResponse,
@@ -39,7 +40,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     const github = createGitHubClient(env);
     const metaFile = await github.getFile(imageIdToMetaPath(imageId));
-    const metadata = JSON.parse(atob(metaFile.content)) as ImageMetadata;
+    const metadata = JSON.parse(decodeBase64Utf8(metaFile.content)) as ImageMetadata;
     const livePath = metadata.files.live_video?.path;
 
     if (!livePath) {

@@ -1,14 +1,5 @@
 import React, { useMemo, useState } from "react";
-import {
-  AlertCircle,
-  CheckCircle2,
-  ChevronDown,
-  Image as ImageIcon,
-  Loader2,
-  RotateCcw,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, Image as ImageIcon, Loader2, RotateCcw, Settings2, Sparkles, X } from "lucide-react";
 import { UploadQueueItem } from "@/features/photos/types";
 import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/ui/badge";
@@ -26,6 +17,8 @@ interface UploadQueuePanelProps {
   activeWorkers: number;
   onRemoveItem: (id: string) => void;
   onRetryItem: (id: string) => void;
+  onEditItem?: (id: string) => void;
+  isEditEnabled?: boolean;
 }
 
 const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
@@ -36,11 +29,15 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   activeWorkers,
   onRemoveItem,
   onRetryItem,
+  onEditItem,
+  isEditEnabled = false,
 }) => {
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
   const throughput = useMemo(() => {
-    const completed = queue.filter((item) => item.status === "completed");
+    const completed = queue.filter(
+      (item) => item.status === "completed" || item.status === "upload_completed"
+    );
     const processedBytes = completed.reduce(
       (sum, item) => sum + item.file.size + (item.liveVideoFile?.size || 0),
       0
@@ -58,250 +55,130 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-[#141414] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
-        <div className="flex items-center gap-2 text-sm text-gray-300">
-          <Sparkles size={14} className="text-[#c9a962]" />
-          <span>上传队列</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge className="rounded-full border border-white/15 bg-white/5 text-gray-300">
-            {queue.length} 张
-          </Badge>
-          <Badge className="rounded-full border border-white/15 bg-white/5 text-gray-300">
-            {(totalBytes / 1024 / 1024).toFixed(1)} MB
-          </Badge>
-          <Badge className="rounded-full border border-white/15 bg-white/5 text-gray-300">
-            并发 {activeWorkers}/{workerCount}
-          </Badge>
-          <Badge className="rounded-full border border-white/15 bg-white/5 text-gray-300">
-            吞吐 {throughput.toFixed(2)} MB/s
+    <div className="rounded-xl bg-[#0a0a0a] p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-medium text-white">上传队列</h3>
+          <Badge variant="secondary" className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-gray-300">
+            {queue.length}
           </Badge>
           {failedCount > 0 && (
-            <Badge className="rounded-full border border-red-400/40 bg-red-500/10 text-red-300">
-              失败 {failedCount}
+            <Badge variant="destructive" className="rounded-full px-2 py-0.5 text-xs">
+              {failedCount} 失败
             </Badge>
           )}
         </div>
+        
+        <div className="flex items-center gap-4 text-xs text-gray-500">
+          <span>{(totalBytes / 1024 / 1024).toFixed(1)} MB</span>
+          {throughput > 0 && <span>{throughput.toFixed(1)} MB/s</span>}
+        </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
         {queue.map((item) => {
-          const isExpanded = Boolean(expandedIds[item.id]);
-
+          const isProcessing = item.status === "processing" || item.status === "parsing";
+          const isUploading = item.status === "uploading";
+          const isCompleted = item.status === "completed" || item.status === "upload_completed";
+          const isFailed = item.status === "failed" || item.status === "parse_failed" || item.status === "upload_failed";
+          const isQueued = item.status === "queued" || item.status === "queued_parse";
+          
           return (
-            <Card
+            <div
               key={item.id}
-              className="rounded-xl border border-white/5 bg-white/[0.03] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+              className="group relative aspect-square overflow-hidden rounded-lg bg-black/40 transition-all hover:-translate-y-0.5"
             >
-              <CardContent className="p-4">
-                <div className="flex gap-4">
-                  {item.thumbnail ? (
-                    <img
-                      src={item.thumbnail}
-                      alt=""
-                      className="h-20 w-20 rounded-lg object-cover ring-1 ring-white/10"
-                    />
-                  ) : (
-                    <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-black/40 ring-1 ring-white/10">
-                      <ImageIcon size={22} className="text-gray-500" />
-                    </div>
+              {item.thumbnail ? (
+                <img
+                  src={item.thumbnail}
+                  alt={item.file.name}
+                  className={cn(
+                    "h-full w-full object-cover",
+                    (isProcessing || isUploading) && "opacity-70"
                   )}
-
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-2 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-white">{item.file.name}</p>
-                        <p className="mt-0.5 text-xs text-gray-500">
-                          {(item.file.size / 1024 / 1024).toFixed(2)} MB
-                          {item.liveVideoFile && (
-                            <span className="ml-2 text-[#d4b97f]">
-                              + MOV {(item.liveVideoFile.size / 1024 / 1024).toFixed(2)} MB
-                            </span>
-                          )}
-                          {item.metadata?.image_id && (
-                            <span className="ml-2 font-mono text-[11px] text-gray-400">
-                              {item.metadata.image_id.slice(0, 16)}...
-                            </span>
-                          )}
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {typeof item.workerSlot === "number" && (
-                          <Badge className="rounded-full border border-white/20 bg-white/5 text-gray-300">
-                            W{item.workerSlot}
-                          </Badge>
-                        )}
-                        {item.uploadMode === "live_photo" && (
-                          <Badge className="rounded-full border border-[#c9a962]/50 bg-[#c9a962]/10 text-[#d4b97f]">
-                            LIVE
-                          </Badge>
-                        )}
-                        <Badge
-                          className={cn(
-                            "rounded-full border px-2.5 py-0.5 text-[11px]",
-                            item.status === "completed" &&
-                              "border-emerald-400/40 bg-emerald-500/15 text-emerald-300",
-                            item.status === "uploading" &&
-                              "border-[#c9a962]/40 bg-[#c9a962]/15 text-[#e7d3a4]",
-                            item.status === "processing" &&
-                              "border-[#c9a962]/30 bg-[#c9a962]/10 text-[#e7d3a4]",
-                            item.status === "failed" &&
-                              "border-red-400/40 bg-red-500/15 text-red-300",
-                            item.status === "queued" &&
-                              "border-white/20 bg-white/5 text-gray-300"
-                          )}
-                        >
-                          {item.status === "completed" && "已完成"}
-                          {item.status === "uploading" && "上传中"}
-                          {item.status === "processing" && "处理中"}
-                          {item.status === "failed" && "失败"}
-                          {item.status === "queued" && "等待中"}
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onRemoveItem(item.id)}
-                          className="h-7 w-7 rounded-full text-gray-500 hover:bg-white/10 hover:text-red-300"
-                        >
-                          <X size={14} />
-                        </Button>
-                        {item.status === "failed" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onRetryItem(item.id)}
-                            className="h-7 w-7 rounded-full text-gray-500 hover:bg-white/10 hover:text-emerald-300"
-                          >
-                            <RotateCcw size={14} />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                    {item.status === "processing" && <ProcessingProgress stages={item.stages} />}
-
-                    {item.status === "uploading" && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs text-gray-400">
-                          <span className="inline-flex items-center gap-1.5">
-                            <Loader2 size={12} className="animate-spin motion-reduce:animate-none" />
-                            正在上传到 GitHub
-                          </span>
-                          <span>{Math.round(item.progress)}%</span>
-                        </div>
-                        <Progress
-                          value={item.progress}
-                          indicatorClassName="bg-gradient-to-r from-[#c9a962] to-[#e7d3a4]"
-                        />
-                      </div>
-                    )}
-
-                    {item.status === "completed" && (
-                      <div className="flex items-center gap-2 text-sm text-emerald-300">
-                        <CheckCircle2 size={16} />
-                        <span>上传完成</span>
-                        {item.processingSummary && (
-                          <span className="text-xs text-emerald-200/80">
-                            总耗时 {item.processingSummary.total_ms}ms
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {item.status === "failed" && (
-                      <div className="flex items-center gap-2 text-sm text-red-300">
-                        <AlertCircle size={16} />
-                        <span>{item.error || "处理失败"}</span>
-                        {typeof item.retryCount === "number" && (
-                          <span className="text-xs text-red-200/80">(已重试 {item.retryCount} 次)</span>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {item.taskMetrics?.map((task) => (
-                        <Badge
-                          key={`${item.id}-${task.task_id}`}
-                          className={cn(
-                            "rounded-full border px-2 py-0.5 text-[10px]",
-                            task.status === "completed" && "border-emerald-400/30 bg-emerald-500/10 text-emerald-200",
-                            task.status === "skipped" && "border-white/20 bg-white/5 text-gray-300",
-                            task.status === "failed" && "border-red-400/40 bg-red-500/15 text-red-200"
-                          )}
-                        >
-                          {task.task_id} {task.duration_ms}ms
-                          {task.degraded ? " (degraded)" : ""}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    <button
-                      type="button"
-                      className="mt-2 inline-flex items-center gap-1 text-xs text-gray-400 transition hover:text-gray-200"
-                      onClick={() =>
-                        setExpandedIds((prev) => ({
-                          ...prev,
-                          [item.id]: !prev[item.id],
-                        }))
-                      }
-                    >
-                      <ChevronDown size={12} className={cn("transition-transform", isExpanded && "rotate-180")} />
-                      详细处理信息
-                    </button>
-
-                    {isExpanded && (
-                      <div className="mt-2 rounded-lg border border-white/10 bg-black/25 p-2 text-xs text-gray-300">
-                        <div className="grid gap-1 sm:grid-cols-2">
-                          <div>并发配置: {item.processingSummary?.concurrency_profile || "-"}</div>
-                          <div>总耗时: {item.processingSummary?.total_ms ?? 0}ms</div>
-                          <div>
-                            区域: {item.metadata?.geo?.region?.display_name || "未解析"}
-                          </div>
-                          <div>
-                            隐私: {item.metadata?.privacy.exif_gps_removed ? "GPS 已脱敏" : "未脱敏"}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-white/5">
+                  <ImageIcon className="h-6 w-6 text-white/20" />
                 </div>
+              )}
 
-                {item.metadata?.exif && (
-                  <>
-                    <Separator className="my-3 bg-white/10" />
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      {item.metadata.exif.Model && (
-                        <Badge className="rounded-full border border-white/15 bg-white/5 text-gray-300">
-                          {item.metadata.exif.Model}
-                        </Badge>
-                      )}
-                      {item.metadata.exif.FNumber && (
-                        <Badge className="rounded-full border border-white/15 bg-white/5 text-gray-300">
-                          f/{item.metadata.exif.FNumber}
-                        </Badge>
-                      )}
-                      {item.metadata.exif.ExposureTime && (
-                        <Badge className="rounded-full border border-white/15 bg-white/5 text-gray-300">
-                          1/{Math.round(1 / item.metadata.exif.ExposureTime)}s
-                        </Badge>
-                      )}
-                      {item.metadata.exif.ISO && (
-                        <Badge className="rounded-full border border-white/15 bg-white/5 text-gray-300">
-                          ISO {item.metadata.exif.ISO}
-                        </Badge>
-                      )}
-                      {item.metadata.exif.FocalLength && (
-                        <Badge className="rounded-full border border-white/15 bg-white/5 text-gray-300">
-                          {item.metadata.exif.FocalLength}mm
-                        </Badge>
-                      )}
-                    </div>
-                  </>
+              {/* Hover Actions */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                <div className="flex gap-1">
+                  {isEditEnabled && (isCompleted || item.status === "parsed" || item.status === "ready_to_upload") && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditItem?.(item.id);
+                      }}
+                      className="h-6 w-6 rounded-full bg-black/70 p-1 text-white hover:bg-blue-500"
+                    >
+                      <Settings2 size={12} />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveItem(item.id);
+                    }}
+                    className="h-6 w-6 rounded-full bg-black/70 p-1 text-white hover:bg-red-500"
+                  >
+                    <X size={12} />
+                  </Button>
+                  
+                  {isFailed && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRetryItem(item.id);
+                      }}
+                      className="h-6 w-6 rounded-full bg-black/70 p-1 text-white hover:bg-emerald-500"
+                    >
+                      <RotateCcw size={12} />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Badge */}
+              <div className="absolute right-1 top-1">
+                {item.uploadMode === "live_photo" && (
+                  <Badge variant="outline" className="h-3 border-yellow-500/50 bg-yellow-500/20 px-1 text-[8px] text-yellow-400">
+                    LIVE
+                  </Badge>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+
+              {/* Progress Bar */}
+              {(isProcessing || isUploading) && (
+                <div className="absolute inset-x-0 bottom-0 h-1 bg-black/50">
+                  <div 
+                    className="h-full bg-emerald-500 transition-all duration-300"
+                    style={{ width: `${item.progress}%` }}
+                  />
+                </div>
+              )}
+
+              {/* Status Icon */}
+              <div className="absolute bottom-1 left-1">
+                {isCompleted && <CheckCircle2 size={10} className="text-emerald-400" />}
+                {isFailed && <AlertCircle size={10} className="text-red-400" />}
+              </div>
+
+              {/* Processing Spinner */}
+              {(isProcessing || isUploading) && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <Loader2 className="h-4 w-4 animate-spin text-white/60" />
+                </div>
+              )}
+            </div>
           );
         })}
       </div>

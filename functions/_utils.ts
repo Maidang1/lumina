@@ -8,6 +8,7 @@ export {
   imageIdToObjectPath,
   isValidImageId,
 } from "./utils/image";
+export { decodeBase64Utf8 } from "./utils/encoding";
 
 export { corsHeaders, errorResponse, jsonResponse, validateUploadToken } from "./utils/http";
 

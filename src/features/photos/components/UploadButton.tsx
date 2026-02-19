@@ -13,7 +13,7 @@ const UploadButton: React.FC<UploadButtonProps> = ({ onClick, queueCount = 0 }) 
       onClick={onClick}
       variant="outline"
       size="sm"
-      className="min-h-[44px] min-w-[44px] gap-2 rounded-xl px-3"
+      className="min-h-[44px] min-w-[44px] cursor-pointer gap-2 rounded-xl border-white/[0.14] bg-white/[0.03] px-3 text-white/85 shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition-all duration-200 hover:border-white/30 hover:bg-white/[0.08] hover:text-white"
     >
       <Upload size={14} />
       <span className="hidden sm:inline">上传</span>

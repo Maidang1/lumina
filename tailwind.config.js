@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"Inter"', 'sans-serif'],
+        sans: ['"Archivo"', 'sans-serif'],
         serif: ['"Bodoni Moda"', 'serif'],
         mono: ['"Space Grotesk"', 'monospace'],
         display: ['"Bodoni Moda"', 'serif'],

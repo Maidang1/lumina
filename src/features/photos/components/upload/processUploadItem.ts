@@ -6,6 +6,7 @@ import {
   ProcessingStage,
   ProcessingTaskMetric,
   UploadQueueItem,
+  UploadResult,
 } from "@/features/photos/types";
 import { computePHash } from "@/features/photos/services/phashService";
 import {
@@ -19,15 +20,33 @@ import { performOcr } from "@/features/photos/services/ocrService";
 import { uploadService } from "@/features/photos/services/uploadService";
 import { reverseGeocodeToRegion } from "@/features/photos/services/geoRegionService";
 
-interface ProcessUploadItemOptions {
+export interface ParseUploadItemOptions {
   item: UploadQueueItem;
+  updateItem: (updates: Partial<UploadQueueItem>) => void;
+  updateStage: (stageId: string, updates: Partial<ProcessingStage>) => void;
+}
+
+interface ProcessUploadItemOptions extends ParseUploadItemOptions {
   requestDescription: (params: {
     originalFilename: string;
     initialDescription?: string;
   }) => Promise<{ description?: string }>;
-  updateItem: (updates: Partial<UploadQueueItem>) => void;
-  updateStage: (stageId: string, updates: Partial<ProcessingStage>) => void;
   onUploadComplete?: (metadata: ImageMetadata) => void;
+}
+
+export interface SubmitUploadItemOptions {
+  item: UploadQueueItem;
+  metadata: ImageMetadata;
+  thumbBlob: Blob;
+  onProgress?: (progress: number) => void;
+}
+
+export interface ParsedUploadItemResult {
+  metadata: ImageMetadata;
+  thumbBlob: Blob;
+  thumbnailUrl: string;
+  processingSummary?: ImageMetadata["processing"]["summary"];
+  taskMetrics: ProcessingTaskMetric[];
 }
 
 interface StageTimer {
@@ -112,13 +131,11 @@ const resolveRegion = async (exif: ExifSummary | null): Promise<GeoRegion | unde
   };
 };
 
-export const processUploadItem = async ({
+export const parseUploadItem = async ({
   item,
-  requestDescription,
   updateItem,
   updateStage,
-  onUploadComplete,
-}: ProcessUploadItemOptions): Promise<void> => {
+}: ParseUploadItemOptions): Promise<ParsedUploadItemResult> => {
   const file = item.file;
   const pipelineStart = now();
   const stageTimers = new Map<string, StageTimer>();
@@ -337,35 +354,71 @@ export const processUploadItem = async ({
     },
   };
 
+  taskMetrics.push({ task_id: "finalize", status: "completed", duration_ms: Math.round(markStageDone("finalize")) });
+
+  updateItem({
+    metadata,
+    editDraft: {
+      description: metadata.description || "",
+      original_filename: metadata.original_filename || file.name,
+    },
+    processingSummary: metadata.processing?.summary,
+    taskMetrics,
+  });
+
+  return {
+    metadata,
+    thumbBlob: thumbResult.blob,
+    thumbnailUrl: thumbUrl,
+    processingSummary: metadata.processing?.summary,
+    taskMetrics,
+  };
+};
+
+export const submitUploadItem = async ({
+  item,
+  metadata,
+  thumbBlob,
+  onProgress,
+}: SubmitUploadItemOptions): Promise<UploadResult> => {
+  return uploadService.uploadImage(
+    item.file,
+    thumbBlob,
+    metadata,
+    item.liveVideoFile,
+    item.uploadMode,
+    onProgress
+  );
+};
+
+export const processUploadItem = async ({
+  item,
+  requestDescription,
+  updateItem,
+  updateStage,
+  onUploadComplete,
+}: ProcessUploadItemOptions): Promise<void> => {
+  const parsed = await parseUploadItem({ item, updateItem, updateStage });
   const descriptionResult = await requestDescription({
-    originalFilename: file.name,
-    initialDescription: metadata.description || "",
+    originalFilename: item.file.name,
+    initialDescription: parsed.metadata.description || "",
   });
 
   const nextMetadata: ImageMetadata = {
-    ...metadata,
+    ...parsed.metadata,
     ...(descriptionResult.description !== undefined
       ? { description: descriptionResult.description }
       : {}),
   };
 
-  taskMetrics.push({ task_id: "finalize", status: "completed", duration_ms: Math.round(markStageDone("finalize")) });
+  updateItem({ metadata: nextMetadata, status: "uploading", progress: 0 });
 
-  updateItem({
+  const result = await submitUploadItem({
+    item,
     metadata: nextMetadata,
-    processingSummary: nextMetadata.processing?.summary,
-    taskMetrics,
+    thumbBlob: parsed.thumbBlob,
+    onProgress: (progress) => updateItem({ progress }),
   });
-  updateItem({ status: "uploading", progress: 0 });
-
-  const result = await uploadService.uploadImage(
-    file,
-    thumbResult.blob,
-    nextMetadata,
-    item.liveVideoFile,
-    item.uploadMode,
-    (progress) => updateItem({ progress })
-  );
 
   updateItem({ status: "completed", result });
   onUploadComplete?.(nextMetadata);

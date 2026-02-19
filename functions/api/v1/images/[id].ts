@@ -2,6 +2,7 @@ import {
   Env,
   ImageMetadata,
   createGitHubClient,
+  decodeBase64Utf8,
   isValidImageId,
   imageIdToMetaPath,
   validateUploadToken,
@@ -37,7 +38,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       const github = createGitHubClient(env);
       const file = await github.getFile(imageIdToMetaPath(imageId));
 
-      const content = atob(file.content);
+      const content = decodeBase64Utf8(file.content);
       const metadata = JSON.parse(content) as ImageMetadata;
 
       return jsonResponse(env, metadata);
@@ -60,7 +61,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
       const github = createGitHubClient(env);
       const file = await github.getFile(imageIdToMetaPath(imageId));
-      const metadata = JSON.parse(atob(file.content)) as ImageMetadata;
+      const metadata = JSON.parse(decodeBase64Utf8(file.content)) as ImageMetadata;
 
       if (typeof body.description === "string") {
         metadata.description = body.description;
@@ -97,7 +98,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     const github = createGitHubClient(env);
     const file = await github.getFile(imageIdToMetaPath(imageId));
-    const metadata = JSON.parse(atob(file.content)) as ImageMetadata;
+    const metadata = JSON.parse(decodeBase64Utf8(file.content)) as ImageMetadata;
     const deletedPaths = await github.deleteImageAssets(metadata);
 
     return jsonResponse(env, { image_id: imageId, deleted_paths: deletedPaths }, 200);
