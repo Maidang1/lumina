@@ -4,7 +4,7 @@ This document gives coding agents the project-specific context needed to work sa
 
 ## Project Overview
 
-Lumina is a photography portfolio web app built with React, TypeScript, and Rsbuild. It supports:
+Lumina is a monorepo photography portfolio project built with React, TypeScript, and Rsbuild. It supports:
 
 - Masonry gallery with EXIF and map display
 - Browser-side image pipeline (EXIF, OCR, pHash, blur detection, dominant color)
@@ -19,22 +19,16 @@ Lumina is a photography portfolio web app built with React, TypeScript, and Rsbu
 pnpm install
 
 # Frontend dev server only (port 3000)
-pnpm run dev
+pnpm run dev:web
 
-# Production build (dist/)
+# Production build (all workspaces)
 pnpm run build
 
-# Cloudflare Pages dev + Functions (requires dist/)
+# Cloudflare Pages dev + Functions for web app (requires dist/)
 pnpm run dev:pages
 
 # Recommended local full mode: build watch + Pages Functions
 pnpm run dev:full
-
-# Preview production build
-pnpm run preview
-
-# Deploy dist/ to Cloudflare Pages
-pnpm run deploy
 
 # Type check
 pnpm run typecheck
@@ -44,9 +38,9 @@ pnpm run typecheck
 
 1. Create local function env file:
    ```bash
-   cp .dev.vars.example .dev.vars
+   cp apps/web/.dev.vars.example apps/web/.dev.vars
    ```
-2. Fill required values in `.dev.vars`:
+2. Fill required values in `apps/web/.dev.vars`:
    - `GITHUB_TOKEN`
    - `ALLOW_ORIGIN`
    - `UPLOAD_TOKEN`
@@ -64,32 +58,20 @@ No test framework is currently configured. If tests are added, prefer Vitest.
 
 ```txt
 lumina/
-├── src/
-│   ├── app/
-│   ├── features/photos/
-│   │   ├── components/
-│   │   │   ├── upload/
-│   │   │   ├── photo-detail/
-│   │   │   └── hooks/
-│   │   ├── services/
-│   │   │   └── video-loader/
-│   │   └── types.ts
-│   ├── shared/
-│   │   ├── ui/
-│   │   └── lib/
-│   └── styles/
-├── functions/
-│   ├── api/v1/images/
-│   │   ├── index.ts
-│   │   ├── [id].ts
-│   │   ├── [id]/[type].ts
-│   │   ├── [id]/live.ts
-│   │   └── [id]/share.ts
-│   └── utils/
-├── schemas/
-├── rsbuild.config.ts
-├── tsconfig.json
-└── wrangler.toml
+├── apps/
+│   └── web/
+│       ├── src/
+│       ├── functions/
+│       ├── rsbuild.config.ts
+│       ├── tsconfig.json
+│       └── wrangler.toml
+├── packages/
+│   ├── contracts/
+│   ├── github-storage/
+│   ├── upload-core/
+│   └── cli/
+├── pnpm-workspace.yaml
+└── turbo.json
 ```
 
 ## API Endpoints
@@ -117,18 +99,18 @@ Mutating APIs require header `x-upload-token`.
 
 ## Environment Variables
 
-### Frontend (`.env.local`)
+### Frontend (`apps/web/.env.local`)
 
 - `RSBUILD_API_URL` (optional, default same origin)
 
-### Functions (`.dev.vars` local / Cloudflare production)
+### Functions (`apps/web/.dev.vars` local / Cloudflare production)
 
 - `GITHUB_TOKEN` (required)
 - `ALLOW_ORIGIN` (required)
 - `UPLOAD_TOKEN` (required for POST/PATCH/DELETE/share)
 - `SHARE_SIGNING_SECRET` (optional, recommended)
 
-### `wrangler.toml` vars
+### `apps/web/wrangler.toml` vars
 
 - `GH_OWNER`
 - `GH_REPO`

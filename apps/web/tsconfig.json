@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "strict": false,
+    "verbatimModuleSyntax": false,
+    "declaration": false,
+    "declarationMap": false,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@lumina/contracts": ["../../packages/contracts/src/index.ts"],
+      "@lumina/upload-core/browser": ["../../packages/upload-core/src/browser/index.ts"],
+      "@lumina/github-storage": ["../../packages/github-storage/src/index.ts"]
+    },
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["src", "functions", "rsbuild.config.ts"]
+}

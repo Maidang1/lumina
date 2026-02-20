@@ -1,0 +1,29 @@
+{
+  "name": "@lumina/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "lumina-upload": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --conditions=source --experimental-specifier-resolution=node --loader ts-node/esm src/index.ts --help",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@lumina/contracts": "workspace:*",
+    "@lumina/github-storage": "workspace:*",
+    "@lumina/upload-core": "workspace:*",
+    "commander": "^14.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.8.2"
+  }
+}
