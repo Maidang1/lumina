@@ -3,27 +3,31 @@ import { Edit3, Loader2, Save } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { Textarea } from "@/shared/ui/textarea";
+import { Input } from "@/shared/ui/input";
 
 interface DescriptionModalProps {
   originalFilename: string;
   initialDescription?: string;
-  onSave: (description: string) => void | Promise<void>;
+  initialCategory?: string;
+  onSave: (data: { description: string; category: string }) => void | Promise<void>;
   onSkip: () => void;
 }
 
 const DescriptionModal: React.FC<DescriptionModalProps> = ({
   originalFilename,
   initialDescription = "",
+  initialCategory = "",
   onSave,
   onSkip,
 }) => {
   const [description, setDescription] = useState(initialDescription);
+  const [category, setCategory] = useState(initialCategory);
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async (): Promise<void> => {
     setIsSaving(true);
     try {
-      await onSave(description);
+      await onSave({ description, category });
     } finally {
       setIsSaving(false);
     }
@@ -39,10 +43,10 @@ const DescriptionModal: React.FC<DescriptionModalProps> = ({
             </div>
             <div className="min-w-0 space-y-1">
               <DialogTitle className="text-xl font-semibold tracking-wide text-white">
-                添加描述
+                Add Description
               </DialogTitle>
               <p className="truncate text-sm text-gray-400">
-                为 "{originalFilename}" 添加描述
+                Add description for "{originalFilename}"
               </p>
             </div>
           </div>
@@ -50,31 +54,43 @@ const DescriptionModal: React.FC<DescriptionModalProps> = ({
 
         <div className="space-y-4 px-5 py-4 md:px-6">
           <div className="space-y-2">
-            <label className="text-xs font-medium text-gray-300">描述（可选）</label>
+            <label className="text-xs font-medium text-gray-300">Description (Optional)</label>
             <Textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="输入图片描述..."
+              placeholder="Enter image description..."
               className="min-h-[140px] max-h-[40vh] resize-y border-white/15 bg-black/30 text-sm leading-relaxed text-white placeholder:text-gray-500 focus:border-[#c9a962]/60"
             />
-            <div className="text-right text-xs text-gray-500">{description.length} 字</div>
+            <div className="text-right text-xs text-gray-500">{description.length} chars</div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-gray-300">Category (Optional)</label>
+            <Input
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+              placeholder="e.g. Landscape, Portrait, Food..."
+              maxLength={50}
+              className="h-11 border-white/15 bg-black/30 text-sm text-white placeholder:text-gray-500 focus:border-[#c9a962]/60"
+            />
+            <div className="text-right text-xs text-gray-500">{category.length}/50</div>
           </div>
         </div>
 
         <DialogFooter className="flex-col-reverse gap-2 border-t border-white/10 bg-[#141414] px-5 py-4 sm:flex-row sm:justify-end md:px-6">
           <Button variant="outline" onClick={onSkip} className="h-11 w-full border-white/20 bg-transparent text-gray-300 hover:bg-white/10 sm:w-auto">
-            跳过
+            Skip
           </Button>
           <Button onClick={handleSave} disabled={isSaving} className="h-11 w-full bg-[#c9a962] text-black hover:bg-[#d4b97f] sm:w-auto">
             {isSaving ? (
               <>
                 <Loader2 size={14} className="mr-2 animate-spin motion-reduce:animate-none" />
-                保存中...
+                Saving...
               </>
             ) : (
               <>
                 <Save size={14} className="mr-2" />
-                保存
+                Save
               </>
             )}
           </Button>

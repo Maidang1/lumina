@@ -17,7 +17,7 @@ const UploadSettingsPopover: React.FC<UploadSettingsPopoverProps> = ({
   tokenError,
   isTokenConfigured,
   onChangeToken,
-  panelTitle = "上传设置",
+  panelTitle = "Upload Settings",
   iconSize = 16,
   buttonClassName,
 }) => {
@@ -56,7 +56,7 @@ const UploadSettingsPopover: React.FC<UploadSettingsPopoverProps> = ({
     <div className="relative" ref={panelRef}>
       <button
         type="button"
-        aria-label="打开上传设置"
+        aria-label="Open upload settings"
         onClick={() => setOpen((prev) => !prev)}
         className={
           buttonClassName ??

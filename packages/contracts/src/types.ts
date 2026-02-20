@@ -60,10 +60,11 @@ export interface DerivedData {
 }
 
 export interface ImageMetadata {
-  schema_version: "1.0" | "1.1" | "1.2";
+  schema_version: "1.0" | "1.1" | "1.2" | "1.3";
   image_id: string;
   original_filename?: string;
   description?: string;
+  category?: string;
   timestamps: {
     created_at: string;
     client_processed_at?: string;
@@ -112,6 +113,25 @@ export interface UploadResult {
     original: string;
     live?: string;
   };
+}
+
+export interface BatchFinalizeItem {
+  metadata: ImageMetadata;
+}
+
+export interface BatchFinalizeRequest {
+  items: BatchFinalizeItem[];
+}
+
+export interface BatchFinalizeFailure {
+  image_id: string;
+  reason: string;
+}
+
+export interface BatchFinalizeResult {
+  success_count: number;
+  failed_items?: BatchFinalizeFailure[];
+  mode: "batch_commit" | "fallback_per_item";
 }
 
 export interface ImageListCursor {

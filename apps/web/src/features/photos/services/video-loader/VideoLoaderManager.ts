@@ -114,7 +114,7 @@ export class VideoLoaderManager {
     onLoadingStateUpdate?.({
       isConverting: true,
       loadingProgress: 0,
-      conversionMessage: "正在转换实况视频...",
+      conversionMessage: "Converting live video...",
     });
 
     try {
@@ -122,7 +122,7 @@ export class VideoLoaderManager {
         onLoadingStateUpdate?.({
           isConverting: true,
           loadingProgress: progress,
-          conversionMessage: "正在转换实况视频...",
+          conversionMessage: "Converting live video...",
         });
       });
 

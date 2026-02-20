@@ -33,10 +33,10 @@ const buildStats = (input: SharePosterInput): PosterStats => {
 const drawGlowTitle = (ctx: CanvasRenderingContext2D): void => {
   ctx.save();
   ctx.fillStyle = "#f4d7a3";
-  ctx.font = "700 92px 'STKaiti', 'KaiTi', 'Songti SC', serif";
+  ctx.font = "700 88px 'SF Pro Display', 'Segoe UI', sans-serif";
   ctx.shadowColor = "rgba(244, 215, 163, 0.42)";
   ctx.shadowBlur = 24;
-  ctx.fillText("山河足迹", 130, 170);
+  ctx.fillText("Travel Footprint", 130, 170);
   ctx.restore();
 };
 
@@ -53,20 +53,20 @@ const drawMetaPanel = (
   ctx.strokeRect(98, 218, 760, 376);
 
   ctx.fillStyle = "rgba(255,255,255,0.88)";
-  ctx.font = "500 34px 'PingFang SC', 'Noto Sans SC', sans-serif";
-  ctx.fillText("我走过的地区", 130, 286);
+  ctx.font = "500 34px 'SF Pro Display', 'Segoe UI', sans-serif";
+  ctx.fillText("Places I've Been", 130, 286);
 
   ctx.fillStyle = "rgba(255,255,255,0.76)";
-  ctx.font = "400 24px 'PingFang SC', 'Noto Sans SC', sans-serif";
-  ctx.fillText(`时间范围：${input.timeRangeLabel}`, 130, 332);
-  ctx.fillText(`拍摄点位：${input.visiblePointsCount}`, 130, 370);
-  ctx.fillText(`覆盖省份：${stats.provinceCount} 个`, 130, 408);
-  ctx.fillText(`覆盖城市：${stats.cityCount} 个`, 130, 446);
-  ctx.fillText(`覆盖区县：${stats.districtCount} 个`, 130, 484);
+  ctx.font = "400 24px 'SF Pro Display', 'Segoe UI', sans-serif";
+  ctx.fillText(`Time Range: ${input.timeRangeLabel}`, 130, 332);
+  ctx.fillText(`Photo Points: ${input.visiblePointsCount}`, 130, 370);
+  ctx.fillText(`Provinces Covered: ${stats.provinceCount}`, 130, 408);
+  ctx.fillText(`Cities Covered: ${stats.cityCount}`, 130, 446);
+  ctx.fillText(`Districts Covered: ${stats.districtCount}`, 130, 484);
 
   ctx.fillStyle = "rgba(244, 215, 163, 0.95)";
-  ctx.font = "500 20px 'PingFang SC', 'Noto Sans SC', sans-serif";
-  ctx.fillText("TOP 地区", 130, 534);
+  ctx.font = "500 20px 'SF Pro Display', 'Segoe UI', sans-serif";
+  ctx.fillText("TOP Regions", 130, 534);
 };
 
 const drawTopRegions = (ctx: CanvasRenderingContext2D, input: SharePosterInput): void => {
@@ -74,7 +74,7 @@ const drawTopRegions = (ctx: CanvasRenderingContext2D, input: SharePosterInput):
     .sort((a, b) => b.count - a.count)
     .slice(0, 8);
 
-  ctx.font = "400 19px 'PingFang SC', 'Noto Sans SC', sans-serif";
+  ctx.font = "400 19px 'SF Pro Display', 'Segoe UI', sans-serif";
   topRegions.forEach((item, index) => {
     const x = 130 + (index >= 4 ? 360 : 0);
     const y = 568 + (index % 4) * 34;
@@ -96,7 +96,7 @@ export async function buildMapSharePoster(input: SharePosterInput): Promise<{ bl
 
   const ctx = output.getContext("2d");
   if (!ctx) {
-    throw new Error("无法创建海报画布");
+    throw new Error("Unable to create poster canvas");
   }
 
   ctx.drawImage(input.mapCanvas, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -116,7 +116,7 @@ export async function buildMapSharePoster(input: SharePosterInput): Promise<{ bl
 
   const blob = await new Promise<Blob | null>((resolve) => output.toBlob(resolve, "image/png"));
   if (!blob) {
-    throw new Error("海报导出失败");
+    throw new Error("Failed to export poster");
   }
 
   return {

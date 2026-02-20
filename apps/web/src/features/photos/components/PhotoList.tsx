@@ -57,14 +57,16 @@ const PhotoList: React.FC<PhotoListProps> = ({
       <table className="w-full text-left text-sm text-zinc-400">
         <thead className="bg-[#1A1A1A] text-xs uppercase text-zinc-500">
           <tr>
-            <th className="px-4 py-3 font-medium">预览</th>
-            <th className="px-4 py-3 font-medium">文件名</th>
-            <th className="px-4 py-3 font-medium">拍摄时间</th>
-            <th className="px-4 py-3 font-medium">尺寸</th>
-            <th className="px-4 py-3 font-medium">大小</th>
-            <th className="px-4 py-3 font-medium">相机/镜头</th>
-            <th className="px-4 py-3 font-medium">参数</th>
-            <th className="px-4 py-3 font-medium text-right">操作</th>
+            <th className="px-4 py-3 font-medium">Preview</th>
+            <th className="px-4 py-3 font-medium">Filename</th>
+            <th className="px-4 py-3 font-medium">Capture Time</th>
+            <th className="px-4 py-3 font-medium">Dimensions</th>
+            <th className="px-4 py-3 font-medium">Size</th>
+            <th className="px-4 py-3 font-medium">Category</th>
+            <th className="px-4 py-3 font-medium">Description</th>
+            <th className="px-4 py-3 font-medium">Camera/Lens</th>
+            <th className="px-4 py-3 font-medium">Settings</th>
+            <th className="px-4 py-3 font-medium text-right">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white/5">
@@ -122,6 +124,19 @@ const PhotoList: React.FC<PhotoListProps> = ({
                   {photo.width} × {photo.height}
                 </td>
                 <td className="px-4 py-3">{photo.size}</td>
+                <td className="px-4 py-3">
+                  <span className="inline-block max-w-[120px] truncate" title={photo.category || "-"}>
+                    {photo.category || "-"}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className="inline-block max-w-[240px] truncate text-zinc-300"
+                    title={photo.visualDescription || "-"}
+                  >
+                    {photo.visualDescription || "-"}
+                  </span>
+                </td>
                 <td className="px-4 py-3">
                     <div className="flex flex-col max-w-[150px]">
                         <span className="truncate" title={photo.exif?.camera}>{photo.exif?.camera || '-'}</span>

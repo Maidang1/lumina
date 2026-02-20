@@ -57,17 +57,17 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
         </div>
 
         <div className="space-y-4">
-          <p className="text-sm text-gray-300">拖拽文件至此，或</p>
+          <p className="text-sm text-gray-300">Drag files here, or</p>
           <Button
             onClick={() => fileInputRef.current?.click()}
             disabled={!isTokenConfigured}
             variant="outline"
             className="h-10 rounded-lg border-white/20 bg-white/5 px-8 text-sm text-white hover:bg-white/10 disabled:opacity-50"
           >
-            选择文件
+            Select Files
           </Button>
           <p className="text-xs text-gray-500">
-            支持 JPG, PNG, WebP, HEIC (最大 {DEFAULT_UPLOAD_CONFIG.maxFileSize / 1024 / 1024}MB)
+            Supports JPG, PNG, WebP, HEIC (Max {DEFAULT_UPLOAD_CONFIG.maxFileSize / 1024 / 1024}MB)
           </p>
         </div>
 

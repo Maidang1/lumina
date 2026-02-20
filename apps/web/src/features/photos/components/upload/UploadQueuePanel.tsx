@@ -19,11 +19,15 @@ interface UploadQueuePanelProps {
   onRetryItem: (id: string) => void;
   onEditItem?: (id: string) => void;
   isEditEnabled?: boolean;
+  onUpdateCategory?: (id: string, category: string, save?: boolean) => void;
+  onUpdateDescription?: (id: string, description: string, save?: boolean) => void;
 }
 
 const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   queue,
   onRemoveItem,
+  onUpdateCategory,
+  onUpdateDescription,
 }) => {
   if (queue.length === 0) {
     return null;
@@ -38,11 +42,13 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
           const isCompleted = item.status === "completed" || item.status === "upload_completed";
           const isFailed = item.status === "failed" || item.status === "parse_failed" || item.status === "upload_failed";
           
-          let statusText = "等待中";
-          if (isProcessing) statusText = "解析中...";
-          if (isUploading) statusText = "上传中...";
-          if (isCompleted) statusText = "已完成";
-          if (isFailed) statusText = "失败";
+          let statusText = "Pending";
+          if (isProcessing) statusText = "Parsing...";
+          if (isUploading) statusText = "Uploading...";
+          if (isCompleted) statusText = "Completed";
+          if (isFailed) statusText = "Failed";
+
+          const showInput = (isCompleted || item.status === "parsed" || item.status === "ready_to_upload") && onUpdateCategory;
 
           return (
             <div
@@ -71,20 +77,57 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
               </div>
 
               <div className="flex items-center gap-6">
-                <div className="flex w-32 flex-col items-end gap-1.5">
-                  <span className={cn(
-                    "text-xs",
-                    isCompleted ? "text-emerald-500" : 
-                    isFailed ? "text-red-500" : 
-                    "text-zinc-400"
-                  )}>
-                    {statusText}
-                  </span>
-                  {(isProcessing || isUploading) && (
-                    <Progress value={item.progress} className="h-1 w-24 bg-white/10" />
+                <div className="flex w-64 flex-col items-end gap-1.5">
+                  {showInput ? (
+                    <div className="flex w-full gap-2">
+                       <input
+                        type="text"
+                        placeholder="Description..."
+                        className="h-7 w-full flex-1 rounded border border-white/10 bg-white/5 px-2 text-xs text-white placeholder:text-zinc-600 focus:border-sky-500/50 focus:bg-white/10 focus:outline-none focus:ring-0"
+                        defaultValue={item.editDraft?.description ?? item.metadata?.description ?? ""}
+                        onBlur={(e) => onUpdateDescription?.(item.id, e.target.value, true)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Category..."
+                        className="h-7 w-20 rounded border border-white/10 bg-white/5 px-2 text-xs text-white placeholder:text-zinc-600 focus:border-sky-500/50 focus:bg-white/10 focus:outline-none focus:ring-0"
+                        defaultValue={item.editDraft?.category ?? item.metadata?.category ?? ""}
+                        onBlur={(e) => onUpdateCategory?.(item.id, e.target.value, true)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <span
+                        className={cn(
+                          "text-xs",
+                          isCompleted
+                            ? "text-emerald-500"
+                            : isFailed
+                              ? "text-red-500"
+                              : "text-zinc-400"
+                        )}
+                      >
+                        {statusText}
+                      </span>
+                      {(isProcessing || isUploading) && (
+                        <Progress value={item.progress} className="h-1 w-24 bg-white/10" />
+                      )}
+                    </>
                   )}
                 </div>
-                
+
                 <button
                   onClick={() => onRemoveItem(item.id)}
                   className="rounded-full p-1 text-zinc-600 opacity-0 transition-all hover:bg-white/10 hover:text-zinc-300 group-hover:opacity-100"

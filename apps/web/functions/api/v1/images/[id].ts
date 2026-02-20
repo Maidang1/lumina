@@ -72,6 +72,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       if (typeof body.original_filename === "string") {
         metadata.original_filename = body.original_filename;
       }
+      if (typeof body.category === "string") {
+        metadata.category = body.category;
+      }
       if (isPrivacyInfo(body.privacy)) {
         metadata.privacy = body.privacy;
       }

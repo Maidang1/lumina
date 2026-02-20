@@ -99,7 +99,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     video.currentTime = 0;
     video.play().catch(() => {
       setIsVideoPlaying(false);
-      setVideoError('实况视频播放失败');
+      setVideoError('Live video playback failed');
     });
   }, [isConvertingVideo, isVideoPlaying, isVideoReady]);
 
@@ -174,7 +174,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       })
       .catch(() => {
         if (!cancelled) {
-          setVideoError('实况视频加载失败');
+          setVideoError('Live video failed to load');
         }
       });
 
@@ -344,10 +344,19 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         </div>
       )}
 
-      {!compact && photo.isLive && (
-        <div className='absolute left-3 top-3 z-20 flex items-center gap-1.5 rounded-full border border-white/20 bg-black/45 px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100'>
-          <div className={`h-1.5 w-1.5 rounded-full ${isConvertingVideo ? 'bg-white/60 animate-pulse motion-reduce:animate-none' : 'bg-white'}`} />
-          <span className="text-[10px] font-medium tracking-widest text-white uppercase">Live</span>
+      {!compact && (photo.category || photo.isLive) && (
+        <div className='absolute left-3 top-3 z-20 flex gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100'>
+          {photo.category && (
+            <div className='flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1 backdrop-blur-sm'>
+              <span className="text-xs font-medium text-white">{photo.category}</span>
+            </div>
+          )}
+          {photo.isLive && (
+            <div className='flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-2 py-1 backdrop-blur-sm'>
+              <div className={`h-1.5 w-1.5 rounded-full ${isConvertingVideo ? 'bg-white/60 animate-pulse motion-reduce:animate-none' : 'bg-white'}`} />
+              <span className="text-[10px] font-medium tracking-widest text-white uppercase">Live</span>
+            </div>
+          )}
         </div>
       )}
     </animated.div>

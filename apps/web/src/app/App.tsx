@@ -65,7 +65,7 @@ const GalleryShell: React.FC = () => {
     }
     if (!uploadService.hasUploadToken()) {
       setIsDeleteTokenConfigured(false);
-      window.alert("缺少 upload_token，无法删除。");
+      window.alert("Missing upload_token. Delete is unavailable.");
       return;
     }
 
@@ -78,7 +78,7 @@ const GalleryShell: React.FC = () => {
         setOpenTransition(null);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "删除失败";
+      const message = error instanceof Error ? error.message : "Delete failed";
       window.alert(message);
     } finally {
       setDeletingPhotoId((prev) => (prev === photoId ? null : prev));
@@ -151,7 +151,7 @@ const GalleryShell: React.FC = () => {
             <div className="relative">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/[0.06] border-t-[#c9a962]/60" />
             </div>
-            <p className="text-xs font-light tracking-wide text-zinc-400">加载相册中...</p>
+            <p className="text-xs font-light tracking-wide text-zinc-400">Loading gallery...</p>
           </div>
         ) : (
           <>

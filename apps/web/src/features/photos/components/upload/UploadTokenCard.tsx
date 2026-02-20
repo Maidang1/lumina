@@ -19,7 +19,7 @@ const UploadTokenCard: React.FC<UploadTokenCardProps> = ({
     <div className="rounded-xl border border-white/10 bg-[#141414] p-4 transition-colors focus-within:border-white/20 hover:border-white/20">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <label htmlFor="upload-token" className="shrink-0 text-sm font-medium text-gray-400">
-          访问令牌
+          Access Token
         </label>
         <div className="flex-1 space-y-2">
           <input
@@ -27,7 +27,7 @@ const UploadTokenCard: React.FC<UploadTokenCardProps> = ({
             type="password"
             value={uploadToken}
             onChange={(event) => onChangeToken(event.target.value)}
-            placeholder="输入 UPLOAD_TOKEN (保存在本地)"
+            placeholder="Enter UPLOAD_TOKEN (stored locally)"
             className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
           />
           {tokenError && (
@@ -42,7 +42,7 @@ const UploadTokenCard: React.FC<UploadTokenCardProps> = ({
               isTokenConfigured ? "text-emerald-500" : "text-gray-500"
             )}
           >
-            {isTokenConfigured ? "已配置" : "未配置"}
+            {isTokenConfigured ? "Configured" : "Not Configured"}
           </Badge>
         </div>
       </div>

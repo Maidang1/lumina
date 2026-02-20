@@ -32,6 +32,9 @@ pnpm run dev:full
 
 # Type check
 pnpm run typecheck
+
+# Build CLI package
+pnpm run cli:build
 ```
 
 ## Local Development
@@ -123,3 +126,9 @@ Mutating APIs require header `x-upload-token`.
 - Avoid `any`, `@ts-ignore`, and non-null assertions.
 - Use React function components with typed props.
 - Keep Tailwind usage consistent with existing dark theme tokens.
+
+## Agent Workflow Notes
+
+- Keep `README.md` and `AGENTS.md` aligned when scripts, env vars, or API routes change.
+- Prefer `rg`/`rg --files` for repo search.
+- Avoid broad refactors unless requested; keep doc edits scoped to actual behavior.

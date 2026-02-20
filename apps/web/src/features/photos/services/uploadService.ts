@@ -1,4 +1,10 @@
-import { ImageMetadata, UploadResult, UploadError, ImageListResponse } from "@/features/photos/types";
+import {
+  BatchFinalizeResult,
+  ImageListResponse,
+  ImageMetadata,
+  UploadError,
+  UploadResult,
+} from "@/features/photos/types";
 
 export interface UploadOptions {
   apiUrl: string;
@@ -92,7 +98,8 @@ export class UploadService {
     metadata: ImageMetadata,
     liveVideo?: File,
     uploadMode: "static" | "live_photo" = "static",
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    options?: { deferFinalize?: boolean }
   ): Promise<UploadResult> {
     const uploadToken = this.getUploadToken();
     if (!uploadToken) {
@@ -104,6 +111,9 @@ export class UploadService {
     formData.append("thumb", thumb, "thumb.webp");
     formData.append("metadata", JSON.stringify(metadata));
     formData.append("upload_mode", uploadMode);
+    if (options?.deferFinalize) {
+      formData.append("defer_finalize", "true");
+    }
     if (liveVideo) {
       formData.append("live_video", liveVideo, liveVideo.name || "live.mov");
     }
@@ -205,7 +215,7 @@ export class UploadService {
   async updateImageMetadata(
     imageId: string,
     updates: Partial<
-      Pick<ImageMetadata, "description" | "original_filename" | "privacy" | "geo" | "processing">
+      Pick<ImageMetadata, "description" | "original_filename" | "category" | "privacy" | "geo" | "processing">
     >
   ): Promise<ImageMetadata> {
     const uploadToken = this.getUploadToken();
@@ -223,6 +233,32 @@ export class UploadService {
     });
 
     return this.parseJson<ImageMetadata>(response, `Failed to update metadata: ${response.status}`);
+  }
+
+  async finalizeImageBatch(items: ImageMetadata[]): Promise<BatchFinalizeResult> {
+    const uploadToken = this.getUploadToken();
+    if (!uploadToken) {
+      throw new ApiRequestError("Missing UPLOAD_TOKEN. Please configure it before finalize.", 401);
+    }
+    if (items.length === 0) {
+      return {
+        success_count: 0,
+        mode: "batch_commit",
+      };
+    }
+
+    const response = await fetch(this.getEndpoint("/v1/images/finalize-batch"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Upload-Token": uploadToken,
+      },
+      body: JSON.stringify({
+        items: items.map((metadata) => ({ metadata })),
+      }),
+    });
+
+    return this.parseJson<BatchFinalizeResult>(response, `Failed to finalize batch: ${response.status}`);
   }
 
   async createSignedShareUrl(

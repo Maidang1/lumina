@@ -8,16 +8,16 @@ interface ProcessingProgressProps {
 }
 
 const STAGE_LABELS: Record<string, string> = {
-  hash: "哈希计算",
-  thumbnail: "缩略图生成",
-  exif: "EXIF 提取",
-  region: "区域解析",
-  privacy: "隐私脱敏",
-  ocr: "OCR 识别",
-  color: "主色提取",
-  blur: "模糊检测",
-  phash: "感知哈希",
-  finalize: "元数据组装",
+  hash: "Hash",
+  thumbnail: "Thumbnail",
+  exif: "EXIF Extraction",
+  region: "Region Resolve",
+  privacy: "Privacy Sanitization",
+  ocr: "OCR",
+  color: "Dominant Color",
+  blur: "Blur Detection",
+  phash: "Perceptual Hash",
+  finalize: "Metadata Assembly",
 };
 
 const ProcessingProgress: React.FC<ProcessingProgressProps> = ({ stages }) => {

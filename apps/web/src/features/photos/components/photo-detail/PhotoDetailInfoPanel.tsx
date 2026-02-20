@@ -15,6 +15,7 @@ import {
   Lock,
   Globe,
   Image as ImageIcon,
+  Tag,
 } from "lucide-react";
 import { Photo } from "@/features/photos/types";
 import { ScrollArea } from "@/shared/ui/scroll-area";
@@ -127,6 +128,12 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
                   ? formatBytes(metadata.files.original.bytes)
                   : photo.size
               }
+            />
+            <InfoRow label="Category" value={photo.category || "--"} icon={<Tag size={14} />} />
+            <InfoRow
+              label="Description"
+              value={photo.visualDescription || "--"}
+              icon={<FileText size={14} />}
             />
             <InfoRow
               label="Capture Time"
@@ -284,12 +291,17 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
 const InfoRow = ({
   label,
   value,
+  icon,
 }: {
   label: string;
   value: React.ReactNode;
+  icon?: React.ReactNode;
 }) => (
   <div className="flex justify-between items-start text-xs">
-    <span className="text-neutral-500 min-w-[100px]">{label}</span>
+    <span className="text-neutral-500 min-w-[100px] flex items-center gap-2">
+      {icon}
+      {label}
+    </span>
     <span className="text-neutral-300 text-right truncate pl-4">{value}</span>
   </div>
 );

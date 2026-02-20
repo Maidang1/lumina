@@ -61,10 +61,12 @@ export const useBatchPhotoActions = ({
     if (selectedIds.size === 0) return;
     if (!isDeleteTokenConfigured) {
       onDeleteTokenMissing();
-      window.alert("缺少 upload_token，无法批量删除。");
+      window.alert("Missing upload_token. Batch delete is unavailable.");
       return;
     }
-    const confirmed = window.confirm(`确认删除选中的 ${selectedIds.size} 张照片？该操作不可恢复`);
+    const confirmed = window.confirm(
+      `Delete ${selectedIds.size} selected photos? This action cannot be undone.`
+    );
     if (!confirmed) return;
     for (const id of selectedIds) {
       await onDeletePhoto(id);
@@ -96,7 +98,7 @@ export const useBatchPhotoActions = ({
 
   const handleBatchTag = useCallback((): void => {
     if (selectedIds.size === 0) return;
-    const tag = window.prompt("输入标签名称（将添加到选中照片）", "");
+    const tag = window.prompt("Enter a tag to add to selected photos", "");
     const normalized = tag?.trim();
     if (!normalized) return;
     setPhotoTags((prev) => {

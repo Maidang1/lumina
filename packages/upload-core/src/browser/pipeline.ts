@@ -55,7 +55,7 @@ export interface ParseBrowserUploadOptions {
     thumbnail?: string;
     processingSummary?: NonNullable<ImageMetadata["processing"]>["summary"];
     taskMetrics?: ProcessingTaskMetric[];
-    editDraft?: { description?: string; original_filename?: string };
+    editDraft?: { description?: string; original_filename?: string; category?: string };
   }) => void;
   updateStage: (stageId: string, updates: ProcessingStagePatch) => void;
   config?: {
@@ -377,6 +377,7 @@ export async function parseUploadItemInBrowser({
     editDraft: {
       description: metadata.description || "",
       original_filename: metadata.original_filename || file.name,
+      category: metadata.category || "",
     },
     processingSummary: metadata.processing?.summary,
     taskMetrics,

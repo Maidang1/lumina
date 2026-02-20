@@ -4,6 +4,7 @@ import type {
   GeoRegion,
   ImageMetadata as ContractsImageMetadata,
   PrivacyInfo,
+  BatchFinalizeResult as ContractsBatchFinalizeResult,
   ThumbMeta,
   UploadResult as ContractsUploadResult,
 } from "@lumina/contracts";
@@ -52,6 +53,7 @@ export interface Photo {
 
 export type ImageMetadata = ContractsImageMetadata;
 export type UploadResult = ContractsUploadResult;
+export type BatchFinalizeResult = ContractsBatchFinalizeResult;
 export type { FileMeta, PrivacyInfo, ThumbMeta };
 
 export interface Dimensions {
@@ -160,6 +162,7 @@ export interface UploadQueueItem {
   editDraft?: {
     description?: string;
     original_filename?: string;
+    category?: string;
   };
   thumbnail?: string;
   retryCount?: number;

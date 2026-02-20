@@ -12,6 +12,8 @@ export type {
   Env,
   ImageMetadata,
   UploadResult,
+  BatchFinalizeRequest,
+  BatchFinalizeResult,
   ImageListCursor,
   ImageIndexEntry,
   ImageIndexFile,

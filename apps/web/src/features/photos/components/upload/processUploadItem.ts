@@ -31,7 +31,8 @@ interface ProcessUploadItemOptions extends ParseUploadItemOptions {
   requestDescription: (params: {
     originalFilename: string;
     initialDescription?: string;
-  }) => Promise<{ description?: string }>;
+    initialCategory?: string;
+  }) => Promise<{ description?: string; category?: string }>;
   onUploadComplete?: (metadata: ImageMetadata) => void;
 }
 
@@ -39,6 +40,7 @@ export interface SubmitUploadItemOptions {
   item: UploadQueueItem;
   metadata: ImageMetadata;
   thumbBlob: Blob;
+  deferFinalize?: boolean;
   onProgress?: (progress: number) => void;
 }
 
@@ -100,6 +102,7 @@ export const submitUploadItem = async ({
   item,
   metadata,
   thumbBlob,
+  deferFinalize,
   onProgress,
 }: SubmitUploadItemOptions): Promise<UploadResult> => {
   return uploadService.uploadImage(
@@ -108,7 +111,8 @@ export const submitUploadItem = async ({
     metadata,
     item.liveVideoFile,
     item.uploadMode,
-    onProgress
+    onProgress,
+    { deferFinalize }
   );
 };
 
@@ -123,12 +127,17 @@ export const processUploadItem = async ({
   const descriptionResult = await requestDescription({
     originalFilename: item.file.name,
     initialDescription: parsed.metadata.description || "",
+    initialCategory: parsed.metadata.category || "",
   });
 
   const nextMetadata: ImageMetadata = {
     ...parsed.metadata,
+    schema_version: "1.3",
     ...(descriptionResult.description !== undefined
       ? { description: descriptionResult.description }
+      : {}),
+    ...(descriptionResult.category !== undefined && descriptionResult.category.trim() !== ""
+      ? { category: descriptionResult.category.trim() }
       : {}),
   };
 

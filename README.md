@@ -1,6 +1,14 @@
 # Lumina Monorepo
 
-Lumina is now organized as a pnpm + Turborepo monorepo.
+Lumina is a photography portfolio monorepo built with React, TypeScript, Rsbuild, and Cloudflare Pages Functions.
+
+## Features
+
+- Masonry gallery with EXIF and map display
+- Browser-side image pipeline (EXIF, OCR, pHash, blur detection, dominant color)
+- iOS Live Photo upload/playback (still + MOV)
+- Cloudflare Pages Functions API backed by GitHub object storage
+- Token-protected write APIs and optional signed share URLs
 
 ## Workspace Layout
 
@@ -14,23 +22,73 @@ Lumina is now organized as a pnpm + Turborepo monorepo.
 
 ```bash
 pnpm install
-pnpm dev:web
+pnpm run dev:web
 ```
+
+For full local mode (frontend build watch + Pages Functions):
+
+```bash
+cp apps/web/.dev.vars.example apps/web/.dev.vars
+pnpm run dev:full
+```
+
+Required values in `apps/web/.dev.vars`:
+
+- `GITHUB_TOKEN`
+- `ALLOW_ORIGIN`
+- `UPLOAD_TOKEN`
+- `SHARE_SIGNING_SECRET` (recommended)
+
+`apps/web/wrangler.toml` vars:
+
+- `GH_OWNER`
+- `GH_REPO`
+- `GH_BRANCH`
 
 ## Scripts
 
-- `pnpm build`: build all packages/apps via turbo
-- `pnpm typecheck`: typecheck all workspaces
-- `pnpm dev:web`: run web dev server
-- `pnpm dev:full`: run web full mode (build watch + pages functions)
-- `pnpm cli:build`: build CLI package
+- `pnpm run build`: build all workspaces via turbo
+- `pnpm run typecheck`: typecheck all workspaces
+- `pnpm run dev:web`: run web dev server only
+- `pnpm run dev:pages`: serve built web app with Cloudflare Pages Functions
+- `pnpm run dev:full`: run web build watch + Cloudflare Pages Functions
+- `pnpm run cli:build`: build CLI package
+- `pnpm run cli:dev`: run CLI package in dev mode
+
+## API Endpoints
+
+```txt
+GET    /api/v1/images
+POST   /api/v1/images
+GET    /api/v1/images/:id
+PATCH  /api/v1/images/:id
+DELETE /api/v1/images/:id
+GET    /api/v1/images/:id/thumb
+GET    /api/v1/images/:id/original
+GET    /api/v1/images/:id/live
+POST   /api/v1/images/:id/share
+```
+
+Mutating APIs require header `x-upload-token`.
 
 ## CLI
 
-After build/publish, use:
+Main commands:
+
+- `lumina-upload upload <input...>`
+- `lumina-upload resume`
+- `lumina-upload validate <input...>`
+
+Example:
 
 ```bash
-lumina-upload --owner <owner> --repo <repo> --token <token> upload <dir>
+lumina-upload \
+  --owner your-owner \
+  --repo your-repo \
+  --token ghp_xxx \
+  --branch main \
+  --concurrency 4 \
+  upload ./photos
 ```
 
 Environment variable alternatives:

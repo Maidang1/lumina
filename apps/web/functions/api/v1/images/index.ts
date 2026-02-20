@@ -46,7 +46,9 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
     const liveVideo = formData.get("live_video");
     const metadataStr = formData.get("metadata");
     const uploadModeValue = formData.get("upload_mode");
+    const deferFinalizeValue = formData.get("defer_finalize");
     const uploadMode = uploadModeValue === "live_photo" ? "live_photo" : "static";
+    const deferFinalize = deferFinalizeValue === "true";
 
     if (!original || !(original instanceof File)) {
       return errorResponse(env, "Missing original file", 400);
@@ -115,7 +117,8 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
       metadata,
       liveVideoBytes && liveVideo instanceof File
         ? { bytes: liveVideoBytes, mime: liveVideo.type || "video/quicktime" }
-        : undefined
+        : undefined,
+      { deferFinalize }
     );
 
     const result: UploadResult = {

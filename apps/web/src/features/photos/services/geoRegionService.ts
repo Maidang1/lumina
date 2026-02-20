@@ -111,7 +111,7 @@ const queueRequest = async <T>(task: () => Promise<T>): Promise<T> => {
 
 const formatDisplayName = (province: string, city: string, district: string): string => {
   const parts = [province, city, district].filter(Boolean);
-  return parts.join("·") || "未知地区";
+  return parts.join("·") || "Unknown Region";
 };
 
 const normalizeMunicipalityCity = (province: string): string => {
@@ -147,9 +147,9 @@ const selectCityName = (address: NominatimAddress, province: string): string => 
 };
 
 const toRegionInfo = (address: NominatimAddress): RegionInfo => {
-  const country = trimValue(address.country) || "中国";
+  const country = trimValue(address.country) || "China";
   const provinceRaw = trimValue(address.state) || trimValue(address.province) || trimValue(address.region);
-  const province = provinceRaw ? normalizeProvince(provinceRaw) : "未知省份";
+  const province = provinceRaw ? normalizeProvince(provinceRaw) : "Unknown Province";
   const cityRaw = selectCityName(address, province);
   const districtRaw =
     trimValue(address.district) ||
@@ -159,9 +159,9 @@ const toRegionInfo = (address: NominatimAddress): RegionInfo => {
     (isStreetLevelName(trimValue(address.suburb)) ? "" : trimValue(address.suburb)) ||
     trimValue(address.town);
 
-  const city = cityRaw ? normalizeCity(cityRaw) : "未知城市";
-  const district = districtRaw ? normalizeDistrict(districtRaw) : "未知区县";
-  const displayName = city && city !== "未知城市" ? `${province}·${city}` : province;
+  const city = cityRaw ? normalizeCity(cityRaw) : "Unknown City";
+  const district = districtRaw ? normalizeDistrict(districtRaw) : "Unknown District";
+  const displayName = city && city !== "Unknown City" ? `${province}·${city}` : province;
   const cacheKey = `CN|${province}|${city}`;
 
   return {
@@ -209,12 +209,12 @@ export async function reverseGeocodeToRegion(lat: number, lng: number): Promise<
     return info;
   } catch {
     const fallback: RegionInfo = {
-      country: "中国",
-      province: "未知省份",
-      city: "未知城市",
-      district: "未知区县",
-      displayName: "未知地区",
-      cacheKey: "CN|未知省份|未知城市|未知区县",
+      country: "China",
+      province: "Unknown Province",
+      city: "Unknown City",
+      district: "Unknown District",
+      displayName: "Unknown Region",
+      cacheKey: "CN|Unknown Province|Unknown City|Unknown District",
     };
     geocodeCache[key] = fallback;
     writeJsonCache(GEOCODE_CACHE_KEY, geocodeCache);
@@ -290,10 +290,10 @@ const buildBoundaryQueryCandidates = (region: RegionInfo): Array<{ level: "city"
     candidates.push({ level, query: normalized });
   };
 
-  if (region.city !== "未知城市") {
-    push("city", `${region.city} ${region.province} 中国`);
+  if (region.city !== "Unknown City") {
+    push("city", `${region.city} ${region.province} China`);
   }
-  push("province", `${region.province} 中国`);
+  push("province", `${region.province} China`);
 
   return candidates;
 };
