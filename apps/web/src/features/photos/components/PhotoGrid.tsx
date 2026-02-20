@@ -4,7 +4,7 @@ import PhotoCard from './PhotoCard';
 
 interface PhotoGridProps {
   photos: Photo[];
-  onPhotoClick: (
+  onPhotoClick?: (
     photo: Photo,
     transitionSource: {
       photoId: string;
@@ -20,6 +20,8 @@ interface PhotoGridProps {
   selectionMode?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (photoId: string) => void;
+  interactionMode?: "detail" | "selectionOnly" | "none";
+  compact?: boolean;
 }
 
 const PhotoGrid: React.FC<PhotoGridProps> = ({
@@ -30,6 +32,8 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({
   selectionMode = false,
   selectedIds = new Set(),
   onToggleSelect,
+  interactionMode = "detail",
+  compact = false,
 }) => {
   return (
     <div className="w-full">
@@ -45,6 +49,8 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({
             selectionMode={selectionMode}
             isSelected={selectedIds.has(photo.id)}
             onToggleSelect={onToggleSelect}
+            interactionMode={interactionMode}
+            compact={compact}
           />
         ))}
       </div>

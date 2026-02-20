@@ -9,6 +9,7 @@ interface UseBatchPhotoActionsParams {
   setPhotoTags: Dispatch<SetStateAction<Record<string, string[]>>>;
   onDeletePhoto: (photoId: string) => Promise<void>;
   onDeleteTokenMissing: () => void;
+  initialBatchMode?: boolean;
 }
 
 interface UseBatchPhotoActionsResult {
@@ -31,8 +32,9 @@ export const useBatchPhotoActions = ({
   setPhotoTags,
   onDeletePhoto,
   onDeleteTokenMissing,
+  initialBatchMode = false,
 }: UseBatchPhotoActionsParams): UseBatchPhotoActionsResult => {
-  const [isBatchMode, setIsBatchMode] = useState(false);
+  const [isBatchMode, setIsBatchMode] = useState(initialBatchMode);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set<string>());
 
   useEffect(() => {
@@ -42,13 +44,6 @@ export const useBatchPhotoActions = ({
       return new Set<string>(prevIds.filter((id) => visible.has(id)));
     });
   }, [photos]);
-
-  useEffect(() => {
-    if (!isDeleteTokenConfigured && isBatchMode) {
-      setIsBatchMode(false);
-      setSelectedIds(new Set<string>());
-    }
-  }, [isBatchMode, isDeleteTokenConfigured]);
 
   const handleBatchSelectToggle = useCallback((photoId: string): void => {
     setSelectedIds((prev) => {

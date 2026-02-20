@@ -1,15 +1,13 @@
-import React, { useState, useCallback, useEffect, useMemo } from "react";
-import { Photo } from "@/features/photos/types";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, Navigate, Route, Routes } from "react-router-dom";
 import PhotoGrid from "@/features/photos/components/PhotoGrid";
 import PhotoDetail from "@/features/photos/components/PhotoDetail";
 import PhotoMapView from "@/features/photos/components/PhotoMapView";
-import UploadButton from "@/features/photos/components/UploadButton";
-import { useBatchPhotoActions } from "@/features/photos/components/hooks/useBatchPhotoActions";
-import { uploadService } from "@/features/photos/services/uploadService";
-import { metadataToPhoto } from "@/features/photos/services/photoMapper";
-import { useLocalStorageState } from "@/shared/lib/useLocalStorageState";
 import UploadPage from "@/features/photos/pages/UploadPage";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import ManagePage from "@/features/photos/pages/ManagePage";
+import { uploadService } from "@/features/photos/services/uploadService";
+import { usePhotosCollection } from "@/features/photos/hooks/usePhotosCollection";
+import { useLocalStorageState } from "@/shared/lib/useLocalStorageState";
 
 interface PhotoOpenTransition {
   photoId: string;
@@ -24,10 +22,8 @@ const FAVORITE_STORAGE_KEY = "lumina.photo_favorites";
 const TAG_STORAGE_KEY = "lumina.photo_tags";
 
 const GalleryShell: React.FC = () => {
-  const navigate = useNavigate();
+  const { photos, isLoading, removePhotoById } = usePhotosCollection();
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isDeleteTokenConfigured, setIsDeleteTokenConfigured] = useState(false);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [openTransition, setOpenTransition] = useState<PhotoOpenTransition | null>(null);
@@ -40,31 +36,6 @@ const GalleryShell: React.FC = () => {
   const closeDetail = useCallback((): void => {
     setSelectedPhotoId(null);
     setOpenTransition(null);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadPhotos = async (): Promise<void> => {
-      try {
-        const images = await uploadService.listAllImages(50);
-        if (!cancelled && images.length > 0) {
-          setPhotos(images.map(metadataToPhoto));
-        }
-      } catch (error) {
-        console.error("Failed to load images, fallback to mock data:", error);
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadPhotos();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   useEffect(() => {
@@ -88,11 +59,6 @@ const GalleryShell: React.FC = () => {
     return photos.findIndex((photo) => photo.id === selectedPhoto.id);
   }, [photos, selectedPhoto]);
 
-  useEffect(() => {
-    if (!selectedPhoto) return;
-    setIsDeleteTokenConfigured(uploadService.hasUploadToken());
-  }, [selectedPhoto]);
-
   const handleDeletePhoto = useCallback(async (photoId: string): Promise<void> => {
     if (deletingPhotoId === photoId) {
       return;
@@ -106,7 +72,7 @@ const GalleryShell: React.FC = () => {
     try {
       setDeletingPhotoId(photoId);
       await uploadService.deleteImage(photoId);
-      setPhotos((prev) => prev.filter((photo) => photo.id !== photoId));
+      removePhotoById(photoId);
       if (selectedPhotoId === photoId) {
         setSelectedPhotoId(null);
         setOpenTransition(null);
@@ -118,7 +84,7 @@ const GalleryShell: React.FC = () => {
       setDeletingPhotoId((prev) => (prev === photoId ? null : prev));
       setIsDeleteTokenConfigured(uploadService.hasUploadToken());
     }
-  }, [deletingPhotoId, selectedPhotoId]);
+  }, [deletingPhotoId, removePhotoById, selectedPhotoId]);
 
   const handleToggleFavorite = useCallback((photoId: string): void => {
     setFavoriteIdList((prev) => {
@@ -131,26 +97,6 @@ const GalleryShell: React.FC = () => {
       return Array.from(next);
     });
   }, [setFavoriteIdList]);
-
-  const {
-    isBatchMode,
-    selectedIds,
-    handleBatchSelectToggle,
-    handleBatchDelete,
-    handleBatchFavorite,
-    handleBatchDownload,
-    handleBatchTag,
-    handleToggleBatchMode,
-    handleSelectAllVisible,
-    handleClearSelection,
-  } = useBatchPhotoActions({
-    photos,
-    isDeleteTokenConfigured,
-    setFavoriteIdList,
-    setPhotoTags,
-    onDeletePhoto: handleDeletePhoto,
-    onDeleteTokenMissing: () => setIsDeleteTokenConfigured(false),
-  });
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -182,20 +128,13 @@ const GalleryShell: React.FC = () => {
               >
                 Map
               </button>
-              {isDeleteTokenConfigured && (
-                <button
-                  type="button"
-                  className={`cursor-pointer transition-colors duration-200 ${isBatchMode ? "text-white" : "text-white/40 hover:text-white/75"}`}
-                  onClick={handleToggleBatchMode}
-                >
-                  Manage
-                </button>
-              )}
             </div>
-            
+
             <div className="h-4 w-px bg-lumina-border-subtle" />
-            
-            <UploadButton onClick={() => navigate("/upload")} />
+
+            <Link to="/manage" className="text-sm font-medium text-white/40 transition-colors duration-200 hover:text-white/75">
+              Manage
+            </Link>
           </div>
         </div>
       </header>
@@ -207,55 +146,6 @@ const GalleryShell: React.FC = () => {
             : "mx-auto w-full max-w-[1720px] flex-grow"
         }
       >
-        {isBatchMode && (
-          <div className='mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-zinc-300 shadow-[0_14px_40px_rgba(0,0,0,0.4)] backdrop-blur-md'>
-            <span className='mr-2 text-zinc-400'>已选 {selectedIds.size}</span>
-            <button
-              type='button'
-              className='cursor-pointer rounded-md border border-white/[0.14] px-2 py-1 transition-colors duration-200 hover:bg-white/[0.09]'
-              onClick={handleSelectAllVisible}
-            >
-              全选当前结果
-            </button>
-            <button
-              type='button'
-              className='cursor-pointer rounded-md border border-white/[0.14] px-2 py-1 transition-colors duration-200 hover:bg-white/[0.09]'
-              onClick={handleClearSelection}
-            >
-              清空
-            </button>
-            <button
-              type='button'
-              className='cursor-pointer rounded-md border border-white/[0.14] px-2 py-1 transition-colors duration-200 hover:bg-white/[0.09]'
-              onClick={handleBatchFavorite}
-            >
-              批量收藏
-            </button>
-            <button
-              type='button'
-              className='cursor-pointer rounded-md border border-white/[0.14] px-2 py-1 transition-colors duration-200 hover:bg-white/[0.09]'
-              onClick={handleBatchTag}
-            >
-              批量标签
-            </button>
-            <button
-              type='button'
-              className='cursor-pointer rounded-md border border-white/[0.14] px-2 py-1 transition-colors duration-200 hover:bg-white/[0.09]'
-              onClick={handleBatchDownload}
-            >
-              批量下载
-            </button>
-            <button
-              type='button'
-              className='cursor-pointer rounded-md border border-rose-300/40 px-2 py-1 text-rose-200 transition-colors duration-200 hover:bg-rose-500/20'
-              onClick={() => {
-                void handleBatchDelete();
-              }}
-            >
-              批量删除
-            </button>
-          </div>
-        )}
         {isLoading ? (
           <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4">
             <div className="relative">
@@ -274,9 +164,6 @@ const GalleryShell: React.FC = () => {
                 }}
                 favoriteIds={favoriteIds}
                 onToggleFavorite={handleToggleFavorite}
-                selectionMode={isBatchMode}
-                selectedIds={selectedIds}
-                onToggleSelect={handleBatchSelectToggle}
               />
             ) : (
               <PhotoMapView
@@ -324,6 +211,7 @@ const App: React.FC = () => {
   return (
     <Routes>
       <Route path="/" element={<GalleryShell />} />
+      <Route path="/manage" element={<ManagePage />} />
       <Route path="/upload" element={<UploadPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
