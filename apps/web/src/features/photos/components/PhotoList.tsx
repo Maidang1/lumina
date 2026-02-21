@@ -1,6 +1,15 @@
 import React from "react";
 import { Photo } from "@/features/photos/types";
 import { Star, Image as ImageIcon, Film } from "lucide-react";
+import { Button } from "@/shared/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/ui/table";
 
 interface PhotoListProps {
   photos: Photo[];
@@ -53,36 +62,35 @@ const PhotoList: React.FC<PhotoListProps> = ({
   };
 
   return (
-    <div className="w-full overflow-x-auto">
-      <table className="w-full text-left text-sm text-zinc-400">
-        <thead className="bg-[#1A1A1A] text-xs uppercase text-zinc-500">
-          <tr>
-            <th className="px-4 py-3 font-medium">Preview</th>
-            <th className="px-4 py-3 font-medium">Filename</th>
-            <th className="px-4 py-3 font-medium">Capture Time</th>
-            <th className="px-4 py-3 font-medium">Dimensions</th>
-            <th className="px-4 py-3 font-medium">Size</th>
-            <th className="px-4 py-3 font-medium">Category</th>
-            <th className="px-4 py-3 font-medium">Description</th>
-            <th className="px-4 py-3 font-medium">Camera/Lens</th>
-            <th className="px-4 py-3 font-medium">Settings</th>
-            <th className="px-4 py-3 font-medium text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-white/5">
+    <Table className="text-left text-sm text-zinc-400">
+      <TableHeader className="bg-[#1A1A1A] text-xs uppercase text-zinc-500">
+        <TableRow>
+          <TableHead className="px-4 py-3 font-medium">Preview</TableHead>
+          <TableHead className="px-4 py-3 font-medium">Filename</TableHead>
+          <TableHead className="px-4 py-3 font-medium">Capture Time</TableHead>
+          <TableHead className="px-4 py-3 font-medium">Dimensions</TableHead>
+          <TableHead className="px-4 py-3 font-medium">Size</TableHead>
+          <TableHead className="px-4 py-3 font-medium">Category</TableHead>
+          <TableHead className="px-4 py-3 font-medium">Description</TableHead>
+          <TableHead className="px-4 py-3 font-medium">Camera/Lens</TableHead>
+          <TableHead className="px-4 py-3 font-medium">Settings</TableHead>
+          <TableHead className="px-4 py-3 text-right font-medium">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody className="divide-y divide-white/5">
           {photos.map((photo) => {
             const isSelected = selectedIds.has(photo.id);
             const isFavorite = favoriteIds.has(photo.id);
 
             return (
-              <tr
+              <TableRow
                 key={photo.id}
                 onClick={(e) => handleRowClick(photo, e)}
                 className={`group cursor-pointer transition-colors hover:bg-white/[0.02] ${
                   isSelected ? "bg-white/[0.04]" : ""
                 }`}
               >
-                <td className="px-4 py-3">
+                <TableCell className="px-4 py-3">
                   <div className="relative h-12 w-12 overflow-hidden rounded bg-zinc-800">
                     <img
                       src={photo.thumbnail}
@@ -101,16 +109,16 @@ const PhotoList: React.FC<PhotoListProps> = ({
                         </div>
                      )}
                   </div>
-                </td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell className="px-4 py-3">
                   <div className="flex flex-col">
                     <span className="font-medium text-zinc-200 truncate max-w-[200px]" title={photo.filename}>
                       {photo.filename}
                     </span>
                     <span className="text-xs text-zinc-500">{photo.format}</span>
                   </div>
-                </td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell className="px-4 py-3">
                    {photo.exif?.date ? (
                       <div className="flex flex-col">
                         <span>{photo.exif.date.split(' ')[0]}</span>
@@ -119,31 +127,31 @@ const PhotoList: React.FC<PhotoListProps> = ({
                    ) : (
                        <span className="text-zinc-600">-</span>
                    )}
-                </td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell className="px-4 py-3">
                   {photo.width} × {photo.height}
-                </td>
-                <td className="px-4 py-3">{photo.size}</td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell className="px-4 py-3">{photo.size}</TableCell>
+                <TableCell className="px-4 py-3">
                   <span className="inline-block max-w-[120px] truncate" title={photo.category || "-"}>
                     {photo.category || "-"}
                   </span>
-                </td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell className="px-4 py-3">
                   <span
                     className="inline-block max-w-[240px] truncate text-zinc-300"
                     title={photo.visualDescription || "-"}
                   >
                     {photo.visualDescription || "-"}
                   </span>
-                </td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell className="px-4 py-3">
                     <div className="flex flex-col max-w-[150px]">
                         <span className="truncate" title={photo.exif?.camera}>{photo.exif?.camera || '-'}</span>
                         <span className="text-xs text-zinc-500 truncate" title={photo.exif?.lens}>{photo.exif?.lens}</span>
                     </div>
-                </td>
-                <td className="px-4 py-3">
+                </TableCell>
+                <TableCell className="px-4 py-3">
                     <div className="flex flex-col text-xs">
                         {photo.exif ? (
                             <>
@@ -154,26 +162,27 @@ const PhotoList: React.FC<PhotoListProps> = ({
                             <span className="text-zinc-600">-</span>
                         )}
                     </div>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
+                </TableCell>
+                <TableCell className="px-4 py-3 text-right">
+                  <Button
                     onClick={(e) => {
                       e.stopPropagation();
                       onToggleFavorite(photo.id);
                     }}
-                    className={`rounded-full p-2 transition-colors hover:bg-white/10 ${
+                    size="icon"
+                    variant="ghost"
+                    className={`h-8 w-8 rounded-full p-2 transition-colors hover:bg-white/10 ${
                       isFavorite ? "text-yellow-500" : "text-zinc-600 hover:text-zinc-300"
                     }`}
                   >
                     <Star size={16} fill={isFavorite ? "currentColor" : "none"} />
-                  </button>
-                </td>
-              </tr>
+                  </Button>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-    </div>
+      </TableBody>
+    </Table>
   );
 };
 

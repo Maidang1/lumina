@@ -50,7 +50,7 @@ const PhotoDetailMediaStage: React.FC<PhotoDetailMediaStageProps> = ({
   return (
     <div
       ref={imageContainerRef}
-      className="relative flex h-[45svh] min-w-0 flex-1 items-center justify-center overflow-hidden bg-transparent p-4 md:h-full md:p-6"
+      className="relative flex h-full min-w-0 flex-1 items-center justify-center overflow-hidden bg-transparent p-4 md:p-6"
       onMouseDown={onLongPressStart}
       onMouseUp={onLongPressEnd}
       onMouseLeave={onLongPressEnd}

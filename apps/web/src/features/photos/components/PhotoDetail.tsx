@@ -116,21 +116,24 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
       }}
     >
       <DialogContent
-        overlayClassName="bg-transparent"
-        className="h-screen max-w-none overflow-hidden rounded-none border-0 bg-transparent p-0"
+        className="h-screen w-screen max-w-none overflow-hidden rounded-none border-0 bg-transparent p-0 [&>button]:hidden"
       >
         <PhotoDetailOverlay thumbnailUrl={photo.thumbnail} opacity={overlaySpring.opacity} />
 
         <PhotoDetailControls
           canPrev={canPrev}
           canNext={canNext}
+          onClose={handleRequestClose}
           onPrev={onPrev}
           onNext={onNext}
           overlayOpacity={overlaySpring.opacity}
           controlsTransform={controlsSpring.transform}
         />
 
-        <animated.div className="relative flex h-full w-full flex-col overflow-hidden md:flex-row" style={{ opacity: overlaySpring.opacity }}>
+        <animated.div
+          className="absolute inset-0 flex h-full w-full overflow-hidden"
+          style={{ opacity: overlaySpring.opacity }}
+        >
           <PhotoDetailMediaStage
             photo={photo}
             hasVideo={hasVideo}
@@ -151,7 +154,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           />
 
           <animated.div
-            className="h-[55svh] w-full border-l border-white/10 bg-black/40 backdrop-blur-xl md:h-full md:w-[320px] lg:w-[360px]"
+            className="h-full w-[340px] shrink-0 border-l border-white/10 bg-black/40 backdrop-blur-xl md:w-[360px] lg:w-[420px]"
             style={{
               opacity: infoPanelSpring.opacity,
               transform: infoPanelSpring.transform,

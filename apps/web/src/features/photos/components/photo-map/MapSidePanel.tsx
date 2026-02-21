@@ -1,6 +1,7 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
 import { RegionAggregate } from "@/features/photos/types/map";
+import { Button } from "@/shared/ui/button";
 
 interface MapSidePanelProps {
   activeMonth: string;
@@ -33,30 +34,34 @@ const MapSidePanel: React.FC<MapSidePanelProps> = ({
       </div>
 
       <div className="custom-scrollbar flex gap-1 overflow-x-auto pb-2">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => onMonthChange("all")}
-          className={`shrink-0 rounded-lg px-2 py-1 text-xs transition ${
+          className={`h-auto shrink-0 rounded-lg px-2 py-1 text-xs transition ${
             activeMonth === "all"
               ? "bg-white/10 text-white"
               : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
           }`}
         >
           All
-        </button>
+        </Button>
         {monthBuckets.map(([month, count]) => (
-          <button
+          <Button
             key={month}
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => onMonthChange(month)}
-            className={`shrink-0 rounded-lg px-2 py-1 text-xs transition ${
+            className={`h-auto shrink-0 rounded-lg px-2 py-1 text-xs transition ${
               activeMonth === month
                 ? "bg-white/10 text-white"
                 : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
             }`}
           >
             {month} <span className="opacity-50">{count}</span>
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -71,9 +76,10 @@ const MapSidePanel: React.FC<MapSidePanelProps> = ({
           {regionAggregates.slice(0, 40).map((aggregate) => {
             const isSelected = selectedRegionKey === aggregate.key;
             return (
-              <button
+              <Button
                 key={aggregate.key}
                 type="button"
+                variant="ghost"
                 onClick={() => onRegionClick(aggregate)}
                 className={`w-full rounded-md px-2 py-1.5 text-left text-xs transition ${
                   isSelected
@@ -85,7 +91,7 @@ const MapSidePanel: React.FC<MapSidePanelProps> = ({
                   <span className="line-clamp-1">{aggregate.region.displayName}</span>
                   <span className="font-mono text-[10px] text-gray-500">{aggregate.count}</span>
                 </div>
-              </button>
+              </Button>
             );
           })}
         </div>

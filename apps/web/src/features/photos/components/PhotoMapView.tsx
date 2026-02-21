@@ -79,17 +79,18 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
       </div>
 
       <div className="absolute right-4 top-4 z-[400] flex items-center gap-2">
-        <button
+        <Button
           type="button"
           onClick={() => {
             void handleShareMap();
           }}
           disabled={isSharing}
-          className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-white/[0.12] bg-[#141414]/90 px-4 text-xs font-medium text-gray-200 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-md transition-colors duration-200 hover:bg-[#181818] disabled:cursor-not-allowed disabled:opacity-60"
+          variant="outline"
+          className="h-9 cursor-pointer rounded-full border-white/[0.12] bg-[#141414]/90 px-4 text-xs font-medium text-gray-200 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-md transition-colors duration-200 hover:bg-[#181818] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSharing ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
           <span>Share</span>
-        </button>
+        </Button>
       </div>
 
       <div className="relative h-full w-full">

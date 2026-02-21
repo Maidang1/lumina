@@ -1,9 +1,7 @@
 import React from "react";
 import {
-  Calendar,
   Camera,
   Aperture,
-  Maximize2,
   FileText,
   Loader2,
   Star,
@@ -11,10 +9,6 @@ import {
   Scan,
   Zap,
   Share2,
-  Eye,
-  Lock,
-  Globe,
-  Image as ImageIcon,
   Tag,
 } from "lucide-react";
 import { Photo } from "@/features/photos/types";
@@ -67,6 +61,10 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
   shareLink,
 }) => {
   const metadata = photo.metadata;
+  const focalLength = formatFocalLength(photo.exif.focalLength);
+  const aperture = formatAperture(photo.exif.aperture);
+  const shutter = formatExifText(photo.exif.shutter);
+  const iso = photo.exif.iso ? `ISO ${photo.exif.iso}` : "--";
 
   return (
     <ScrollArea className="h-full w-full bg-transparent">
@@ -83,7 +81,10 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
             </Button>
           </div>
           <div className="flex gap-2">
-            <button
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => onToggleFavorite?.(photo.id)}
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
@@ -93,13 +94,16 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
               )}
             >
               <Star size={16} className={cn(isFavorite && "fill-current")} />
-            </button>
-            <button
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={onGenerateShareLink}
               className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
             >
               <Share2 size={16} />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -143,9 +147,6 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
                   : photo.exif.date
               }
             />
-            {photo.exif.software && (
-              <InfoRow label="Software" value={photo.exif.software} />
-            )}
           </div>
         </div>
 
@@ -157,22 +158,11 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
           <div className="grid grid-cols-2 gap-2">
             <ParameterBadge
               icon={<Camera size={14} />}
-              value={
-                photo.exif.focalLength ? `${photo.exif.focalLength}mm` : "--"
-              }
+              value={focalLength}
             />
-            <ParameterBadge
-              icon={<Aperture size={14} />}
-              value={photo.exif.aperture || "--"}
-            />
-            <ParameterBadge
-              icon={<Zap size={14} />}
-              value={photo.exif.shutter || "--"}
-            />
-            <ParameterBadge
-              icon={<Scan size={14} />}
-              value={photo.exif.iso ? `ISO ${photo.exif.iso}` : "--"}
-            />
+            <ParameterBadge icon={<Aperture size={14} />} value={aperture} />
+            <ParameterBadge icon={<Zap size={14} />} value={shutter} />
+            <ParameterBadge icon={<Scan size={14} />} value={iso} />
           </div>
         </div>
 
@@ -184,12 +174,13 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
             </h3>
             <div className="flex flex-wrap gap-2">
               {tags.map((tag) => (
-                <span
+                <Badge
                   key={tag}
+                  variant="outline"
                   className="rounded-full bg-white/10 px-3 py-1 text-xs text-neutral-300"
                 >
                   #{tag}
-                </span>
+                </Badge>
               ))}
             </div>
           </div>
@@ -201,37 +192,38 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
             <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
               Tone Analysis
             </h3>
-            <div className="grid grid-cols-2 gap-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Tone Type</span>
-                <span className="text-neutral-300">Normal</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-500">Focus Score</span>
-                <span
-                  className={cn(
-                    metadata.derived.blur.is_blurry
-                      ? "text-rose-400"
-                      : "text-emerald-400",
-                  )}
-                >
-                  {metadata.derived.blur.score.toFixed(1)}
-                </span>
-              </div>
-              <div className="flex justify-between col-span-2">
-                <span className="text-neutral-500">Dominant Color</span>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="h-3 w-3 rounded-full"
-                    style={{
-                      backgroundColor: metadata.derived.dominant_color.hex,
-                    }}
-                  />
-                  <span className="text-neutral-300 uppercase">
-                    {metadata.derived.dominant_color.hex}
+            <div className="space-y-2 text-xs">
+              <InfoRow label="Tone Type" value="Normal" />
+              <InfoRow
+                label="Focus Score"
+                value={
+                  <span
+                    className={cn(
+                      metadata.derived.blur.is_blurry
+                        ? "text-rose-400"
+                        : "text-emerald-400",
+                    )}
+                  >
+                    {metadata.derived.blur.score.toFixed(1)}
                   </span>
-                </div>
-              </div>
+                }
+              />
+              <InfoRow
+                label="Dominant Color"
+                value={
+                  <span className="inline-flex items-center gap-2">
+                    <span
+                      className="h-3 w-3 rounded-full border border-white/10"
+                      style={{
+                        backgroundColor: metadata.derived.dominant_color.hex,
+                      }}
+                    />
+                    <span className="uppercase">
+                      {metadata.derived.dominant_color.hex}
+                    </span>
+                  </span>
+                }
+              />
             </div>
           </div>
         )}
@@ -297,12 +289,12 @@ const InfoRow = ({
   value: React.ReactNode;
   icon?: React.ReactNode;
 }) => (
-  <div className="flex justify-between items-start text-xs">
-    <span className="text-neutral-500 min-w-[100px] flex items-center gap-2">
+  <div className="grid grid-cols-[minmax(96px,120px)_minmax(0,1fr)] items-start gap-3 text-xs">
+    <span className="flex min-w-0 items-center gap-2 text-neutral-500">
       {icon}
       {label}
     </span>
-    <span className="text-neutral-300 text-right truncate pl-4">{value}</span>
+    <span className="min-w-0 break-words text-right text-neutral-300">{value}</span>
   </div>
 );
 
@@ -315,8 +307,27 @@ const ParameterBadge = ({
 }) => (
   <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
     <span className="text-neutral-400">{icon}</span>
-    <span className="text-xs font-medium text-neutral-200">{value}</span>
+    <span className="min-w-0 truncate text-xs font-medium text-neutral-200">{value}</span>
   </div>
 );
+
+function formatFocalLength(value?: string): string {
+  const formatted = formatExifText(value);
+  if (formatted === "--") return formatted;
+  if (/mm$/i.test(formatted)) {
+    return formatted;
+  }
+  const numeric = Number.parseFloat(formatted);
+  if (Number.isFinite(numeric)) {
+    return `${numeric.toFixed(1)}mm`;
+  }
+  return `${formatted}mm`;
+}
+
+function formatAperture(value?: string): string {
+  const formatted = formatExifText(value);
+  if (formatted === "--") return formatted;
+  return formatted.startsWith("f/") ? formatted : `f/${formatted}`;
+}
 
 export default PhotoDetailInfoPanel;

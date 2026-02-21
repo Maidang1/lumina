@@ -1,13 +1,10 @@
-import React, { useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, ChevronDown, Image as ImageIcon, Loader2, RotateCcw, Settings2, Sparkles, X } from "lucide-react";
+import React from "react";
+import { Image as ImageIcon, X } from "lucide-react";
 import { UploadQueueItem } from "@/features/photos/types";
 import { cn } from "@/shared/lib/utils";
-import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
-import { Card, CardContent } from "@/shared/ui/card";
+import { Input } from "@/shared/ui/input";
 import { Progress } from "@/shared/ui/progress";
-import { Separator } from "@/shared/ui/separator";
-import ProcessingProgress from "../ProcessingProgress";
 
 interface UploadQueuePanelProps {
   queue: UploadQueueItem[];
@@ -80,10 +77,10 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                 <div className="flex w-64 flex-col items-end gap-1.5">
                   {showInput ? (
                     <div className="flex w-full gap-2">
-                       <input
+                      <Input
                         type="text"
                         placeholder="Description..."
-                        className="h-7 w-full flex-1 rounded border border-white/10 bg-white/5 px-2 text-xs text-white placeholder:text-zinc-600 focus:border-sky-500/50 focus:bg-white/10 focus:outline-none focus:ring-0"
+                        className="h-7 w-full flex-1 border-white/10 bg-white/5 px-2 text-xs text-white placeholder:text-zinc-600 focus-visible:ring-sky-500/50"
                         defaultValue={item.editDraft?.description ?? item.metadata?.description ?? ""}
                         onBlur={(e) => onUpdateDescription?.(item.id, e.target.value, true)}
                         onKeyDown={(e) => {
@@ -93,10 +90,10 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                         }}
                         onClick={(e) => e.stopPropagation()}
                       />
-                      <input
+                      <Input
                         type="text"
                         placeholder="Category..."
-                        className="h-7 w-20 rounded border border-white/10 bg-white/5 px-2 text-xs text-white placeholder:text-zinc-600 focus:border-sky-500/50 focus:bg-white/10 focus:outline-none focus:ring-0"
+                        className="h-7 w-20 border-white/10 bg-white/5 px-2 text-xs text-white placeholder:text-zinc-600 focus-visible:ring-sky-500/50"
                         defaultValue={item.editDraft?.category ?? item.metadata?.category ?? ""}
                         onBlur={(e) => onUpdateCategory?.(item.id, e.target.value, true)}
                         onKeyDown={(e) => {
@@ -128,12 +125,15 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                   )}
                 </div>
 
-                <button
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
                   onClick={() => onRemoveItem(item.id)}
-                  className="rounded-full p-1 text-zinc-600 opacity-0 transition-all hover:bg-white/10 hover:text-zinc-300 group-hover:opacity-100"
+                  className="h-6 w-6 rounded-full p-1 text-zinc-600 opacity-0 transition-all hover:bg-white/10 hover:text-zinc-300 group-hover:opacity-100"
                 >
                   <X size={16} />
-                </button>
+                </Button>
               </div>
             </div>
           );

@@ -1,6 +1,7 @@
 import React from "react";
 import { cn } from "@/shared/lib/utils";
 import { Badge } from "@/shared/ui/badge";
+import { Input } from "@/shared/ui/input";
 
 interface UploadTokenCardProps {
   uploadToken: string;
@@ -22,13 +23,13 @@ const UploadTokenCard: React.FC<UploadTokenCardProps> = ({
           Access Token
         </label>
         <div className="flex-1 space-y-2">
-          <input
+          <Input
             id="upload-token"
             type="password"
             value={uploadToken}
             onChange={(event) => onChangeToken(event.target.value)}
             placeholder="Enter UPLOAD_TOKEN (stored locally)"
-            className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder-gray-600 outline-none transition focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
+            className="w-full border-white/10 bg-black/40 text-white placeholder-gray-600 focus-visible:ring-emerald-500/50"
           />
           {tokenError && (
             <p className="text-xs text-red-400">{tokenError}</p>

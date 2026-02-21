@@ -1,6 +1,11 @@
 import React from "react";
-import { X } from "lucide-react";
 import UploadWorkspace from "@/features/photos/components/upload/UploadWorkspace";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog";
 
 interface ManageUploadDialogProps {
   isOpen: boolean;
@@ -18,26 +23,15 @@ const ManageUploadDialog: React.FC<ManageUploadDialogProps> = ({
   onInitialFilesConsumed,
 }) => {
   return (
-    <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm transition-all duration-300 ${
-        isOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
-      }`}
-      onClick={onClose}
-    >
-      <div
-        className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-lumina-surface-elevated shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className="max-h-[90vh] w-full max-w-3xl overflow-hidden border border-white/[0.08] bg-lumina-surface-elevated p-0 shadow-2xl"
       >
-        <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4">
-          <h3 className="text-base font-medium text-lumina-text">File Upload</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1 text-white/40 transition-colors hover:bg-white/10 hover:text-white"
-          >
-            <X size={18} />
-          </button>
-        </div>
+        <DialogHeader className="border-b border-white/[0.08] px-6 py-4">
+          <DialogTitle className="text-base font-medium text-lumina-text">
+            File Upload
+          </DialogTitle>
+        </DialogHeader>
         <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           <UploadWorkspace
             onUploadCompleted={onUploadCompleted}
@@ -45,8 +39,8 @@ const ManageUploadDialog: React.FC<ManageUploadDialogProps> = ({
             onInitialFilesConsumed={onInitialFilesConsumed}
           />
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

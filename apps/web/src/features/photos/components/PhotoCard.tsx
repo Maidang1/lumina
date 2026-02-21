@@ -4,6 +4,7 @@ import { Star } from 'lucide-react';
 import { Photo } from '@/features/photos/types';
 import { videoLoaderManager } from '@/features/photos/services/videoLoaderManager';
 import { useLivePhotoControls } from './hooks/useLivePhotoControls';
+import { Button } from '@/shared/ui/button';
 
 interface PhotoCardProps {
   photo: Photo;
@@ -259,10 +260,12 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       )}
 
       {!compact && (
-        <button
+        <Button
           type='button'
+          size='icon'
+          variant='ghost'
           aria-label={isFavorite ? 'Unfavorite' : 'Favorite'}
-          className={`absolute right-3 top-3 z-20 rounded-full border border-white/20 bg-black/35 p-1.5 transition-all duration-200 ${
+          className={`absolute right-3 top-3 z-20 h-8 w-8 rounded-full border border-white/20 bg-black/35 p-1.5 transition-all duration-200 ${
             isFavorite ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
           }`}
           onClick={(event) => {
@@ -276,7 +279,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
             className={isFavorite ? 'fill-white text-white' : 'text-white/75 hover:text-white'}
             strokeWidth={1.5}
           />
-        </button>
+        </Button>
       )}
 
       {selectionMode && (
