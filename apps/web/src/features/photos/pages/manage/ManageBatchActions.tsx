@@ -4,7 +4,6 @@ import { Button } from "@/shared/ui/button";
 interface ManageBatchActionsProps {
   selectedCount: number;
   onClearSelection: () => void;
-  onBatchFavorite: () => void;
   onBatchTag: () => void;
   onBatchDownload: () => void;
   onBatchDelete: () => void;
@@ -13,7 +12,6 @@ interface ManageBatchActionsProps {
 const ManageBatchActions: React.FC<ManageBatchActionsProps> = ({
   selectedCount,
   onClearSelection,
-  onBatchFavorite,
   onBatchTag,
   onBatchDownload,
   onBatchDelete,
@@ -24,7 +22,9 @@ const ManageBatchActions: React.FC<ManageBatchActionsProps> = ({
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-lumina-text shadow-[0_14px_40px_rgba(0,0,0,0.4)] backdrop-blur-md">
-      <span className="mr-2 text-lumina-text-secondary">Selected {selectedCount}</span>
+      <span className="mr-2 text-lumina-text-secondary">
+        Selected {selectedCount}
+      </span>
       <Button
         type="button"
         variant="outline"
@@ -33,15 +33,6 @@ const ManageBatchActions: React.FC<ManageBatchActionsProps> = ({
         onClick={onClearSelection}
       >
         Deselect
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="cursor-pointer rounded-md border border-white/[0.14] bg-white/[0.03] px-3 py-1.5 transition-colors duration-200 hover:bg-white/[0.09]"
-        onClick={onBatchFavorite}
-      >
-        Favorite
       </Button>
       <Button
         type="button"

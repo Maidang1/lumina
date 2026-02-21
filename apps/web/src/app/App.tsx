@@ -1,44 +1,30 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 import PhotoGrid from "@/features/photos/components/PhotoGrid";
 import PhotoDetail from "@/features/photos/components/PhotoDetail";
 import PhotoMapView from "@/features/photos/components/PhotoMapView";
 import UploadPage from "@/features/photos/pages/UploadPage";
 import ManagePage from "@/features/photos/pages/ManagePage";
-import { uploadService } from "@/features/photos/services/uploadService";
 import { usePhotosCollection } from "@/features/photos/hooks/usePhotosCollection";
 import { useLocalStorageState } from "@/shared/lib/useLocalStorageState";
 import { PhotoOpenTransition } from "@/features/photos/types";
 
-const FAVORITE_STORAGE_KEY = "lumina.photo_favorites";
 const TAG_STORAGE_KEY = "lumina.photo_tags";
 
 const GalleryShell: React.FC = () => {
-  const { photos, isLoading, removePhotoById } = usePhotosCollection();
+  const { photos, isLoading } = usePhotosCollection();
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
-  const [isDeleteTokenConfigured, setIsDeleteTokenConfigured] = useState(false);
-  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
-  const [openTransition, setOpenTransition] = useState<PhotoOpenTransition | null>(null);
-  const [favoriteIdList, setFavoriteIdList] = useLocalStorageState<string[]>(FAVORITE_STORAGE_KEY, []);
+  const [openTransition, setOpenTransition] =
+    useState<PhotoOpenTransition | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
-  const [photoTags] = useLocalStorageState<Record<string, string[]>>(TAG_STORAGE_KEY, {});
-
-  const favoriteIds = useMemo(() => new Set(favoriteIdList), [favoriteIdList]);
+  const [photoTags] = useLocalStorageState<Record<string, string[]>>(
+    TAG_STORAGE_KEY,
+    {},
+  );
 
   const closeDetail = useCallback((): void => {
     setSelectedPhotoId(null);
     setOpenTransition(null);
-  }, []);
-
-  useEffect(() => {
-    const refreshDeleteTokenState = (): void => {
-      setIsDeleteTokenConfigured(uploadService.hasUploadToken());
-    };
-    refreshDeleteTokenState();
-    window.addEventListener("focus", refreshDeleteTokenState);
-    return () => {
-      window.removeEventListener("focus", refreshDeleteTokenState);
-    };
   }, []);
 
   const selectedPhoto = useMemo(() => {
@@ -50,45 +36,6 @@ const GalleryShell: React.FC = () => {
     if (!selectedPhoto) return -1;
     return photos.findIndex((photo) => photo.id === selectedPhoto.id);
   }, [photos, selectedPhoto]);
-
-  const handleDeletePhoto = useCallback(async (photoId: string): Promise<void> => {
-    if (deletingPhotoId === photoId) {
-      return;
-    }
-    if (!uploadService.hasUploadToken()) {
-      setIsDeleteTokenConfigured(false);
-      window.alert("Missing upload_token. Delete is unavailable.");
-      return;
-    }
-
-    try {
-      setDeletingPhotoId(photoId);
-      await uploadService.deleteImage(photoId);
-      removePhotoById(photoId);
-      if (selectedPhotoId === photoId) {
-        setSelectedPhotoId(null);
-        setOpenTransition(null);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Delete failed";
-      window.alert(message);
-    } finally {
-      setDeletingPhotoId((prev) => (prev === photoId ? null : prev));
-      setIsDeleteTokenConfigured(uploadService.hasUploadToken());
-    }
-  }, [deletingPhotoId, removePhotoById, selectedPhotoId]);
-
-  const handleToggleFavorite = useCallback((photoId: string): void => {
-    setFavoriteIdList((prev) => {
-      const next = new Set(prev);
-      if (next.has(photoId)) {
-        next.delete(photoId);
-      } else {
-        next.add(photoId);
-      }
-      return Array.from(next);
-    });
-  }, [setFavoriteIdList]);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -124,7 +71,10 @@ const GalleryShell: React.FC = () => {
 
             <div className="h-4 w-px bg-lumina-border-subtle" />
 
-            <Link to="/manage" className="text-sm font-medium text-white/40 transition-colors duration-200 hover:text-white/75">
+            <Link
+              to="/manage"
+              className="text-sm font-medium text-white/40 transition-colors duration-200 hover:text-white/75"
+            >
               Manage
             </Link>
           </div>
@@ -143,7 +93,9 @@ const GalleryShell: React.FC = () => {
             <div className="relative">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/[0.06] border-t-[#c9a962]/60" />
             </div>
-            <p className="text-xs font-light tracking-wide text-zinc-400">Loading gallery...</p>
+            <p className="text-xs font-light tracking-wide text-zinc-400">
+              Loading gallery...
+            </p>
           </div>
         ) : (
           <>
@@ -154,8 +106,6 @@ const GalleryShell: React.FC = () => {
                   setOpenTransition(transitionSource);
                   setSelectedPhotoId(photo.id);
                 }}
-                favoriteIds={favoriteIds}
-                onToggleFavorite={handleToggleFavorite}
               />
             ) : (
               <PhotoMapView
@@ -174,22 +124,27 @@ const GalleryShell: React.FC = () => {
         <PhotoDetail
           photo={selectedPhoto}
           onClose={closeDetail}
-          canDelete={isDeleteTokenConfigured}
-          isDeleting={deletingPhotoId === selectedPhoto.id}
-          onDelete={handleDeletePhoto}
-          openingTransition={openTransition && openTransition.photoId === selectedPhoto.id ? openTransition : null}
-          isFavorite={favoriteIds.has(selectedPhoto.id)}
-          onToggleFavorite={handleToggleFavorite}
+          openingTransition={
+            openTransition && openTransition.photoId === selectedPhoto.id
+              ? openTransition
+              : null
+          }
           tags={photoTags[selectedPhoto.id] ?? []}
           canPrev={selectedPhotoIndex > 0}
-          canNext={selectedPhotoIndex >= 0 && selectedPhotoIndex < photos.length - 1}
+          canNext={
+            selectedPhotoIndex >= 0 && selectedPhotoIndex < photos.length - 1
+          }
           onPrev={() => {
             if (selectedPhotoIndex <= 0) return;
             setOpenTransition(null);
             setSelectedPhotoId(photos[selectedPhotoIndex - 1].id);
           }}
           onNext={() => {
-            if (selectedPhotoIndex < 0 || selectedPhotoIndex >= photos.length - 1) return;
+            if (
+              selectedPhotoIndex < 0 ||
+              selectedPhotoIndex >= photos.length - 1
+            )
+              return;
             setOpenTransition(null);
             setSelectedPhotoId(photos[selectedPhotoIndex + 1].id);
           }}

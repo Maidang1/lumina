@@ -4,11 +4,8 @@ import {
   Aperture,
   FileText,
   Loader2,
-  Star,
-  Trash2,
   Scan,
   Zap,
-  Share2,
   Tag,
 } from "lucide-react";
 import { Photo } from "@/features/photos/types";
@@ -16,48 +13,22 @@ import { ScrollArea } from "@/shared/ui/scroll-area";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
-import {
-  formatBytes,
-  formatExifText,
-  formatTime,
-} from "./formatters";
+import { formatBytes, formatExifText, formatTime } from "./formatters";
 
 interface PhotoDetailInfoPanelProps {
   photo: Photo;
-  isFavorite: boolean;
   tags: string[];
   hasVideo: boolean;
   isConvertingVideo: boolean;
   livePlaybackError: string | null;
-  canDelete: boolean;
-  isDeleting: boolean;
-  onDeleteClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
-  onToggleFavorite?: (photoId: string) => void;
-  shareMode: "private" | "public";
-  onChangeShareMode: (next: "private" | "public") => void;
-  watermarkPreviewEnabled: boolean;
-  onToggleWatermarkPreview: (next: boolean) => void;
-  onGenerateShareLink: () => void;
-  shareLink: string;
 }
 
 const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
   photo,
-  isFavorite,
   tags,
   hasVideo,
   isConvertingVideo,
   livePlaybackError,
-  canDelete,
-  isDeleting,
-  onDeleteClick,
-  onToggleFavorite,
-  shareMode,
-  onChangeShareMode,
-  watermarkPreviewEnabled,
-  onToggleWatermarkPreview,
-  onGenerateShareLink,
-  shareLink,
 }) => {
   const metadata = photo.metadata;
   const focalLength = formatFocalLength(photo.exif.focalLength);
@@ -77,31 +48,6 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
               className="h-8 rounded-full bg-white/10 text-xs font-medium text-white hover:bg-white/20"
             >
               <FileText size={14} className="mr-2" /> Info
-            </Button>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => onToggleFavorite?.(photo.id)}
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
-                isFavorite
-                  ? "text-[#D4AF37]"
-                  : "text-neutral-400 hover:bg-white/10 hover:text-white",
-              )}
-            >
-              <Star size={16} className={cn(isFavorite && "fill-current")} />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={onGenerateShareLink}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <Share2 size={16} />
             </Button>
           </div>
         </div>
@@ -132,7 +78,11 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
                   : photo.size
               }
             />
-            <InfoRow label="Category" value={photo.category || "--"} icon={<Tag size={14} />} />
+            <InfoRow
+              label="Category"
+              value={photo.category || "--"}
+              icon={<Tag size={14} />}
+            />
             <InfoRow
               label="Description"
               value={photo.visualDescription || "--"}
@@ -155,10 +105,7 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
             Capture Parameters
           </h3>
           <div className="grid grid-cols-2 gap-2">
-            <ParameterBadge
-              icon={<Camera size={14} />}
-              value={focalLength}
-            />
+            <ParameterBadge icon={<Camera size={14} />} value={focalLength} />
             <ParameterBadge icon={<Aperture size={14} />} value={aperture} />
             <ParameterBadge icon={<Zap size={14} />} value={shutter} />
             <ParameterBadge icon={<Scan size={14} />} value={iso} />
@@ -258,22 +205,6 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
             )}
           </div>
         )}
-
-        {/* Delete Action */}
-        {canDelete && (
-          <div className="pt-4 mt-auto">
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={isDeleting}
-              className="w-full justify-start text-xs text-rose-400/70 hover:text-rose-400 hover:bg-rose-500/10"
-              onClick={onDeleteClick}
-            >
-              <Trash2 size={14} className="mr-2" />
-              Delete Asset
-            </Button>
-          </div>
-        )}
       </div>
     </ScrollArea>
   );
@@ -292,7 +223,9 @@ function InfoRow({ label, value, icon }: InfoRowProps): React.ReactElement {
         {icon}
         {label}
       </span>
-      <span className="min-w-0 break-words text-right text-neutral-300">{value}</span>
+      <span className="min-w-0 break-words text-right text-neutral-300">
+        {value}
+      </span>
     </div>
   );
 }
@@ -302,11 +235,16 @@ interface ParameterBadgeProps {
   value: string;
 }
 
-function ParameterBadge({ icon, value }: ParameterBadgeProps): React.ReactElement {
+function ParameterBadge({
+  icon,
+  value,
+}: ParameterBadgeProps): React.ReactElement {
   return (
     <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
       <span className="text-neutral-400">{icon}</span>
-      <span className="min-w-0 truncate text-xs font-medium text-neutral-200">{value}</span>
+      <span className="min-w-0 truncate text-xs font-medium text-neutral-200">
+        {value}
+      </span>
     </div>
   );
 }

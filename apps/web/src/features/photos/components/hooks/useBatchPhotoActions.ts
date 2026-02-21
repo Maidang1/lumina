@@ -5,7 +5,6 @@ import type { Photo } from "@/features/photos/types";
 interface UseBatchPhotoActionsParams {
   photos: Photo[];
   isDeleteTokenConfigured: boolean;
-  setFavoriteIdList: Dispatch<SetStateAction<string[]>>;
   setPhotoTags: Dispatch<SetStateAction<Record<string, string[]>>>;
   onDeletePhoto: (photoId: string) => Promise<void>;
   onDeleteTokenMissing: () => void;
@@ -17,7 +16,6 @@ interface UseBatchPhotoActionsResult {
   selectedIds: Set<string>;
   handleBatchSelectToggle: (photoId: string) => void;
   handleBatchDelete: () => Promise<void>;
-  handleBatchFavorite: () => void;
   handleBatchDownload: () => void;
   handleBatchTag: () => void;
   handleToggleBatchMode: () => void;
@@ -28,14 +26,15 @@ interface UseBatchPhotoActionsResult {
 export const useBatchPhotoActions = ({
   photos,
   isDeleteTokenConfigured,
-  setFavoriteIdList,
   setPhotoTags,
   onDeletePhoto,
   onDeleteTokenMissing,
   initialBatchMode = false,
 }: UseBatchPhotoActionsParams): UseBatchPhotoActionsResult => {
   const [isBatchMode, setIsBatchMode] = useState(initialBatchMode);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set<string>());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    new Set<string>(),
+  );
 
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -65,24 +64,19 @@ export const useBatchPhotoActions = ({
       return;
     }
     const confirmed = window.confirm(
-      `Delete ${selectedIds.size} selected photos? This action cannot be undone.`
+      `Delete ${selectedIds.size} selected photos? This action cannot be undone.`,
     );
     if (!confirmed) return;
     for (const id of selectedIds) {
       await onDeletePhoto(id);
     }
     setSelectedIds(new Set<string>());
-  }, [isDeleteTokenConfigured, onDeletePhoto, onDeleteTokenMissing, selectedIds]);
-
-  const handleBatchFavorite = useCallback((): void => {
-    setFavoriteIdList((prev) => {
-      const next = new Set(prev);
-      for (const id of selectedIds) {
-        next.add(id);
-      }
-      return Array.from(next);
-    });
-  }, [selectedIds, setFavoriteIdList]);
+  }, [
+    isDeleteTokenConfigured,
+    onDeletePhoto,
+    onDeleteTokenMissing,
+    selectedIds,
+  ]);
 
   const handleBatchDownload = useCallback((): void => {
     const targets = photos.filter((photo) => selectedIds.has(photo.id));
@@ -131,7 +125,6 @@ export const useBatchPhotoActions = ({
     selectedIds,
     handleBatchSelectToggle,
     handleBatchDelete,
-    handleBatchFavorite,
     handleBatchDownload,
     handleBatchTag,
     handleToggleBatchMode,

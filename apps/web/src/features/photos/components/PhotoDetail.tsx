@@ -1,8 +1,7 @@
-import React, { useCallback, useState } from "react";
+import React from "react";
 import { animated } from "@react-spring/web";
 import { Photo } from "@/features/photos/types";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
-import { uploadService } from "@/features/photos/services/uploadService";
 import PhotoDetailInfoPanel from "@/features/photos/components/photo-detail/PhotoDetailInfoPanel";
 import PhotoDetailOverlay from "@/features/photos/components/photo-detail/PhotoDetailOverlay";
 import PhotoDetailControls from "@/features/photos/components/photo-detail/PhotoDetailControls";
@@ -15,11 +14,6 @@ import type { PhotoOpenTransition } from "@/features/photos/types";
 interface PhotoDetailProps {
   photo: Photo;
   onClose: () => void;
-  canDelete?: boolean;
-  isDeleting?: boolean;
-  onDelete?: (photoId: string) => Promise<void>;
-  isFavorite?: boolean;
-  onToggleFavorite?: (photoId: string) => void;
   tags?: string[];
   canPrev?: boolean;
   canNext?: boolean;
@@ -31,11 +25,6 @@ interface PhotoDetailProps {
 const PhotoDetail: React.FC<PhotoDetailProps> = ({
   photo,
   onClose,
-  canDelete = false,
-  isDeleting = false,
-  onDelete,
-  isFavorite = false,
-  onToggleFavorite,
   tags = [],
   canPrev = false,
   canNext = false,
@@ -43,10 +32,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   onNext,
   openingTransition = null,
 }) => {
-  const [shareMode, setShareMode] = useState<"private" | "public">("private");
-  const [watermarkPreviewEnabled, setWatermarkPreviewEnabled] = useState(false);
-  const [shareLink, setShareLink] = useState<string>("");
-
   const {
     hasVideo,
     isOriginalLoaded,
@@ -89,30 +74,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     disabled: transitionState === "closing",
   });
 
-  const handleDelete = useCallback(async () => {
-    if (!onDelete || isDeleting) return;
-    const confirmed = window.confirm("Delete this photo? This action cannot be undone.");
-    if (!confirmed) return;
-    await onDelete(photo.id);
-  }, [isDeleting, onDelete, photo.id]);
-
-  const generateShareLink = useCallback(async () => {
-    try {
-      const shareType = photo.isLive && shareMode === "public" ? "live" : "original";
-      const result = await uploadService.createSignedShareUrl(photo.id, shareType, 24 * 60 * 60);
-      const link = result.url;
-      setShareLink(link);
-      try {
-        await navigator.clipboard.writeText(link);
-      } catch {
-        // ignore clipboard failures
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to generate signed share URL";
-      window.alert(message);
-    }
-  }, [photo.id, photo.isLive, shareMode]);
-
   return (
     <Dialog
       open={true}
@@ -122,10 +83,11 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
         }
       }}
     >
-      <DialogContent
-        className="h-screen w-screen max-w-none overflow-hidden rounded-none border-0 bg-transparent p-0 [&>button]:hidden"
-      >
-        <PhotoDetailOverlay thumbnailUrl={photo.thumbnail} opacity={overlaySpring.opacity} />
+      <DialogContent className="h-screen w-screen max-w-none overflow-hidden rounded-none border-0 bg-transparent p-0 [&>button]:hidden">
+        <PhotoDetailOverlay
+          thumbnailUrl={photo.thumbnail}
+          opacity={overlaySpring.opacity}
+        />
 
         <PhotoDetailControls
           canPrev={canPrev}
@@ -170,27 +132,10 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           >
             <PhotoDetailInfoPanel
               photo={photo}
-              isFavorite={isFavorite}
               tags={tags}
               hasVideo={hasVideo}
               isConvertingVideo={isConvertingVideo}
               livePlaybackError={livePlaybackError}
-              canDelete={canDelete}
-              isDeleting={isDeleting}
-              onDeleteClick={(event) => {
-                event.stopPropagation();
-                event.preventDefault();
-                void handleDelete();
-              }}
-              onToggleFavorite={onToggleFavorite}
-              shareMode={shareMode}
-              onChangeShareMode={setShareMode}
-              watermarkPreviewEnabled={watermarkPreviewEnabled}
-              onToggleWatermarkPreview={setWatermarkPreviewEnabled}
-              onGenerateShareLink={() => {
-                void generateShareLink();
-              }}
-              shareLink={shareLink}
             />
           </animated.div>
         </animated.div>

@@ -1,21 +1,17 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { animated, to, useSpring } from '@react-spring/web';
-import { Star } from 'lucide-react';
-import { Photo, PhotoOpenTransition } from '@/features/photos/types';
-import { videoLoaderManager } from '@/features/photos/services/videoLoaderManager';
-import { useLivePhotoControls } from './hooks/useLivePhotoControls';
-import { Button } from '@/shared/ui/button';
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { animated, to, useSpring } from "@react-spring/web";
+import { Photo, PhotoOpenTransition } from "@/features/photos/types";
+import { videoLoaderManager } from "@/features/photos/services/videoLoaderManager";
+import { useLivePhotoControls } from "./hooks/useLivePhotoControls";
 
 interface PhotoCardProps {
   photo: Photo;
   index: number;
   onClick?: (photo: Photo, transitionSource: PhotoOpenTransition) => void;
-  isFavorite: boolean;
-  onToggleFavorite: (photoId: string) => void;
   selectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (photoId: string) => void;
-  interactionMode?: 'detail' | 'selectionOnly' | 'none';
+  interactionMode?: "detail" | "selectionOnly" | "none";
   compact?: boolean;
 }
 
@@ -23,12 +19,10 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   photo,
   index,
   onClick,
-  isFavorite,
-  onToggleFavorite,
   selectionMode = false,
   isSelected = false,
   onToggleSelect,
-  interactionMode = 'detail',
+  interactionMode = "detail",
   compact = false,
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
@@ -41,7 +35,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const hasVideo = photo.videoSource?.type === 'live-photo';
+  const hasVideo = photo.videoSource?.type === "live-photo";
 
   const enterSpring = useSpring({
     from: {
@@ -87,7 +81,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
 
   const { handleStart: handleHoverStart, handleEnd: handleHoverEnd } =
     useLivePhotoControls({
-      mode: 'hover',
+      mode: "hover",
       enabled: hasVideo,
       isPlaying: isVideoPlaying,
       isVideoReady,
@@ -98,13 +92,13 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     });
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     const handleMotionChange = (event: MediaQueryListEvent): void => {
       setPrefersReducedMotion(event.matches);
     };
     setPrefersReducedMotion(mediaQuery.matches);
-    mediaQuery.addEventListener('change', handleMotionChange);
-    return () => mediaQuery.removeEventListener('change', handleMotionChange);
+    mediaQuery.addEventListener("change", handleMotionChange);
+    return () => mediaQuery.removeEventListener("change", handleMotionChange);
   }, []);
 
   useEffect(() => {
@@ -116,7 +110,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         }
       },
       {
-        rootMargin: '200px',
+        rootMargin: "200px",
       },
     );
 
@@ -182,8 +176,12 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       };
     }
 
-    const computed = cardRef.current ? window.getComputedStyle(cardRef.current) : null;
-    const parsedRadius = computed ? Number.parseFloat(computed.borderTopLeftRadius || "16") : 16;
+    const computed = cardRef.current
+      ? window.getComputedStyle(cardRef.current)
+      : null;
+    const parsedRadius = computed
+      ? Number.parseFloat(computed.borderTopLeftRadius || "16")
+      : 16;
     const borderRadius = Number.isFinite(parsedRadius) ? parsedRadius : 16;
 
     return {
@@ -198,10 +196,13 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     };
   }, [photo.id]);
 
-  const canSelect = selectionMode && interactionMode !== 'none' && Boolean(onToggleSelect);
-  const canOpenDetail = interactionMode === 'detail' && Boolean(onClick);
+  const canSelect =
+    selectionMode && interactionMode !== "none" && Boolean(onToggleSelect);
+  const canOpenDetail = interactionMode === "detail" && Boolean(onClick);
   const canActivate = canSelect || canOpenDetail;
-  const cardAspectRatio = compact ? '4 / 3' : `${photo.width} / ${photo.height}`;
+  const cardAspectRatio = compact
+    ? "4 / 3"
+    : `${photo.width} / ${photo.height}`;
 
   const handleActivate = useCallback(() => {
     if (canSelect) {
@@ -211,19 +212,32 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     if (canOpenDetail && onClick) {
       onClick(photo, getTransitionSource());
     }
-  }, [canOpenDetail, canSelect, getTransitionSource, onClick, onToggleSelect, photo]);
+  }, [
+    canOpenDetail,
+    canSelect,
+    getTransitionSource,
+    onClick,
+    onToggleSelect,
+    photo,
+  ]);
 
   return (
     <animated.div
       ref={cardRef}
-      className={`group relative mb-0 break-inside-avoid overflow-hidden bg-[#060606] transition-colors duration-200 ${canActivate ? 'cursor-pointer' : 'cursor-default'}`}
-      role={canActivate ? 'button' : undefined}
+      className={`group relative mb-0 break-inside-avoid overflow-hidden bg-[#060606] transition-colors duration-200 ${canActivate ? "cursor-pointer" : "cursor-default"}`}
+      role={canActivate ? "button" : undefined}
       tabIndex={canActivate ? 0 : -1}
-      aria-label={canOpenDetail ? `View photo ${photo.title}` : canSelect ? `Select photo ${photo.title}` : undefined}
+      aria-label={
+        canOpenDetail
+          ? `View photo ${photo.title}`
+          : canSelect
+            ? `Select photo ${photo.title}`
+            : undefined
+      }
       onClick={handleActivate}
       onKeyDown={(event) => {
         if (!canActivate) return;
-        if (event.key === 'Enter' || event.key === ' ') {
+        if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           handleActivate();
         }
@@ -236,35 +250,12 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         setIsHovered(false);
         handleHoverEnd();
       }}
-      style={{ 
+      style={{
         aspectRatio: cardAspectRatio,
       }}
     >
       {!compact && (
-        <div className='absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-black/70 opacity-80 transition-opacity duration-300 group-hover:opacity-100' />
-      )}
-
-      {!compact && (
-        <Button
-          type='button'
-          size='icon'
-          variant='ghost'
-          aria-label={isFavorite ? 'Unfavorite' : 'Favorite'}
-          className={`absolute right-3 top-3 z-20 h-8 w-8 rounded-full border border-white/20 bg-black/35 p-1.5 transition-all duration-200 ${
-            isFavorite ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-          }`}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onToggleFavorite(photo.id);
-          }}
-        >
-          <Star
-            size={16}
-            className={isFavorite ? 'fill-white text-white' : 'text-white/75 hover:text-white'}
-            strokeWidth={1.5}
-          />
-        </Button>
+        <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-black/70 opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100" />
       )}
 
       {selectionMode && (
@@ -275,12 +266,14 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
               : "border-white/50 bg-black/45"
           }`}
         >
-          {isSelected && <span className="block h-2 w-2 bg-black rounded-full" />}
+          {isSelected && (
+            <span className="block h-2 w-2 bg-black rounded-full" />
+          )}
         </span>
       )}
 
       <animated.div
-        className='h-full w-full will-change-transform'
+        className="h-full w-full will-change-transform"
         style={{
           opacity: enterSpring.opacity,
           transform: to(
@@ -293,7 +286,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
           <img
             src={photo.thumbnail}
             alt={photo.title}
-            className={`h-full w-full object-cover transition-transform duration-500 ease-out ${compact ? '' : 'group-hover:scale-[1.03]'}`}
+            className={`h-full w-full object-cover transition-transform duration-500 ease-out ${compact ? "" : "group-hover:scale-[1.03]"}`}
             onLoad={() => setIsLoaded(true)}
           />
         )}
@@ -303,28 +296,28 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         <video
           ref={videoRef}
           className={`pointer-events-none absolute inset-0 z-0 h-full w-full object-cover transition-opacity duration-500 ${
-            isVideoPlaying ? 'opacity-100' : 'opacity-0'
+            isVideoPlaying ? "opacity-100" : "opacity-0"
           }`}
           muted
           playsInline
-          preload='metadata'
+          preload="metadata"
           onEnded={stopVideo}
         />
       )}
 
       {!compact && (
-        <div
-          className='absolute inset-x-0 bottom-0 z-20 flex flex-col justify-end p-4 sm:p-5'
-        >
-          <h3 className='font-serif text-lg text-white tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.65)]'>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex translate-y-2 flex-col justify-end p-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 sm:p-5">
+          <h3 className="font-serif text-lg text-white tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.65)]">
             {photo.filename}
           </h3>
 
-          <div className='mt-1.5 flex items-center gap-3 text-[10px] font-medium tracking-[0.22em] text-white/65 uppercase'>
-            <span>{photo.width} × {photo.height}</span>
+          <div className="mt-1.5 flex items-center gap-3 text-[10px] font-medium tracking-[0.22em] text-white/65 uppercase">
+            <span>
+              {photo.width} × {photo.height}
+            </span>
             {photo.format && (
               <>
-                <span className='h-0.5 w-0.5 rounded-full bg-white/40' />
+                <span className="h-0.5 w-0.5 rounded-full bg-white/40" />
                 <span>{photo.format}</span>
               </>
             )}
@@ -333,16 +326,22 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       )}
 
       {!compact && (photo.category || photo.isLive) && (
-        <div className='absolute left-3 top-3 z-20 flex gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100'>
+        <div className="absolute left-3 top-3 z-20 flex gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
           {photo.category && (
-            <div className='flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1 backdrop-blur-sm'>
-              <span className="text-xs font-medium text-white">{photo.category}</span>
+            <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1 backdrop-blur-sm">
+              <span className="text-xs font-medium text-white">
+                {photo.category}
+              </span>
             </div>
           )}
           {photo.isLive && (
-            <div className='flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-2 py-1 backdrop-blur-sm'>
-              <div className={`h-1.5 w-1.5 rounded-full ${isConvertingVideo ? 'bg-white/60 animate-pulse motion-reduce:animate-none' : 'bg-white'}`} />
-              <span className="text-[10px] font-medium tracking-widest text-white uppercase">Live</span>
+            <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-2 py-1 backdrop-blur-sm">
+              <div
+                className={`h-1.5 w-1.5 rounded-full ${isConvertingVideo ? "bg-white/60 animate-pulse motion-reduce:animate-none" : "bg-white"}`}
+              />
+              <span className="text-[10px] font-medium tracking-widest text-white uppercase">
+                Live
+              </span>
             </div>
           )}
         </div>

@@ -55,14 +55,15 @@ export function metadataToPhoto(metadata: ImageMetadata): Photo {
     ? metadata.exif.DateTimeOriginal.split("T")[0]
     : new Date(metadata.timestamps.created_at).toISOString().split("T")[0];
 
+  const version = encodeURIComponent(metadata.timestamps.created_at);
   const isLive = Boolean(metadata.files.live_video?.path);
   const liveUrl = metadata.files.live_video?.path
-    ? `/api/v1/images/${encodeURIComponent(metadata.image_id)}/live`
+    ? `/api/v1/images/${encodeURIComponent(metadata.image_id)}/live?v=${version}`
     : undefined;
   return {
     id: metadata.image_id,
-    url: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/original`,
-    thumbnail: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/thumb`,
+    url: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/original?v=${version}`,
+    thumbnail: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/thumb?v=${version}`,
     isLive,
     liveUrl,
     liveMime: metadata.files.live_video?.mime,
@@ -88,7 +89,9 @@ export function metadataToPhoto(metadata: ImageMetadata): Photo {
       iso: metadata.exif?.ISO || 0,
       aperture: metadata.exif?.FNumber ? `f/${metadata.exif.FNumber}` : "f/?",
       shutter: formatShutter(metadata.exif?.ExposureTime),
-      focalLength: metadata.exif?.FocalLength ? `${metadata.exif.FocalLength}mm` : "?mm",
+      focalLength: metadata.exif?.FocalLength
+        ? `${metadata.exif.FocalLength}mm`
+        : "?mm",
       date,
     },
     metadata,

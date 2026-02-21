@@ -19,14 +19,11 @@ const ManagePage: React.FC = () => {
     setIsUploadModalOpen,
     pendingUploadFiles,
     setPendingUploadFiles,
-    favoriteIds,
     photoTags,
     setPhotoTags,
-    setFavoriteIdList,
     isDeleteTokenConfigured,
     handleOpenUpload,
     handleUploadFileSelected,
-    handleToggleFavorite,
     handleDeletePhoto,
     markDeleteTokenMissing,
   } = useManageActions({ removePhotoById });
@@ -36,7 +33,6 @@ const ManagePage: React.FC = () => {
     selectedIds,
     handleBatchSelectToggle,
     handleBatchDelete,
-    handleBatchFavorite,
     handleBatchDownload,
     handleBatchTag,
     handleSelectAllVisible,
@@ -44,7 +40,6 @@ const ManagePage: React.FC = () => {
   } = useBatchPhotoActions({
     photos,
     isDeleteTokenConfigured,
-    setFavoriteIdList,
     setPhotoTags,
     onDeletePhoto: handleDeletePhoto,
     onDeleteTokenMissing: markDeleteTokenMissing,
@@ -82,7 +77,6 @@ const ManagePage: React.FC = () => {
           <ManageBatchActions
             selectedCount={selectedIds.size}
             onClearSelection={handleClearSelection}
-            onBatchFavorite={handleBatchFavorite}
             onBatchTag={handleBatchTag}
             onBatchDownload={handleBatchDownload}
             onBatchDelete={() => {
@@ -95,13 +89,13 @@ const ManagePage: React.FC = () => {
               <div className="relative">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/[0.06] border-t-[#c9a962]/60" />
               </div>
-              <p className="text-xs font-light tracking-wide text-lumina-text-secondary">Loading gallery...</p>
+              <p className="text-xs font-light tracking-wide text-lumina-text-secondary">
+                Loading gallery...
+              </p>
             </div>
           ) : viewMode === "list" ? (
             <PhotoList
               photos={photos}
-              favoriteIds={favoriteIds}
-              onToggleFavorite={handleToggleFavorite}
               selectionMode={isBatchMode}
               selectedIds={selectedIds}
               onToggleSelect={handleBatchSelectToggle}
@@ -109,8 +103,6 @@ const ManagePage: React.FC = () => {
           ) : (
             <PhotoGrid
               photos={photos}
-              favoriteIds={favoriteIds}
-              onToggleFavorite={handleToggleFavorite}
               selectionMode={isBatchMode}
               selectedIds={selectedIds}
               onToggleSelect={handleBatchSelectToggle}
