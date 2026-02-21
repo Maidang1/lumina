@@ -1,4 +1,4 @@
-import type { Env } from "@lumina/contracts";
+import type { Env } from "@luminafe/contracts";
 
 export function corsHeaders(env: Env): HeadersInit {
   return {

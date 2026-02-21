@@ -148,18 +148,18 @@ POST   /api/v1/images/:id/share     # 生成签名资源 URL
 ## 包依赖关系
 
 ```
-@lumina/web
-  ├─> @lumina/contracts
-  └─> @lumina/upload-core
-        └─> @lumina/contracts
+@luminafe/web
+  ├─> @luminafe/contracts
+  └─> @luminafe/upload-core
+        └─> @luminafe/contracts
 
-@lumina/cli
-  ├─> @lumina/contracts
-  ├─> @lumina/github-storage
-  └─> @lumina/upload-core
+@luminafe/cli
+  ├─> @luminafe/contracts
+  ├─> @luminafe/github-storage
+  └─> @luminafe/upload-core
 
-@lumina/github-storage
-  └─> @lumina/contracts
+@luminafe/github-storage
+  └─> @luminafe/contracts
 ```
 
 ## 代码风格约定

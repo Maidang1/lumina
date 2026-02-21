@@ -1,18 +1,18 @@
-# @lumina/web
+# @luminafe/web
 
 Lumina web app (React + Rsbuild) with Cloudflare Pages Functions API.
 
 ## Dev
 
 ```bash
-pnpm --filter @lumina/web dev
+pnpm --filter @luminafe/web dev
 ```
 
 ## Full local mode
 
 ```bash
 cp apps/web/.dev.vars.example apps/web/.dev.vars
-pnpm --filter @lumina/web dev:full
+pnpm --filter @luminafe/web dev:full
 ```
 
 Required in `apps/web/.dev.vars`:

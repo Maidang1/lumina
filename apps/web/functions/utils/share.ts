@@ -1,4 +1,4 @@
-import type { Env } from "@lumina/contracts";
+import type { Env } from "@luminafe/contracts";
 import { errorResponse } from "./http";
 
 export type SignedAssetType = "original" | "thumb" | "live";

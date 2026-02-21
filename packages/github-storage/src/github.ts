@@ -1,11 +1,11 @@
-import { imageIdToMetaPath, imageIdToObjectPath } from "@lumina/contracts";
+import { imageIdToMetaPath, imageIdToObjectPath } from "@luminafe/contracts";
 import type {
   Env,
   GitHubFileResponse,
   ImageIndexEntry,
   ImageIndexFile,
   ImageMetadata,
-} from "@lumina/contracts";
+} from "@luminafe/contracts";
 import { bytesToBase64, decodeBase64Utf8 } from "./encoding";
 
 const GITHUB_API_VERSION = "2022-11-28";

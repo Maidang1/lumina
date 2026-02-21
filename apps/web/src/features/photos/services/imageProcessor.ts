@@ -1,4 +1,4 @@
-export type { ImageProcessorOptions, ThumbnailResult } from "@lumina/upload-core/browser";
+export type { ImageProcessorOptions, ThumbnailResult } from "@luminafe/upload-core/browser";
 export {
   createThumbnail,
   getDimensions,
@@ -7,4 +7,4 @@ export {
   computeSHA256,
   blobToBase64,
   guessExtension,
-} from "@lumina/upload-core/browser";
+} from "@luminafe/upload-core/browser";

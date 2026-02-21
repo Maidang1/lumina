@@ -1,5 +1,5 @@
 import exifr from "exifr";
-import type { ExifSummary, PrivacyInfo } from "@lumina/contracts";
+import type { ExifSummary, PrivacyInfo } from "@luminafe/contracts";
 
 export interface ExifResult {
   exif: ExifSummary | null;

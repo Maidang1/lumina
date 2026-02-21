@@ -7,7 +7,7 @@ export {
   imageIdToMetaPath,
   imageIdToObjectPath,
   isValidImageId,
-} from "@lumina/contracts";
+} from "@luminafe/contracts";
 export type {
   Env,
   ImageMetadata,
@@ -18,9 +18,9 @@ export type {
   ImageIndexEntry,
   ImageIndexFile,
   GitHubFileResponse,
-} from "@lumina/contracts";
+} from "@luminafe/contracts";
 
-export { decodeBase64Utf8, createGitHubClient, GitHubClient } from "@lumina/github-storage";
+export { decodeBase64Utf8, createGitHubClient, GitHubClient } from "@luminafe/github-storage";
 
 export {
   corsHeaders,

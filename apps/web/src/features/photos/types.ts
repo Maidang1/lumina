@@ -7,7 +7,7 @@ import type {
   BatchFinalizeResult as ContractsBatchFinalizeResult,
   ThumbMeta,
   UploadResult as ContractsUploadResult,
-} from "@lumina/contracts";
+} from "@luminafe/contracts";
 
 export interface ExifData {
   camera: string;

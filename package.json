@@ -7,12 +7,14 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "dev": "turbo run dev --parallel",
-    "dev:web": "pnpm --filter @lumina/web dev",
-    "dev:full": "pnpm --filter @lumina/web dev:full",
-    "dev:pages": "pnpm --filter @lumina/web dev:pages",
-    "cli:dev": "pnpm --filter @lumina/cli dev",
-    "cli:build": "pnpm --filter @lumina/cli build",
-    "deploy": "pnpm --filter @lumina/web run deploy"
+    "dev:web": "pnpm --filter @luminafe/web dev",
+    "dev:full": "pnpm --filter @luminafe/web dev:full",
+    "dev:pages": "pnpm --filter @luminafe/web dev:pages",
+    "cli:dev": "pnpm --filter @luminafe/cli dev",
+    "cli:build": "pnpm --filter @luminafe/cli build",
+    "cli:pack": "npm_config_cache=/tmp/.npm-cache pnpm --filter @luminafe/cli exec npm pack --dry-run",
+    "cli:publish": "npm_config_cache=/tmp/.npm-cache pnpm --filter @luminafe/cli publish --access public",
+    "deploy": "pnpm --filter @luminafe/web run deploy"
   },
   "devDependencies": {
     "turbo": "^2.5.6",

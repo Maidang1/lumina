@@ -1,4 +1,4 @@
-import type { ImageMetadata } from "@lumina/contracts";
+import type { ImageMetadata } from "@luminafe/contracts";
 
 export interface UploadPipelineInput {
   fileName: string;

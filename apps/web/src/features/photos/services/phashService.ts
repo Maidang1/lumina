@@ -1,2 +1,2 @@
-export type { PHashInfo, PHashOptions } from "@lumina/upload-core/browser";
-export { computePHash, hammingDistance, similarity } from "@lumina/upload-core/browser";
+export type { PHashInfo, PHashOptions } from "@luminafe/upload-core/browser";
+export { computePHash, hammingDistance, similarity } from "@luminafe/upload-core/browser";

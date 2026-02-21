@@ -54,6 +54,8 @@ Required values in `apps/web/.dev.vars`:
 - `pnpm run dev:full`: run web build watch + Cloudflare Pages Functions
 - `pnpm run cli:build`: build CLI package
 - `pnpm run cli:dev`: run CLI package in dev mode
+- `pnpm run cli:pack`: dry-run npm package contents for CLI
+- `pnpm run cli:publish`: publish CLI package to npm (public)
 
 ## API Endpoints
 
@@ -97,3 +99,18 @@ Environment variable alternatives:
 - `LUMINA_GH_OWNER`
 - `LUMINA_GH_REPO`
 - `LUMINA_GH_BRANCH`
+
+Publish flow:
+
+```bash
+pnpm run cli:build
+pnpm run cli:pack
+pnpm run cli:publish
+```
+
+First release of a scoped package requires public access:
+
+```bash
+npm login
+pnpm run cli:publish
+```

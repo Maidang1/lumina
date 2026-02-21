@@ -1,4 +1,4 @@
-import type { ExifSummary, GeoRegion, ImageMetadata } from "@lumina/contracts";
+import type { ExifSummary, GeoRegion, ImageMetadata } from "@luminafe/contracts";
 
 export interface ProcessingStagePatch {
   status?: "pending" | "processing" | "completed" | "failed";

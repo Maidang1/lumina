@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import exifr from "exifr";
 import sharp from "sharp";
 import Tesseract from "tesseract.js";
-import type { GeoRegion, ImageMetadata } from "@lumina/contracts";
+import type { GeoRegion, ImageMetadata } from "@luminafe/contracts";
 import type { NodePipelineOptions, UploadPipelineInput, UploadPipelineOutput } from "../types";
 
 const DEFAULTS: Required<NodePipelineOptions> = {

@@ -16,10 +16,10 @@ import {
   extractExif,
   performOcr,
   computePHash,
-} from "@lumina/upload-core/browser";
+} from "@luminafe/upload-core/browser";
 import { uploadService } from "@/features/photos/services/uploadService";
 import { reverseGeocodeToRegion } from "@/features/photos/services/geoRegionService";
-import { parseUploadItemInBrowser } from "@lumina/upload-core/browser";
+import { parseUploadItemInBrowser } from "@luminafe/upload-core/browser";
 
 export interface ParseUploadItemOptions {
   item: UploadQueueItem;

@@ -35,6 +35,12 @@ pnpm run typecheck
 
 # Build CLI package
 pnpm run cli:build
+
+# Dry-run CLI npm package
+pnpm run cli:pack
+
+# Publish CLI npm package (public)
+pnpm run cli:publish
 ```
 
 ## Local Development

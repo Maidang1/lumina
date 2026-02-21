@@ -5,7 +5,7 @@
     "lib": ["ES2022", "DOM"],
     "baseUrl": ".",
     "paths": {
-      "@lumina/contracts": ["../contracts/src/index.ts"]
+      "@luminafe/contracts": ["../contracts/src/index.ts"]
     }
   },
   "include": ["src/**/*"]

@@ -1,5 +1,5 @@
 {
-  "name": "@lumina/github-storage",
+  "name": "@luminafe/github-storage",
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",
@@ -16,7 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@lumina/contracts": "workspace:*"
+    "@luminafe/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

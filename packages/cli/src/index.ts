@@ -1,10 +1,9 @@
-#!/usr/bin/env node
 import fs from "node:fs/promises";
 import path from "node:path";
-import { Command } from "commander";
-import { createGitHubClient } from "@lumina/github-storage";
-import { processForUpload } from "@lumina/upload-core/node";
-import type { Env } from "@lumina/contracts";
+import { defineCommand, runMain } from "citty";
+import { createGitHubClient } from "@luminafe/github-storage";
+import { processForUpload } from "@luminafe/upload-core/node";
+import type { Env } from "@luminafe/contracts";
 
 interface UploadRecord {
   source: string;
@@ -116,8 +115,7 @@ async function findLiveVideo(filePath: string): Promise<string | undefined> {
 
 async function uploadOne(
   filePath: string,
-  options: UploadOptions,
-  record: UploadRecord
+  options: UploadOptions
 ): Promise<{ ok: true; imageId: string } | { ok: false; error: string }> {
   try {
     const bytes = new Uint8Array(await fs.readFile(filePath));
@@ -191,7 +189,7 @@ async function handleUpload(input: string[], options: UploadOptions): Promise<vo
     record.status = "processing";
     await writeManifest(options.manifest, manifest);
 
-    const result = await uploadOne(record.source, options, record);
+    const result = await uploadOne(record.source, options);
     if (result.ok) {
       record.status = "uploaded";
       record.imageId = result.imageId;
@@ -230,70 +228,183 @@ async function handleValidate(input: string[]): Promise<void> {
   process.stdout.write(JSON.stringify({ count: files.length, files }, null, 2) + "\n");
 }
 
-const program = new Command();
-
-program
-  .name("lumina-upload")
-  .description("Batch upload photos to GitHub objects for Lumina")
-  .option("--owner <owner>", "GitHub owner", process.env.LUMINA_GH_OWNER)
-  .option("--repo <repo>", "GitHub repo", process.env.LUMINA_GH_REPO)
-  .option("--branch <branch>", "GitHub branch", process.env.LUMINA_GH_BRANCH || "main")
-  .option("--token <token>", "GitHub token", process.env.LUMINA_GITHUB_TOKEN)
-  .option("--concurrency <n>", "Upload concurrency", "4")
-  .option("--ocr-concurrency <n>", "OCR concurrency", "2")
-  .option("--retry <n>", "Retry attempts", "5")
-  .option("--manifest <path>", "Manifest path", ".lumina-upload-manifest.json")
-  .option("--live-photo-mode <mode>", "none|pair-by-name", "pair-by-name");
-
-program
-  .command("upload")
-  .argument("<input...>", "file or directory")
-  .action(async (input: string[]) => {
-    const opts = program.opts();
-    if (!opts.owner || !opts.repo || !opts.token) {
+const uploadCommand = defineCommand({
+  meta: {
+    name: "upload",
+    description: "Upload photos to GitHub objects",
+  },
+  args: {
+    input: {
+      type: "positional",
+      description: "File or directory paths",
+      required: true,
+    },
+    owner: {
+      type: "string",
+      description: "GitHub owner",
+      default: process.env.LUMINA_GH_OWNER,
+    },
+    repo: {
+      type: "string",
+      description: "GitHub repo",
+      default: process.env.LUMINA_GH_REPO,
+    },
+    branch: {
+      type: "string",
+      description: "GitHub branch",
+      default: process.env.LUMINA_GH_BRANCH || "main",
+    },
+    token: {
+      type: "string",
+      description: "GitHub token",
+      default: process.env.LUMINA_GITHUB_TOKEN,
+    },
+    concurrency: {
+      type: "string",
+      description: "Upload concurrency",
+      default: "4",
+    },
+    "ocr-concurrency": {
+      type: "string",
+      description: "OCR concurrency",
+      default: "2",
+    },
+    retry: {
+      type: "string",
+      description: "Retry attempts",
+      default: "5",
+    },
+    manifest: {
+      type: "string",
+      description: "Manifest path",
+      default: ".lumina-upload-manifest.json",
+    },
+    "live-photo-mode": {
+      type: "string",
+      description: "none|pair-by-name",
+      default: "pair-by-name",
+    },
+  },
+  async run({ args }) {
+    if (!args.owner || !args.repo || !args.token) {
       throw new Error("--owner --repo --token are required (or set env LUMINA_GH_OWNER/LUMINA_GH_REPO/LUMINA_GITHUB_TOKEN)");
     }
 
+    const input = Array.isArray(args.input) ? args.input : [args.input];
     await handleUpload(input, {
-      owner: opts.owner,
-      repo: opts.repo,
-      branch: opts.branch,
-      token: opts.token,
-      concurrency: Number(opts.concurrency),
-      ocrConcurrency: Number(opts.ocrConcurrency),
-      retry: Number(opts.retry),
-      manifest: opts.manifest,
-      livePhotoMode: opts.livePhotoMode,
+      owner: args.owner,
+      repo: args.repo,
+      branch: args.branch,
+      token: args.token,
+      concurrency: Number(args.concurrency),
+      ocrConcurrency: Number(args["ocr-concurrency"]),
+      retry: Number(args.retry),
+      manifest: args.manifest,
+      livePhotoMode: args["live-photo-mode"] as "none" | "pair-by-name",
     });
-  });
-
-program.command("resume").action(async () => {
-  const opts = program.opts();
-  if (!opts.owner || !opts.repo || !opts.token) {
-    throw new Error("--owner --repo --token are required (or set env LUMINA_GH_OWNER/LUMINA_GH_REPO/LUMINA_GITHUB_TOKEN)");
-  }
-
-  await handleResume({
-    owner: opts.owner,
-    repo: opts.repo,
-    branch: opts.branch,
-    token: opts.token,
-    concurrency: Number(opts.concurrency),
-    ocrConcurrency: Number(opts.ocrConcurrency),
-    retry: Number(opts.retry),
-    manifest: opts.manifest,
-    livePhotoMode: opts.livePhotoMode,
-  });
+  },
 });
 
-program
-  .command("validate")
-  .argument("<input...>", "file or directory")
-  .action(async (input: string[]) => {
+const resumeCommand = defineCommand({
+  meta: {
+    name: "resume",
+    description: "Resume pending uploads from manifest",
+  },
+  args: {
+    owner: {
+      type: "string",
+      description: "GitHub owner",
+      default: process.env.LUMINA_GH_OWNER,
+    },
+    repo: {
+      type: "string",
+      description: "GitHub repo",
+      default: process.env.LUMINA_GH_REPO,
+    },
+    branch: {
+      type: "string",
+      description: "GitHub branch",
+      default: process.env.LUMINA_GH_BRANCH || "main",
+    },
+    token: {
+      type: "string",
+      description: "GitHub token",
+      default: process.env.LUMINA_GITHUB_TOKEN,
+    },
+    concurrency: {
+      type: "string",
+      description: "Upload concurrency",
+      default: "4",
+    },
+    "ocr-concurrency": {
+      type: "string",
+      description: "OCR concurrency",
+      default: "2",
+    },
+    retry: {
+      type: "string",
+      description: "Retry attempts",
+      default: "5",
+    },
+    manifest: {
+      type: "string",
+      description: "Manifest path",
+      default: ".lumina-upload-manifest.json",
+    },
+    "live-photo-mode": {
+      type: "string",
+      description: "none|pair-by-name",
+      default: "pair-by-name",
+    },
+  },
+  async run({ args }) {
+    if (!args.owner || !args.repo || !args.token) {
+      throw new Error("--owner --repo --token are required (or set env LUMINA_GH_OWNER/LUMINA_GH_REPO/LUMINA_GITHUB_TOKEN)");
+    }
+
+    await handleResume({
+      owner: args.owner,
+      repo: args.repo,
+      branch: args.branch,
+      token: args.token,
+      concurrency: Number(args.concurrency),
+      ocrConcurrency: Number(args["ocr-concurrency"]),
+      retry: Number(args.retry),
+      manifest: args.manifest,
+      livePhotoMode: args["live-photo-mode"] as "none" | "pair-by-name",
+    });
+  },
+});
+
+const validateCommand = defineCommand({
+  meta: {
+    name: "validate",
+    description: "Validate and list image files",
+  },
+  args: {
+    input: {
+      type: "positional",
+      description: "File or directory paths",
+      required: true,
+    },
+  },
+  async run({ args }) {
+    const input = Array.isArray(args.input) ? args.input : [args.input];
     await handleValidate(input);
-  });
-
-program.parseAsync().catch((error) => {
-  process.stderr.write(`[lumina-upload] ${error instanceof Error ? error.message : String(error)}\n`);
-  process.exit(1);
+  },
 });
+
+const main = defineCommand({
+  meta: {
+    name: "lumina-upload",
+    description: "Batch upload photos to GitHub objects for Lumina",
+    version: "0.1.0",
+  },
+  subCommands: {
+    upload: uploadCommand,
+    resume: resumeCommand,
+    validate: validateCommand,
+  },
+});
+
+runMain(main);
