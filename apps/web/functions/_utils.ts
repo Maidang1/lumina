@@ -20,10 +20,15 @@ export type {
   GitHubFileResponse,
 } from "@luminafe/contracts";
 
-export { decodeBase64Utf8, createGitHubClient, GitHubClient } from "@luminafe/github-storage";
+export {
+  decodeBase64Utf8,
+  createGitHubClient,
+  GitHubClient,
+} from "@luminafe/github-storage";
 
 export {
   corsHeaders,
+  buildJsDelivrUrl,
   errorResponse,
   jsonResponse,
   mapGitHubErrorToHttp,

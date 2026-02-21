@@ -4,12 +4,17 @@ export function corsHeaders(env: Env): HeadersInit {
   return {
     "Access-Control-Allow-Origin": env.ALLOW_ORIGIN || "*",
     "Access-Control-Allow-Methods": "GET, POST, DELETE, PATCH, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Upload-Token",
+    "Access-Control-Allow-Headers":
+      "Content-Type, Authorization, X-Upload-Token",
     "Access-Control-Max-Age": "86400",
   };
 }
 
-export function jsonResponse(env: Env, data: unknown, status: number = 200): Response {
+export function jsonResponse(
+  env: Env,
+  data: unknown,
+  status: number = 200,
+): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
@@ -19,7 +24,11 @@ export function jsonResponse(env: Env, data: unknown, status: number = 200): Res
   });
 }
 
-export function errorResponse(env: Env, message: string, status: number = 400): Response {
+export function errorResponse(
+  env: Env,
+  message: string,
+  status: number = 400,
+): Response {
   return new Response(JSON.stringify({ error: message }), {
     status,
     headers: {
@@ -29,7 +38,10 @@ export function errorResponse(env: Env, message: string, status: number = 400): 
   });
 }
 
-export function validateUploadToken(request: Request, env: Env): Response | null {
+export function validateUploadToken(
+  request: Request,
+  env: Env,
+): Response | null {
   const expectedToken = env.UPLOAD_TOKEN?.trim();
   if (!expectedToken) {
     return errorResponse(env, "Server upload token is not configured", 500);
@@ -47,7 +59,10 @@ export function validateUploadToken(request: Request, env: Env): Response | null
   return null;
 }
 
-export function mapGitHubErrorToHttp(env: Env, error: unknown): Response | null {
+export function mapGitHubErrorToHttp(
+  env: Env,
+  error: unknown,
+): Response | null {
   if (!(error instanceof Error)) {
     return null;
   }
@@ -65,8 +80,27 @@ export function mapGitHubErrorToHttp(env: Env, error: unknown): Response | null 
   if (message.includes("gh_branch is not configured")) {
     return errorResponse(env, "Server GH_BRANCH is not configured", 500);
   }
-  if (message.includes("github get failed: 401") || message.includes("bad credentials")) {
-    return errorResponse(env, "GitHub credentials are invalid. Check GITHUB_TOKEN.", 502);
+  if (
+    message.includes("github get failed: 401") ||
+    message.includes("bad credentials")
+  ) {
+    return errorResponse(
+      env,
+      "GitHub credentials are invalid. Check GITHUB_TOKEN.",
+      502,
+    );
   }
   return null;
+}
+
+export function buildJsDelivrUrl(env: Env, path: string): string {
+  const normalizedPath = path.replace(/^\/+/, "");
+  const encodedPath = normalizedPath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  const owner = encodeURIComponent(env.GH_OWNER);
+  const repo = encodeURIComponent(env.GH_REPO);
+  const branch = encodeURIComponent(env.GH_BRANCH);
+  return `https://cdn.jsdelivr.net/gh/${owner}/${repo}@${branch}/${encodedPath}`;
 }

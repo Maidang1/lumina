@@ -5,6 +5,7 @@ import {
   decodeBase64Utf8,
   isValidImageId,
   imageIdToMetaPath,
+  buildJsDelivrUrl,
   errorResponse,
   mapGitHubErrorToHttp,
   corsHeaders,
@@ -36,23 +37,37 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 
   if (type !== "original" && type !== "thumb") {
-    return errorResponse(env, "Invalid type. Must be 'original' or 'thumb'", 400);
+    return errorResponse(
+      env,
+      "Invalid type. Must be 'original' or 'thumb'",
+      400,
+    );
   }
 
   try {
-    const signatureError = await validateSignedAssetAccess(request, env, imageId, type);
+    const signatureError = await validateSignedAssetAccess(
+      request,
+      env,
+      imageId,
+      type,
+    );
     if (signatureError) {
       return signatureError;
     }
 
     const github = createGitHubClient(env);
     const metaFile = await github.getFile(imageIdToMetaPath(imageId));
-    const metadata = JSON.parse(decodeBase64Utf8(metaFile.content)) as ImageMetadata;
-    const declaredPath = type === "original" ? metadata.files.original.path : metadata.files.thumb.path;
-    let targetFile;
+    const metadata = JSON.parse(
+      decodeBase64Utf8(metaFile.content),
+    ) as ImageMetadata;
+    const declaredPath =
+      type === "original"
+        ? metadata.files.original.path
+        : metadata.files.thumb.path;
+    let targetPath: string | undefined;
 
     if (declaredPath) {
-      targetFile = await github.getFile(declaredPath);
+      targetPath = declaredPath;
     } else {
       const hex = imageId.replace("sha256:", "");
       const p1 = hex.slice(0, 2);
@@ -60,17 +75,19 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       const dirPath = `objects/${p1}/${p2}/sha256_${hex}`;
       const files = await github.listDirectory(dirPath);
       const fallbackPath = files.find((f) =>
-        type === "original" ? f.name.startsWith("original.") : f.name === "thumb.webp"
+        type === "original"
+          ? f.name.startsWith("original.")
+          : f.name === "thumb.webp",
       )?.path;
 
       if (!fallbackPath) {
         return errorResponse(env, "Image not found", 404);
       }
 
-      targetFile = await github.getFile(fallbackPath);
+      targetPath = fallbackPath;
     }
 
-    if (!targetFile.download_url) {
+    if (!targetPath) {
       return errorResponse(env, "Image not found", 404);
     }
 
@@ -78,14 +95,17 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       status: 302,
       headers: {
         ...corsHeaders(env),
-        Location: targetFile.download_url,
+        Location: buildJsDelivrUrl(env, targetPath),
         "Cache-Control": "public, max-age=31536000",
       },
     });
   } catch (error) {
     const mapped = mapGitHubErrorToHttp(env, error);
     if (mapped) return mapped;
-    if (error instanceof Error && error.message.toLowerCase().includes("not found")) {
+    if (
+      error instanceof Error &&
+      error.message.toLowerCase().includes("not found")
+    ) {
       return errorResponse(env, "Image not found", 404);
     }
     return errorResponse(env, "Failed to fetch image", 500);
