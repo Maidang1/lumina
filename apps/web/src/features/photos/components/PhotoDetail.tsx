@@ -10,7 +10,7 @@ import PhotoDetailMediaStage from "@/features/photos/components/photo-detail/Pho
 import { usePhotoDetailMedia } from "@/features/photos/components/photo-detail/usePhotoDetailMedia";
 import { usePhotoDetailKeyboardNav } from "@/features/photos/components/photo-detail/usePhotoDetailKeyboardNav";
 import { usePhotoDetailTransition } from "@/features/photos/components/photo-detail/usePhotoDetailTransition";
-import { PhotoOpenTransition } from "@/features/photos/components/photo-detail/types";
+import type { PhotoOpenTransition } from "@/features/photos/types";
 
 interface PhotoDetailProps {
   photo: Photo;
@@ -65,6 +65,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   } = usePhotoDetailMedia(photo);
 
   const {
+    transitionState,
     overlaySpring,
     imageSpring,
     controlsSpring,
@@ -80,7 +81,13 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     isOriginalLoaded,
   });
 
-  usePhotoDetailKeyboardNav({ canPrev, canNext, onPrev, onNext });
+  usePhotoDetailKeyboardNav({
+    canPrev,
+    canNext,
+    onPrev,
+    onNext,
+    disabled: transitionState === "closing",
+  });
 
   const handleDelete = useCallback(async () => {
     if (!onDelete || isDeleting) return;
@@ -126,12 +133,13 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           onClose={handleRequestClose}
           onPrev={onPrev}
           onNext={onNext}
-          overlayOpacity={overlaySpring.opacity}
+          controlsOpacity={controlsSpring.opacity}
           controlsTransform={controlsSpring.transform}
+          isClosing={transitionState === "closing"}
         />
 
         <animated.div
-          className="absolute inset-0 flex h-full w-full overflow-hidden"
+          className={`absolute inset-0 flex h-full w-full overflow-hidden ${transitionState === "closing" ? "pointer-events-none" : ""}`}
           style={{ opacity: overlaySpring.opacity }}
         >
           <PhotoDetailMediaStage
@@ -154,7 +162,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           />
 
           <animated.div
-            className="h-full w-[340px] shrink-0 border-l border-white/10 bg-black/40 backdrop-blur-xl md:w-[360px] lg:w-[420px]"
+            className="h-full w-[340px] shrink-0 border-l border-white/10 bg-black/40 backdrop-blur-xl will-change-transform md:w-[360px] lg:w-[420px]"
             style={{
               opacity: infoPanelSpring.opacity,
               transform: infoPanelSpring.transform,

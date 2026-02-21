@@ -1,10 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { config, useSpring } from "@react-spring/web";
-import { Photo } from "@/features/photos/types";
-import { ImageRect, PhotoOpenTransition } from "@/features/photos/components/photo-detail/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSpring } from "@react-spring/web";
+import { Photo, PhotoOpenTransition } from "@/features/photos/types";
+import { ImageRect } from "@/features/photos/components/photo-detail/types";
 
-const appleSpring = { mass: 0.8, tension: 280, friction: 28 };
-const appleSpringGentle = { mass: 1, tension: 200, friction: 26 };
+const OPENING_STATE_MS = 320;
+const CLOSE_MAIN_DURATION_MS = 220;
+const CLOSE_OVERLAY_DURATION_MS = 180;
+const CLOSE_CONTROLS_DURATION_MS = 140;
+const CLOSE_INFO_PANEL_DURATION_MS = 160;
+const CLOSE_FALLBACK_DELAY_MS = 300;
+
+const matchedOpenSpring = { mass: 0.85, tension: 320, friction: 30 };
+const gentleOpenSpring = { mass: 1, tension: 230, friction: 28 };
 
 interface UsePhotoDetailTransitionParams {
   photo: Photo;
@@ -48,6 +55,21 @@ export const usePhotoDetailTransition = ({
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [transitionState, setTransitionState] = useState<"idle" | "opening" | "closing">("idle");
   const [closingToRect, setClosingToRect] = useState<ImageRect | null>(null);
+  const closeCompletedRef = useRef(false);
+  const closeFallbackTimerRef = useRef<number | null>(null);
+  const transitionStateRef = useRef<"idle" | "opening" | "closing">("idle");
+
+  const finishClose = useCallback(() => {
+    if (closeCompletedRef.current) return;
+    closeCompletedRef.current = true;
+
+    if (closeFallbackTimerRef.current !== null) {
+      window.clearTimeout(closeFallbackTimerRef.current);
+      closeFallbackTimerRef.current = null;
+    }
+
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -109,29 +131,77 @@ export const usePhotoDetailTransition = ({
     return calculateTargetRect();
   }, [calculateTargetRect, windowSize]);
 
+  const hasMatchingSource = useMemo(
+    () => Boolean(openingTransition && openingTransition.photoId === photo.id),
+    [openingTransition, photo.id]
+  );
+
+  const canUseMatchedTransition = useMemo(
+    () => Boolean(!prefersReducedMotion && hasMatchingSource && targetRect),
+    [hasMatchingSource, prefersReducedMotion, targetRect]
+  );
+
   useEffect(() => {
-    if (prefersReducedMotion || !openingTransition || openingTransition.photoId !== photo.id) {
+    if (!canUseMatchedTransition) {
       setTransitionState("idle");
       return;
     }
 
+    setClosingToRect(null);
     setTransitionState("opening");
     const timeout = window.setTimeout(() => {
       setTransitionState("idle");
-    }, 450);
+    }, OPENING_STATE_MS);
 
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [openingTransition, photo.id, prefersReducedMotion]);
+  }, [canUseMatchedTransition]);
+
+  useEffect(() => {
+    closeCompletedRef.current = false;
+    if (closeFallbackTimerRef.current !== null) {
+      window.clearTimeout(closeFallbackTimerRef.current);
+      closeFallbackTimerRef.current = null;
+    }
+
+    return () => {
+      if (closeFallbackTimerRef.current !== null) {
+        window.clearTimeout(closeFallbackTimerRef.current);
+        closeFallbackTimerRef.current = null;
+      }
+    };
+  }, [photo.id]);
+
+  useEffect(() => {
+    transitionStateRef.current = transitionState;
+  }, [transitionState]);
+
+  const isValidClosingTarget = useCallback((rect: ImageRect): boolean => {
+    if (rect.width <= 8 || rect.height <= 8) {
+      return false;
+    }
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const rectRight = rect.left + rect.width;
+    const rectBottom = rect.top + rect.height;
+    return rectRight > 0 && rectBottom > 0 && rect.left < viewportWidth && rect.top < viewportHeight;
+  }, []);
+
+  const defaultRect = useMemo<ImageRect>(() => {
+    if (targetRect) return targetRect;
+    return {
+      left: window.innerWidth * 0.5 - 40,
+      top: window.innerHeight * 0.5 - 40,
+      width: 80,
+      height: 80,
+    };
+  }, [targetRect]);
 
   const spring = useSpring({
-    immediate:
-      prefersReducedMotion ||
-      !openingTransition ||
-      openingTransition.photoId !== photo.id ||
-      !targetRect,
-    from: openingTransition
+    immediate: !canUseMatchedTransition,
+    from:
+      canUseMatchedTransition && openingTransition
       ? {
           x: openingTransition.left,
           y: openingTransition.top,
@@ -139,7 +209,7 @@ export const usePhotoDetailTransition = ({
           height: openingTransition.height,
           borderRadius: openingTransition.borderRadius,
         }
-      : { x: 0, y: 0, width: 100, height: 100, borderRadius: 0 },
+      : { x: defaultRect.left, y: defaultRect.top, width: defaultRect.width, height: defaultRect.height, borderRadius: 0 },
     to:
       transitionState === "closing" && closingToRect
         ? {
@@ -157,18 +227,18 @@ export const usePhotoDetailTransition = ({
               height: targetRect.height,
               borderRadius: 0,
             }
-          : { x: 0, y: 0, width: 100, height: 100, borderRadius: 0 },
-    config: transitionState === "closing" ? appleSpringGentle : appleSpring,
+          : { x: defaultRect.left, y: defaultRect.top, width: defaultRect.width, height: defaultRect.height, borderRadius: 0 },
+    config: transitionState === "closing" ? { duration: CLOSE_MAIN_DURATION_MS } : matchedOpenSpring,
     onRest: () => {
-      if (transitionState === "closing") {
-        onClose();
+      if (transitionStateRef.current === "closing") {
+        finishClose();
       }
     },
   });
 
   const overlaySpring = useSpring({
     opacity: transitionState === "closing" ? 0 : 1,
-    config: { tension: 300, friction: 30 },
+    config: transitionState === "closing" ? { duration: CLOSE_OVERLAY_DURATION_MS } : { tension: 280, friction: 34 },
   });
 
   const imageSpring = useSpring({
@@ -178,37 +248,56 @@ export const usePhotoDetailTransition = ({
 
   const controlsSpring = useSpring({
     opacity: transitionState === "closing" ? 0 : 1,
-    transform: transitionState === "closing" ? "translateY(-10px)" : "translateY(0px)",
-    delay: prefersReducedMotion ? 0 : transitionState === "opening" ? 100 : 0,
-    config: prefersReducedMotion ? { duration: 0 } : appleSpringGentle,
+    transform: transitionState === "closing" ? "translateY(-8px)" : "translateY(0px)",
+    delay: prefersReducedMotion ? 0 : transitionState === "opening" ? 70 : 0,
+    config: prefersReducedMotion
+      ? { duration: 0 }
+      : transitionState === "closing"
+        ? { duration: CLOSE_CONTROLS_DURATION_MS }
+        : gentleOpenSpring,
   });
 
   const infoPanelSpring = useSpring({
     opacity: transitionState === "closing" ? 0 : 1,
-    transform: transitionState === "closing" ? "translateX(20px)" : "translateX(0px)",
-    config: prefersReducedMotion ? { duration: 0 } : appleSpringGentle,
+    transform: transitionState === "closing" ? "translateX(24px)" : "translateX(0px)",
+    delay: prefersReducedMotion ? 0 : transitionState === "opening" ? 40 : 0,
+    config: prefersReducedMotion
+      ? { duration: 0 }
+      : transitionState === "closing"
+        ? { duration: CLOSE_INFO_PANEL_DURATION_MS }
+        : gentleOpenSpring,
   });
 
   const handleRequestClose = useCallback(() => {
     if (transitionState === "closing") return;
     stopVideo();
 
-    if (prefersReducedMotion || !openingTransition || openingTransition.photoId !== photo.id) {
-      onClose();
+    if (prefersReducedMotion) {
+      finishClose();
       return;
     }
 
-    setClosingToRect({
-      left: openingTransition.left,
-      top: openingTransition.top,
-      width: openingTransition.width,
-      height: openingTransition.height,
-    });
+    if (hasMatchingSource && openingTransition) {
+      const nextClosingRect = {
+        left: openingTransition.left,
+        top: openingTransition.top,
+        width: openingTransition.width,
+        height: openingTransition.height,
+      };
+      setClosingToRect(isValidClosingTarget(nextClosingRect) ? nextClosingRect : null);
+    } else {
+      setClosingToRect(null);
+    }
+
     setTransitionState("closing");
-  }, [onClose, openingTransition, photo.id, prefersReducedMotion, stopVideo, transitionState]);
+    closeFallbackTimerRef.current = window.setTimeout(() => {
+      finishClose();
+    }, CLOSE_FALLBACK_DELAY_MS);
+  }, [finishClose, hasMatchingSource, isValidClosingTarget, openingTransition, prefersReducedMotion, stopVideo, transitionState]);
 
   const useAnimation = Boolean(
-    openingTransition && openingTransition.photoId === photo.id && transitionState !== "idle"
+    canUseMatchedTransition &&
+      (transitionState === "opening" || (transitionState === "closing" && Boolean(closingToRect)))
   );
 
   return {

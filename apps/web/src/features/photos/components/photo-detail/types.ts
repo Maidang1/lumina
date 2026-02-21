@@ -1,11 +1,4 @@
-export interface PhotoOpenTransition {
-  photoId: string;
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  borderRadius: number;
-}
+export type { PhotoOpenTransition } from "@/features/photos/types";
 
 export interface ImageRect {
   left: number;

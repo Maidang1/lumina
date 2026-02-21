@@ -19,7 +19,6 @@ import { cn } from "@/shared/lib/utils";
 import {
   formatBytes,
   formatExifText,
-  formatNumericWithUnit,
   formatTime,
 } from "./formatters";
 
@@ -280,36 +279,37 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
   );
 };
 
-const InfoRow = ({
-  label,
-  value,
-  icon,
-}: {
+interface InfoRowProps {
   label: string;
   value: React.ReactNode;
   icon?: React.ReactNode;
-}) => (
-  <div className="grid grid-cols-[minmax(96px,120px)_minmax(0,1fr)] items-start gap-3 text-xs">
-    <span className="flex min-w-0 items-center gap-2 text-neutral-500">
-      {icon}
-      {label}
-    </span>
-    <span className="min-w-0 break-words text-right text-neutral-300">{value}</span>
-  </div>
-);
+}
 
-const ParameterBadge = ({
-  icon,
-  value,
-}: {
+function InfoRow({ label, value, icon }: InfoRowProps): React.ReactElement {
+  return (
+    <div className="grid grid-cols-[minmax(96px,120px)_minmax(0,1fr)] items-start gap-3 text-xs">
+      <span className="flex min-w-0 items-center gap-2 text-neutral-500">
+        {icon}
+        {label}
+      </span>
+      <span className="min-w-0 break-words text-right text-neutral-300">{value}</span>
+    </div>
+  );
+}
+
+interface ParameterBadgeProps {
   icon: React.ReactNode;
   value: string;
-}) => (
-  <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-    <span className="text-neutral-400">{icon}</span>
-    <span className="min-w-0 truncate text-xs font-medium text-neutral-200">{value}</span>
-  </div>
-);
+}
+
+function ParameterBadge({ icon, value }: ParameterBadgeProps): React.ReactElement {
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
+      <span className="text-neutral-400">{icon}</span>
+      <span className="min-w-0 truncate text-xs font-medium text-neutral-200">{value}</span>
+    </div>
+  );
+}
 
 function formatFocalLength(value?: string): string {
   const formatted = formatExifText(value);

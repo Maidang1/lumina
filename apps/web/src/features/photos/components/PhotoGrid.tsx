@@ -1,20 +1,10 @@
 import React from 'react';
-import { Photo } from '@/features/photos/types';
+import { Photo, PhotoOpenTransition } from '@/features/photos/types';
 import PhotoCard from './PhotoCard';
 
 interface PhotoGridProps {
   photos: Photo[];
-  onPhotoClick?: (
-    photo: Photo,
-    transitionSource: {
-      photoId: string;
-      left: number;
-      top: number;
-      width: number;
-      height: number;
-      borderRadius: number;
-    }
-  ) => void;
+  onPhotoClick?: (photo: Photo, transitionSource: PhotoOpenTransition) => void;
   favoriteIds: Set<string>;
   onToggleFavorite: (photoId: string) => void;
   selectionMode?: boolean;

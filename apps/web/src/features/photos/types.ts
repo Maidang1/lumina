@@ -188,3 +188,14 @@ export const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
 };
 
 export type { ExifSummary, GeoRegion };
+
+export interface PhotoOpenTransition {
+  photoId: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  borderRadius: number;
+  sourceScale?: number;
+  capturedAt?: number;
+}

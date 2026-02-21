@@ -5,6 +5,7 @@ interface UsePhotoDetailKeyboardNavParams {
   canNext: boolean;
   onPrev?: () => void;
   onNext?: () => void;
+  disabled?: boolean;
 }
 
 export const usePhotoDetailKeyboardNav = ({
@@ -12,8 +13,13 @@ export const usePhotoDetailKeyboardNav = ({
   canNext,
   onPrev,
   onNext,
+  disabled = false,
 }: UsePhotoDetailKeyboardNavParams): void => {
   useEffect(() => {
+    if (disabled) {
+      return;
+    }
+
     const handleKey = (event: KeyboardEvent): void => {
       if (event.key === "ArrowLeft" && canPrev) {
         event.preventDefault();
@@ -29,5 +35,5 @@ export const usePhotoDetailKeyboardNav = ({
     return () => {
       window.removeEventListener("keydown", handleKey);
     };
-  }, [canNext, canPrev, onNext, onPrev]);
+  }, [canNext, canPrev, disabled, onNext, onPrev]);
 };

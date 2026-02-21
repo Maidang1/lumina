@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { animated, to, useSpring } from '@react-spring/web';
 import { Star } from 'lucide-react';
-import { Photo } from '@/features/photos/types';
+import { Photo, PhotoOpenTransition } from '@/features/photos/types';
 import { videoLoaderManager } from '@/features/photos/services/videoLoaderManager';
 import { useLivePhotoControls } from './hooks/useLivePhotoControls';
 import { Button } from '@/shared/ui/button';
@@ -9,17 +9,7 @@ import { Button } from '@/shared/ui/button';
 interface PhotoCardProps {
   photo: Photo;
   index: number;
-  onClick?: (
-    photo: Photo,
-    transitionSource: {
-      photoId: string;
-      left: number;
-      top: number;
-      width: number;
-      height: number;
-      borderRadius: number;
-    }
-  ) => void;
+  onClick?: (photo: Photo, transitionSource: PhotoOpenTransition) => void;
   isFavorite: boolean;
   onToggleFavorite: (photoId: string) => void;
   selectionMode?: boolean;
@@ -48,7 +38,6 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [isConvertingVideo, setIsConvertingVideo] = useState(false);
-  const [videoError, setVideoError] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -74,14 +63,8 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       scale: isHovered && !prefersReducedMotion ? 1.008 : 1,
       overlayOpacity: isHovered ? 1 : 0,
       overlayY: isHovered && !prefersReducedMotion ? 0 : 16,
-      borderGlow: isHovered ? 0.15 : 0,
     },
     config: { tension: 280, friction: 32 },
-  });
-
-  const imageSpring = useSpring({
-    opacity: isLoaded ? 1 : 0,
-    config: { tension: 180, friction: 28 },
   });
 
   const stopVideo = useCallback(() => {
@@ -95,12 +78,10 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   const playVideo = useCallback(() => {
     const video = videoRef.current;
     if (!video || !isVideoReady || isConvertingVideo || isVideoPlaying) return;
-    setVideoError(null);
     setIsVideoPlaying(true);
     video.currentTime = 0;
     video.play().catch(() => {
       setIsVideoPlaying(false);
-      setVideoError('Live video playback failed');
     });
   }, [isConvertingVideo, isVideoPlaying, isVideoReady]);
 
@@ -159,7 +140,6 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     }
     let cancelled = false;
     setIsConvertingVideo(false);
-    setVideoError(null);
     void videoLoaderManager
       .processVideo(photo.videoSource, videoRef.current, {
         onLoadingStateUpdate: (state) => {
@@ -170,13 +150,10 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       .then(() => {
         if (!cancelled) {
           setIsVideoReady(true);
-          setVideoError(null);
         }
       })
       .catch(() => {
-        if (!cancelled) {
-          setVideoError('Live video failed to load');
-        }
+        // Video loading failed silently
       });
 
     return () => {
@@ -190,7 +167,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     };
   }, [stopVideo]);
 
-  const getTransitionSource = useCallback(() => {
+  const getTransitionSource = useCallback((): PhotoOpenTransition => {
     const rect = cardRef.current?.getBoundingClientRect();
     if (!rect) {
       return {
@@ -200,8 +177,14 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         width: 1,
         height: 1,
         borderRadius: 16,
+        sourceScale: window.visualViewport?.scale ?? 1,
+        capturedAt: Date.now(),
       };
     }
+
+    const computed = cardRef.current ? window.getComputedStyle(cardRef.current) : null;
+    const parsedRadius = computed ? Number.parseFloat(computed.borderTopLeftRadius || "16") : 16;
+    const borderRadius = Number.isFinite(parsedRadius) ? parsedRadius : 16;
 
     return {
       photoId: photo.id,
@@ -209,7 +192,9 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       top: rect.top,
       width: rect.width,
       height: rect.height,
-      borderRadius: 16,
+      borderRadius,
+      sourceScale: window.visualViewport?.scale ?? 1,
+      capturedAt: Date.now(),
     };
   }, [photo.id]);
 

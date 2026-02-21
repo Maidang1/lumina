@@ -11,7 +11,8 @@
     "dev:full": "pnpm --filter @lumina/web dev:full",
     "dev:pages": "pnpm --filter @lumina/web dev:pages",
     "cli:dev": "pnpm --filter @lumina/cli dev",
-    "cli:build": "pnpm --filter @lumina/cli build"
+    "cli:build": "pnpm --filter @lumina/cli build",
+    "deploy": "pnpm --filter @lumina/web run deploy"
   },
   "devDependencies": {
     "turbo": "^2.5.6",

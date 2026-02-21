@@ -8,15 +8,7 @@ import ManagePage from "@/features/photos/pages/ManagePage";
 import { uploadService } from "@/features/photos/services/uploadService";
 import { usePhotosCollection } from "@/features/photos/hooks/usePhotosCollection";
 import { useLocalStorageState } from "@/shared/lib/useLocalStorageState";
-
-interface PhotoOpenTransition {
-  photoId: string;
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-  borderRadius: number;
-}
+import { PhotoOpenTransition } from "@/features/photos/types";
 
 const FAVORITE_STORAGE_KEY = "lumina.photo_favorites";
 const TAG_STORAGE_KEY = "lumina.photo_tags";
@@ -29,7 +21,7 @@ const GalleryShell: React.FC = () => {
   const [openTransition, setOpenTransition] = useState<PhotoOpenTransition | null>(null);
   const [favoriteIdList, setFavoriteIdList] = useLocalStorageState<string[]>(FAVORITE_STORAGE_KEY, []);
   const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
-  const [photoTags, setPhotoTags] = useLocalStorageState<Record<string, string[]>>(TAG_STORAGE_KEY, {});
+  const [photoTags] = useLocalStorageState<Record<string, string[]>>(TAG_STORAGE_KEY, {});
 
   const favoriteIds = useMemo(() => new Set(favoriteIdList), [favoriteIdList]);
 

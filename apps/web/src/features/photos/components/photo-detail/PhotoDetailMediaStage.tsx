@@ -61,7 +61,7 @@ const PhotoDetailMediaStage: React.FC<PhotoDetailMediaStageProps> = ({
 
       {useAnimation && (
         <animated.div
-          className="pointer-events-none fixed z-[60] overflow-hidden shadow-2xl"
+          className="pointer-events-none fixed z-[60] overflow-hidden shadow-2xl will-change-transform"
           style={{
             left: animationSpring.x,
             top: animationSpring.y,
