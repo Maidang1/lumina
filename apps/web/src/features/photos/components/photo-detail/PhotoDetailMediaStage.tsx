@@ -45,12 +45,11 @@ const PhotoDetailMediaStage: React.FC<PhotoDetailMediaStageProps> = ({
   onLongPressEnd,
   useAnimation,
   animationSpring,
-  imageOpacity,
 }) => {
   return (
     <div
       ref={imageContainerRef}
-      className="relative flex h-full min-w-0 flex-1 items-center justify-center overflow-hidden bg-transparent p-4 md:p-6"
+      className="relative flex h-full min-w-0 flex-1 items-center justify-center overflow-hidden bg-transparent"
       onMouseDown={onLongPressStart}
       onMouseUp={onLongPressEnd}
       onMouseLeave={onLongPressEnd}
@@ -80,19 +79,22 @@ const PhotoDetailMediaStage: React.FC<PhotoDetailMediaStageProps> = ({
         }`}
       >
         <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
-          <animated.img
-            ref={thumbnailImageRef}
-            src={photo.thumbnail}
-            alt={photo.title}
-            className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain"
-            style={{ opacity: imageOpacity.to((value) => 1 - value) }}
-          />
+          <div className="pointer-events-none absolute inset-0">
+            <img
+              ref={thumbnailImageRef}
+              src={photo.thumbnail}
+              alt=""
+              aria-hidden
+              className="h-full w-full scale-110 object-cover blur-2xl"
+            />
+            <div className="absolute inset-0 bg-black/25" />
+          </div>
 
           <animated.img
             src={photo.url}
             alt={photo.title}
             className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain"
-            style={{ opacity: imageOpacity }}
+            style={{ opacity: isOriginalLoaded ? 1 : 0 }}
             onLoad={onOriginalLoaded}
           />
         </div>

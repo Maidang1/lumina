@@ -61,7 +61,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       headers: {
         ...corsHeaders(env),
         Location: buildJsDelivrUrl(env, livePath),
-        "Cache-Control": "public, max-age=300, s-maxage=300",
+        "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
   } catch (error) {

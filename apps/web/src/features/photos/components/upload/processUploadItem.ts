@@ -40,6 +40,7 @@ export interface SubmitUploadItemOptions {
   item: UploadQueueItem;
   metadata: ImageMetadata;
   thumbBlob: Blob;
+  thumbVariantBlobs?: Partial<Record<"400" | "800" | "1600", Blob>>;
   deferFinalize?: boolean;
   onProgress?: (progress: number) => void;
 }
@@ -47,18 +48,27 @@ export interface SubmitUploadItemOptions {
 export interface ParsedUploadItemResult {
   metadata: ImageMetadata;
   thumbBlob: Blob;
+  thumbVariantBlobs?: Partial<Record<"400" | "800" | "1600", Blob>>;
   thumbnailUrl: string;
   processingSummary?: ImageMetadata["processing"]["summary"];
   taskMetrics: ProcessingTaskMetric[];
 }
 
-const resolveRegion = async (exif: ExifSummary | null): Promise<GeoRegion | undefined> => {
+const resolveRegion = async (
+  exif: ExifSummary | null,
+): Promise<GeoRegion | undefined> => {
   if (!exif) return undefined;
-  if (typeof exif.GPSLatitude !== "number" || typeof exif.GPSLongitude !== "number") {
+  if (
+    typeof exif.GPSLatitude !== "number" ||
+    typeof exif.GPSLongitude !== "number"
+  ) {
     return undefined;
   }
 
-  const region = await reverseGeocodeToRegion(exif.GPSLatitude, exif.GPSLongitude);
+  const region = await reverseGeocodeToRegion(
+    exif.GPSLatitude,
+    exif.GPSLongitude,
+  );
   return {
     country: region.country,
     province: region.province,
@@ -102,6 +112,7 @@ export const submitUploadItem = async ({
   item,
   metadata,
   thumbBlob,
+  thumbVariantBlobs,
   deferFinalize,
   onProgress,
 }: SubmitUploadItemOptions): Promise<UploadResult> => {
@@ -109,10 +120,11 @@ export const submitUploadItem = async ({
     item.file,
     thumbBlob,
     metadata,
+    thumbVariantBlobs,
     item.liveVideoFile,
     item.uploadMode,
     onProgress,
-    { deferFinalize }
+    { deferFinalize },
   );
 };
 
@@ -136,7 +148,8 @@ export const processUploadItem = async ({
     ...(descriptionResult.description !== undefined
       ? { description: descriptionResult.description }
       : {}),
-    ...(descriptionResult.category !== undefined && descriptionResult.category.trim() !== ""
+    ...(descriptionResult.category !== undefined &&
+    descriptionResult.category.trim() !== ""
       ? { category: descriptionResult.category.trim() }
       : {}),
   };
@@ -147,6 +160,7 @@ export const processUploadItem = async ({
     item,
     metadata: nextMetadata,
     thumbBlob: parsed.thumbBlob,
+    thumbVariantBlobs: parsed.thumbVariantBlobs,
     onProgress: (progress) => updateItem({ progress }),
   });
 

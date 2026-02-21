@@ -14,6 +14,7 @@ export interface UploadPipelineInput {
 export interface UploadPipelineOutput {
   metadata: ImageMetadata;
   thumb: Uint8Array;
+  thumbVariants?: Partial<Record<"400" | "800" | "1600", Uint8Array>>;
 }
 
 export interface NodePipelineOptions {

@@ -7,6 +7,17 @@ export interface GeoPoint {
   coordinates: { lat: number; lng: number } | null;
   regionFromMetadata: RegionInfo | null;
   monthKey: string;
+  capturedAt: string | null;
+  capturedAtMs: number | null;
+}
+
+export interface GeoTrackPoint {
+  key: string;
+  lat: number;
+  lng: number;
+  capturedAt: string | null;
+  capturedAtMs: number | null;
+  title: string;
 }
 
 export const UNKNOWN_REGION: RegionInfo = {
@@ -27,7 +38,9 @@ const parseCoordinate = (value: unknown): number | null => {
   return null;
 };
 
-const getPhotoCoordinates = (photo: Photo): { lat: number; lng: number } | null => {
+const getPhotoCoordinates = (
+  photo: Photo,
+): { lat: number; lng: number } | null => {
   const exif = (photo.metadata?.exif ?? {}) as Record<string, unknown>;
   const lat = parseCoordinate(exif.GPSLatitude);
   const lng = parseCoordinate(exif.GPSLongitude);
@@ -56,6 +69,7 @@ export const buildGeoPoints = (photos: Photo[]): GeoPoint[] => {
       if (!coordinates && !regionFromMetadata) return null;
 
       const date = new Date(photo.exif.date);
+      const capturedAtMs = Number.isNaN(date.getTime()) ? null : date.getTime();
       const monthKey = Number.isNaN(date.getTime())
         ? "Unknown Time"
         : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -66,6 +80,8 @@ export const buildGeoPoints = (photos: Photo[]): GeoPoint[] => {
         coordinates,
         regionFromMetadata,
         monthKey,
+        capturedAt: capturedAtMs !== null ? date.toISOString() : null,
+        capturedAtMs,
       };
     })
     .filter((point): point is GeoPoint => point !== null);
@@ -81,12 +97,13 @@ export const buildMonthBuckets = (points: GeoPoint[]): [string, number][] => {
 
 export const buildProvinceAggregates = (
   points: GeoPoint[],
-  regionByPointKey: Record<string, RegionInfo>
+  regionByPointKey: Record<string, RegionInfo>,
 ): RegionAggregate[] => {
   const grouped = new Map<string, RegionAggregate>();
 
   for (const point of points) {
-    const region = point.regionFromMetadata ?? regionByPointKey[point.key] ?? UNKNOWN_REGION;
+    const region =
+      point.regionFromMetadata ?? regionByPointKey[point.key] ?? UNKNOWN_REGION;
     const provinceKey = `CN|${region.province}`;
 
     const existing = grouped.get(provinceKey);
@@ -111,7 +128,10 @@ export const buildProvinceAggregates = (
 
     existing.count += 1;
     if (!existing.representative && point.coordinates) {
-      existing.representative = { lat: point.coordinates.lat, lng: point.coordinates.lng };
+      existing.representative = {
+        lat: point.coordinates.lat,
+        lng: point.coordinates.lng,
+      };
     }
     if (existing.photos.length < 10) {
       existing.photos.push(point.photo);
@@ -129,9 +149,75 @@ export const getIntensity = (count: number, maxCount: number): 1 | 2 | 3 => {
   return 1;
 };
 
-export const getTimeRangeLabel = (activeMonth: string, monthBuckets: [string, number][]): string => {
+export const getTimeRangeLabel = (
+  activeMonth: string,
+  monthBuckets: [string, number][],
+): string => {
   if (activeMonth !== "all") return activeMonth;
   if (monthBuckets.length === 0) return "Unknown Time";
   const sorted = [...monthBuckets].sort((a, b) => a[0].localeCompare(b[0]));
   return `${sorted[0][0]} - ${sorted[sorted.length - 1][0]}`;
+};
+
+export const buildTimeSortedTrack = (points: GeoPoint[]): GeoTrackPoint[] => {
+  return points
+    .filter(
+      (
+        point,
+      ): point is GeoPoint & { coordinates: { lat: number; lng: number } } =>
+        point.coordinates !== null,
+    )
+    .map((point) => ({
+      key: point.key,
+      lat: point.coordinates.lat,
+      lng: point.coordinates.lng,
+      capturedAt: point.capturedAt,
+      capturedAtMs: point.capturedAtMs,
+      title: point.photo.filename,
+    }))
+    .sort((a, b) => {
+      if (a.capturedAtMs !== null && b.capturedAtMs !== null) {
+        return a.capturedAtMs - b.capturedAtMs;
+      }
+      if (a.capturedAtMs !== null) return -1;
+      if (b.capturedAtMs !== null) return 1;
+      return a.key.localeCompare(b.key);
+    });
+};
+
+const escapeXml = (value: string): string =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&apos;");
+
+export const createRouteGpx = (
+  trackPoints: GeoTrackPoint[],
+  trackName: string,
+): string => {
+  const safeTrackName = escapeXml(trackName || "Lumina Route");
+  const trkptLines = trackPoints
+    .map((point) => {
+      const timeLine = point.capturedAt
+        ? `<time>${point.capturedAt}</time>`
+        : "";
+      const nameLine = `<name>${escapeXml(point.title || point.key)}</name>`;
+      return `<trkpt lat="${point.lat.toFixed(6)}" lon="${point.lng.toFixed(6)}">${nameLine}${timeLine}</trkpt>`;
+    })
+    .join("");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Lumina" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>${safeTrackName}</name>
+  </metadata>
+  <trk>
+    <name>${safeTrackName}</name>
+    <trkseg>
+      ${trkptLines}
+    </trkseg>
+  </trk>
+</gpx>`;
 };

@@ -19,6 +19,10 @@ export interface ThumbMeta extends FileMeta {
   height: number;
 }
 
+export interface ThumbVariantMeta extends ThumbMeta {
+  size: 400 | 800 | 1600;
+}
+
 export interface ExifSummary {
   Make?: string;
   Model?: string;
@@ -62,6 +66,7 @@ export interface DerivedData {
 export interface ImageMetadata {
   schema_version: "1.0" | "1.1" | "1.2" | "1.3";
   image_id: string;
+  thumbhash?: string;
   original_filename?: string;
   description?: string;
   category?: string;
@@ -72,6 +77,7 @@ export interface ImageMetadata {
   files: {
     original: FileMeta;
     thumb: ThumbMeta;
+    thumb_variants?: Partial<Record<"400" | "800" | "1600", ThumbVariantMeta>>;
     live_video?: FileMeta;
   };
   live_photo?: {

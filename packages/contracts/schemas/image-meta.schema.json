@@ -4,17 +4,28 @@
   "title": "Image Metadata",
   "description": "Metadata schema for uploaded images in Lumina",
   "type": "object",
-  "required": ["schema_version", "image_id", "timestamps", "files", "privacy", "derived"],
+  "required": [
+    "schema_version",
+    "image_id",
+    "timestamps",
+    "files",
+    "privacy",
+    "derived"
+  ],
   "properties": {
     "schema_version": {
       "type": "string",
-      "enum": ["1.0", "1.1", "1.2"],
+      "enum": ["1.0", "1.1", "1.2", "1.3"],
       "description": "Schema version for future compatibility"
     },
     "image_id": {
       "type": "string",
       "pattern": "^sha256:[a-f0-9]{64}$",
       "description": "Content-addressable ID based on SHA-256 hash"
+    },
+    "thumbhash": {
+      "type": "string",
+      "description": "Base64-encoded ThumbHash for lightweight visual placeholder"
     },
     "timestamps": {
       "type": "object",
@@ -41,6 +52,20 @@
         },
         "thumb": {
           "$ref": "#/$defs/thumbMeta"
+        },
+        "thumb_variants": {
+          "type": "object",
+          "properties": {
+            "400": {
+              "$ref": "#/$defs/thumbVariantMeta"
+            },
+            "800": {
+              "$ref": "#/$defs/thumbVariantMeta"
+            },
+            "1600": {
+              "$ref": "#/$defs/thumbVariantMeta"
+            }
+          }
         },
         "live_video": {
           "$ref": "#/$defs/fileMeta"
@@ -292,6 +317,23 @@
           "minimum": 1
         }
       }
+    },
+    "thumbVariantMeta": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/thumbMeta"
+        },
+        {
+          "type": "object",
+          "required": ["size"],
+          "properties": {
+            "size": {
+              "type": "integer",
+              "enum": [400, 800, 1600]
+            }
+          }
+        }
+      ]
     }
   }
 }

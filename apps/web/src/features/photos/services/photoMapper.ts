@@ -50,12 +50,33 @@ function formatShutter(exposureTime?: number): string {
   return `1/${denominator}s`;
 }
 
+function buildThumbSrcSet(
+  imageId: string,
+  version: string,
+  hasVariants: boolean,
+): string | undefined {
+  if (!hasVariants) {
+    return undefined;
+  }
+  const encodedId = encodeURIComponent(imageId);
+  return [
+    `/api/v1/images/${encodedId}/thumb?size=400&v=${version} 400w`,
+    `/api/v1/images/${encodedId}/thumb?size=800&v=${version} 800w`,
+    `/api/v1/images/${encodedId}/thumb?size=1600&v=${version} 1600w`,
+  ].join(", ");
+}
+
 export function metadataToPhoto(metadata: ImageMetadata): Photo {
   const date = metadata.exif?.DateTimeOriginal
     ? metadata.exif.DateTimeOriginal.split("T")[0]
     : new Date(metadata.timestamps.created_at).toISOString().split("T")[0];
 
   const version = encodeURIComponent(metadata.timestamps.created_at);
+  const hasThumbVariants = Boolean(
+    metadata.files.thumb_variants?.["400"] ||
+    metadata.files.thumb_variants?.["800"] ||
+    metadata.files.thumb_variants?.["1600"],
+  );
   const isLive = Boolean(metadata.files.live_video?.path);
   const liveUrl = metadata.files.live_video?.path
     ? `/api/v1/images/${encodeURIComponent(metadata.image_id)}/live?v=${version}`
@@ -64,6 +85,12 @@ export function metadataToPhoto(metadata: ImageMetadata): Photo {
     id: metadata.image_id,
     url: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/original?v=${version}`,
     thumbnail: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/thumb?v=${version}`,
+    thumbnailSrcSet: buildThumbSrcSet(
+      metadata.image_id,
+      version,
+      hasThumbVariants,
+    ),
+    thumbnailSizes: "(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw",
     isLive,
     liveUrl,
     liveMime: metadata.files.live_video?.mime,

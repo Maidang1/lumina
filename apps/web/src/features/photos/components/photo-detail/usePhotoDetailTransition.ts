@@ -137,8 +137,8 @@ export const usePhotoDetailTransition = ({
   );
 
   const canUseMatchedTransition = useMemo(
-    () => Boolean(!prefersReducedMotion && hasMatchingSource && targetRect),
-    [hasMatchingSource, prefersReducedMotion, targetRect]
+    () => false,
+    []
   );
 
   useEffect(() => {

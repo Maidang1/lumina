@@ -7,6 +7,7 @@ import {
   imageIdToMetaPath,
   validateUploadToken,
   mapGitHubErrorToHttp,
+  ifNoneMatchSatisfied,
   jsonResponse,
   errorResponse,
   corsHeaders,
@@ -19,7 +20,11 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return new Response(null, { status: 204, headers: corsHeaders(env) });
   }
 
-  if (request.method !== "GET" && request.method !== "DELETE" && request.method !== "PATCH") {
+  if (
+    request.method !== "GET" &&
+    request.method !== "DELETE" &&
+    request.method !== "PATCH"
+  ) {
     return errorResponse(env, "Method not allowed", 405);
   }
 
@@ -38,15 +43,38 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     try {
       const github = createGitHubClient(env);
       const file = await github.getFile(imageIdToMetaPath(imageId));
+      const etag = `W/"${file.sha}"`;
 
       const content = decodeBase64Utf8(file.content);
       const metadata = JSON.parse(content) as ImageMetadata;
 
-      return jsonResponse(env, metadata);
+      if (ifNoneMatchSatisfied(request, etag)) {
+        return new Response(null, {
+          status: 304,
+          headers: {
+            ...corsHeaders(env),
+            ETag: etag,
+            "Cache-Control": "public, max-age=300, must-revalidate",
+          },
+        });
+      }
+
+      return new Response(JSON.stringify(metadata), {
+        status: 200,
+        headers: {
+          ...corsHeaders(env),
+          "Content-Type": "application/json",
+          ETag: etag,
+          "Cache-Control": "public, max-age=300, must-revalidate",
+        },
+      });
     } catch (error) {
       const mapped = mapGitHubErrorToHttp(env, error);
       if (mapped) return mapped;
-      if (error instanceof Error && error.message.toLowerCase().includes("not found")) {
+      if (
+        error instanceof Error &&
+        error.message.toLowerCase().includes("not found")
+      ) {
         return errorResponse(env, "Image not found", 404);
       }
       return errorResponse(env, "Failed to fetch metadata", 500);
@@ -60,11 +88,13 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         return tokenError;
       }
 
-      const body = await request.json() as Record<string, unknown>;
+      const body = (await request.json()) as Record<string, unknown>;
 
       const github = createGitHubClient(env);
       const file = await github.getFile(imageIdToMetaPath(imageId));
-      const metadata = JSON.parse(decodeBase64Utf8(file.content)) as ImageMetadata;
+      const metadata = JSON.parse(
+        decodeBase64Utf8(file.content),
+      ) as ImageMetadata;
 
       if (typeof body.description === "string") {
         metadata.description = body.description;
@@ -91,7 +121,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     } catch (error) {
       const mapped = mapGitHubErrorToHttp(env, error);
       if (mapped) return mapped;
-      if (error instanceof Error && error.message.toLowerCase().includes("not found")) {
+      if (
+        error instanceof Error &&
+        error.message.toLowerCase().includes("not found")
+      ) {
         return errorResponse(env, "Image not found", 404);
       }
       return errorResponse(env, "Failed to update metadata", 500);
@@ -106,14 +139,23 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     const github = createGitHubClient(env);
     const file = await github.getFile(imageIdToMetaPath(imageId));
-    const metadata = JSON.parse(decodeBase64Utf8(file.content)) as ImageMetadata;
+    const metadata = JSON.parse(
+      decodeBase64Utf8(file.content),
+    ) as ImageMetadata;
     const deletedPaths = await github.deleteImageAssets(metadata);
 
-    return jsonResponse(env, { image_id: imageId, deleted_paths: deletedPaths }, 200);
+    return jsonResponse(
+      env,
+      { image_id: imageId, deleted_paths: deletedPaths },
+      200,
+    );
   } catch (error) {
     const mapped = mapGitHubErrorToHttp(env, error);
     if (mapped) return mapped;
-    if (error instanceof Error && error.message.toLowerCase().includes("not found")) {
+    if (
+      error instanceof Error &&
+      error.message.toLowerCase().includes("not found")
+    ) {
       return errorResponse(env, "Image not found", 404);
     }
     return errorResponse(env, "Failed to delete image", 500);
@@ -129,7 +171,9 @@ function isPrivacyInfo(value: unknown): value is ImageMetadata["privacy"] {
   );
 }
 
-function isGeoRegionPayload(value: unknown): value is NonNullable<ImageMetadata["geo"]> {
+function isGeoRegionPayload(
+  value: unknown,
+): value is NonNullable<ImageMetadata["geo"]> {
   if (!value || typeof value !== "object") return false;
   const casted = value as Record<string, unknown>;
   if (!casted.region || typeof casted.region !== "object") return false;
@@ -145,12 +189,17 @@ function isGeoRegionPayload(value: unknown): value is NonNullable<ImageMetadata[
   );
 }
 
-function isProcessingPayload(value: unknown): value is NonNullable<ImageMetadata["processing"]> {
+function isProcessingPayload(
+  value: unknown,
+): value is NonNullable<ImageMetadata["processing"]> {
   if (!value || typeof value !== "object") return false;
   const casted = value as Record<string, unknown>;
   if (!casted.summary || typeof casted.summary !== "object") return false;
   const summary = casted.summary as Record<string, unknown>;
-  if (typeof summary.total_ms !== "number" || typeof summary.concurrency_profile !== "string") {
+  if (
+    typeof summary.total_ms !== "number" ||
+    typeof summary.concurrency_profile !== "string"
+  ) {
     return false;
   }
   if (!Array.isArray(summary.stage_durations)) {
@@ -159,6 +208,9 @@ function isProcessingPayload(value: unknown): value is NonNullable<ImageMetadata
   return summary.stage_durations.every((item) => {
     if (!item || typeof item !== "object") return false;
     const stage = item as Record<string, unknown>;
-    return typeof stage.stage_id === "string" && typeof stage.duration_ms === "number";
+    return (
+      typeof stage.stage_id === "string" &&
+      typeof stage.duration_ms === "number"
+    );
   });
 }

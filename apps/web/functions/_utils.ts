@@ -29,6 +29,8 @@ export {
 export {
   corsHeaders,
   buildJsDelivrUrl,
+  buildWeakEtagFromString,
+  ifNoneMatchSatisfied,
   errorResponse,
   jsonResponse,
   mapGitHubErrorToHttp,

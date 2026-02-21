@@ -31,6 +31,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return errorResponse(env, "Invalid image_id encoding", 400);
   }
   const type = params.type as string;
+  const sizeParam = new URL(request.url).searchParams.get("size");
 
   if (!isValidImageId(imageId)) {
     return errorResponse(env, "Invalid image_id", 400);
@@ -60,10 +61,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     const metadata = JSON.parse(
       decodeBase64Utf8(metaFile.content),
     ) as ImageMetadata;
+    const isVariantSize =
+      sizeParam === "400" || sizeParam === "800" || sizeParam === "1600";
     const declaredPath =
       type === "original"
         ? metadata.files.original.path
-        : metadata.files.thumb.path;
+        : isVariantSize
+          ? metadata.files.thumb_variants?.[sizeParam]?.path ||
+            metadata.files.thumb.path
+          : metadata.files.thumb.path;
     let targetPath: string | undefined;
 
     if (declaredPath) {
@@ -77,7 +83,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       const fallbackPath = files.find((f) =>
         type === "original"
           ? f.name.startsWith("original.")
-          : f.name === "thumb.webp",
+          : isVariantSize
+            ? f.name === `thumb-${sizeParam}.webp`
+            : f.name === "thumb.webp",
       )?.path;
 
       if (!fallbackPath) {
@@ -96,7 +104,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       headers: {
         ...corsHeaders(env),
         Location: buildJsDelivrUrl(env, targetPath),
-        "Cache-Control": "public, max-age=300, s-maxage=300",
+        "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
   } catch (error) {

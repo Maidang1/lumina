@@ -104,3 +104,41 @@ export function buildJsDelivrUrl(env: Env, path: string): string {
   const branch = encodeURIComponent(env.GH_BRANCH);
   return `https://cdn.jsdelivr.net/gh/${owner}/${repo}@${branch}/${encodedPath}`;
 }
+
+export async function buildWeakEtagFromString(
+  content: string,
+): Promise<string> {
+  if (typeof crypto !== "undefined" && crypto.subtle) {
+    const bytes = new TextEncoder().encode(content);
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    const hash = Array.from(new Uint8Array(digest))
+      .slice(0, 16)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    return `W/"${hash}"`;
+  }
+
+  let hash = 5381;
+  for (let i = 0; i < content.length; i += 1) {
+    hash = (hash * 33) ^ content.charCodeAt(i);
+  }
+  return `W/"${(hash >>> 0).toString(16)}"`;
+}
+
+export function ifNoneMatchSatisfied(request: Request, etag: string): boolean {
+  const ifNoneMatch = request.headers.get("if-none-match");
+  if (!ifNoneMatch) {
+    return false;
+  }
+  if (ifNoneMatch.trim() === "*") {
+    return true;
+  }
+
+  const candidates = ifNoneMatch
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => value.replace(/^W\//, ""));
+  const normalized = etag.replace(/^W\//, "");
+  return candidates.includes(normalized);
+}

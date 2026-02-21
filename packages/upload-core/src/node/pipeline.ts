@@ -3,7 +3,12 @@ import exifr from "exifr";
 import sharp from "sharp";
 import Tesseract from "tesseract.js";
 import type { GeoRegion, ImageMetadata } from "@luminafe/contracts";
-import type { NodePipelineOptions, UploadPipelineInput, UploadPipelineOutput } from "../types";
+import { rgbaToThumbHash } from "thumbhash";
+import type {
+  NodePipelineOptions,
+  UploadPipelineInput,
+  UploadPipelineOutput,
+} from "../types";
 
 const DEFAULTS: Required<NodePipelineOptions> = {
   ocrLang: "eng+chi_sim",
@@ -12,6 +17,8 @@ const DEFAULTS: Required<NodePipelineOptions> = {
   blurThreshold: 100,
   resolveRegion: true,
 };
+
+const THUMB_VARIANT_SIZES: Array<400 | 800 | 1600> = [400, 800, 1600];
 
 function sha256(bytes: Uint8Array): string {
   return `sha256:${crypto.createHash("sha256").update(bytes).digest("hex")}`;
@@ -29,7 +36,27 @@ function pickMimeExt(mime: string): string {
   return map[mime] || "bin";
 }
 
-async function resolveRegion(lat: number, lng: number): Promise<GeoRegion | undefined> {
+function buildThumbhashFromRgba(
+  width: number,
+  height: number,
+  rgba: Uint8Array,
+): string | undefined {
+  try {
+    const hash = rgbaToThumbHash(width, height, rgba);
+    let binary = "";
+    for (let i = 0; i < hash.length; i += 1) {
+      binary += String.fromCharCode(hash[i]);
+    }
+    return btoa(binary);
+  } catch {
+    return undefined;
+  }
+}
+
+async function resolveRegion(
+  lat: number,
+  lng: number,
+): Promise<GeoRegion | undefined> {
   const url = new URL("https://nominatim.openstreetmap.org/reverse");
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("lat", String(lat));
@@ -46,11 +73,17 @@ async function resolveRegion(lat: number, lng: number): Promise<GeoRegion | unde
 
   if (!response.ok) return undefined;
   const payload = (await response.json()) as {
-    address?: { country?: string; state?: string; city?: string; municipality?: string };
+    address?: {
+      country?: string;
+      state?: string;
+      city?: string;
+      municipality?: string;
+    };
   };
 
   const province = payload.address?.state || "未知省份";
-  const city = payload.address?.city || payload.address?.municipality || province;
+  const city =
+    payload.address?.city || payload.address?.municipality || province;
 
   return {
     country: payload.address?.country || "中国",
@@ -65,7 +98,7 @@ async function resolveRegion(lat: number, lng: number): Promise<GeoRegion | unde
 
 export async function processForUpload(
   input: UploadPipelineInput,
-  options: NodePipelineOptions = {}
+  options: NodePipelineOptions = {},
 ): Promise<UploadPipelineOutput> {
   const opts = { ...DEFAULTS, ...options };
   const startedAt = Date.now();
@@ -81,11 +114,45 @@ export async function processForUpload(
 
   const thumbBuffer = await originalImage
     .clone()
-    .resize({ width: opts.maxThumbSize, height: opts.maxThumbSize, fit: "inside", withoutEnlargement: true })
+    .resize({
+      width: opts.maxThumbSize,
+      height: opts.maxThumbSize,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
     .webp({ quality: opts.thumbQuality })
     .toBuffer();
+  const thumbVariants: Partial<Record<"400" | "800" | "1600", Uint8Array>> = {};
+  const thumbVariantMetas: NonNullable<
+    ImageMetadata["files"]["thumb_variants"]
+  > = {};
+  for (const size of THUMB_VARIANT_SIZES) {
+    const variantBuffer = await originalImage
+      .clone()
+      .resize({
+        width: size,
+        height: size,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: opts.thumbQuality })
+      .toBuffer();
+    const variantMeta = await sharp(variantBuffer).metadata();
+    thumbVariants[String(size) as "400" | "800" | "1600"] = new Uint8Array(
+      variantBuffer,
+    );
+    thumbVariantMetas[String(size) as "400" | "800" | "1600"] = {
+      path: "",
+      mime: "image/webp",
+      bytes: variantBuffer.byteLength,
+      width: variantMeta.width || 1,
+      height: variantMeta.height || 1,
+      size,
+    };
+  }
 
   const thumbMeta = await sharp(thumbBuffer).metadata();
+  const thumbRaw = await sharp(thumbBuffer).ensureAlpha().raw().toBuffer();
   const stats = await sharp(thumbBuffer).stats();
   const dominant = stats.dominant;
   const dominantColor = `#${dominant.r.toString(16).padStart(2, "0")}${dominant.g
@@ -100,22 +167,30 @@ export async function processForUpload(
     translateValues: true,
     mergeOutput: true,
   })) as Record<string, unknown> | null;
-  const gpsRaw = (await exifr.gps(Buffer.from(input.bytes)).catch(() => null)) as
-    | { latitude?: number; longitude?: number }
-    | null;
+  const gpsRaw = (await exifr
+    .gps(Buffer.from(input.bytes))
+    .catch(() => null)) as { latitude?: number; longitude?: number } | null;
 
   const exifSummary: ImageMetadata["exif"] = exifRaw
     ? {
         ...(typeof exifRaw.Make === "string" ? { Make: exifRaw.Make } : {}),
         ...(typeof exifRaw.Model === "string" ? { Model: exifRaw.Model } : {}),
-        ...(typeof exifRaw.LensModel === "string" ? { LensModel: exifRaw.LensModel } : {}),
+        ...(typeof exifRaw.LensModel === "string"
+          ? { LensModel: exifRaw.LensModel }
+          : {}),
         ...(exifRaw.DateTimeOriginal instanceof Date
           ? { DateTimeOriginal: exifRaw.DateTimeOriginal.toISOString() }
           : {}),
-        ...(typeof exifRaw.ExposureTime === "number" ? { ExposureTime: exifRaw.ExposureTime } : {}),
-        ...(typeof exifRaw.FNumber === "number" ? { FNumber: exifRaw.FNumber } : {}),
+        ...(typeof exifRaw.ExposureTime === "number"
+          ? { ExposureTime: exifRaw.ExposureTime }
+          : {}),
+        ...(typeof exifRaw.FNumber === "number"
+          ? { FNumber: exifRaw.FNumber }
+          : {}),
         ...(typeof exifRaw.ISO === "number" ? { ISO: exifRaw.ISO } : {}),
-        ...(typeof exifRaw.FocalLength === "number" ? { FocalLength: exifRaw.FocalLength } : {}),
+        ...(typeof exifRaw.FocalLength === "number"
+          ? { FocalLength: exifRaw.FocalLength }
+          : {}),
       }
     : undefined;
 
@@ -126,16 +201,28 @@ export async function processForUpload(
     exifSummary.GPSLongitude = gpsRaw.longitude;
   }
 
-  let ocr: ImageMetadata["derived"]["ocr"] = { status: "failed", lang: opts.ocrLang };
+  let ocr: ImageMetadata["derived"]["ocr"] = {
+    status: "failed",
+    lang: opts.ocrLang,
+  };
   try {
-    const ocrResult = await Tesseract.recognize(Buffer.from(thumbBuffer), opts.ocrLang);
+    const ocrResult = await Tesseract.recognize(
+      Buffer.from(thumbBuffer),
+      opts.ocrLang,
+    );
     const text = (ocrResult.data.text || "").trim();
-    ocr = { status: text ? "ok" : "skipped", lang: opts.ocrLang, summary: text.slice(0, 2000) };
+    ocr = {
+      status: text ? "ok" : "skipped",
+      lang: opts.ocrLang,
+      summary: text.slice(0, 2000),
+    };
   } catch {
     ocr = { status: "failed", lang: opts.ocrLang };
   }
 
-  const blurScore = Math.round((stats.channels[0]?.stdev || 0) + (stats.channels[1]?.stdev || 0));
+  const blurScore = Math.round(
+    (stats.channels[0]?.stdev || 0) + (stats.channels[1]?.stdev || 0),
+  );
   const isBlurry = blurScore < opts.blurThreshold;
 
   const phashFallback = crypto
@@ -145,13 +232,24 @@ export async function processForUpload(
     .slice(0, 16);
 
   let region: GeoRegion | undefined;
-  if (opts.resolveRegion && gpsRaw?.latitude !== undefined && gpsRaw?.longitude !== undefined) {
-    region = await resolveRegion(gpsRaw.latitude, gpsRaw.longitude).catch(() => undefined);
+  if (
+    opts.resolveRegion &&
+    gpsRaw?.latitude !== undefined &&
+    gpsRaw?.longitude !== undefined
+  ) {
+    region = await resolveRegion(gpsRaw.latitude, gpsRaw.longitude).catch(
+      () => undefined,
+    );
   }
 
   const metadata: ImageMetadata = {
-    schema_version: "1.2",
+    schema_version: "1.3",
     image_id: imageId,
+    thumbhash: buildThumbhashFromRgba(
+      thumbMeta.width || 1,
+      thumbMeta.height || 1,
+      thumbRaw,
+    ),
     original_filename: input.fileName,
     timestamps: {
       created_at: new Date().toISOString(),
@@ -170,6 +268,7 @@ export async function processForUpload(
         width: thumbMeta.width || 0,
         height: thumbMeta.height || 0,
       },
+      thumb_variants: thumbVariantMetas,
       ...(input.liveVideo
         ? {
             live_video: {
@@ -198,8 +297,10 @@ export async function processForUpload(
         }
       : undefined,
     privacy: {
-      original_contains_gps: gpsRaw?.latitude !== undefined && gpsRaw?.longitude !== undefined,
-      exif_gps_removed: gpsRaw?.latitude !== undefined && gpsRaw?.longitude !== undefined,
+      original_contains_gps:
+        gpsRaw?.latitude !== undefined && gpsRaw?.longitude !== undefined,
+      exif_gps_removed:
+        gpsRaw?.latitude !== undefined && gpsRaw?.longitude !== undefined,
     },
     ...(region ? { geo: { region } } : {}),
     derived: {
@@ -237,5 +338,6 @@ export async function processForUpload(
   return {
     metadata,
     thumb: new Uint8Array(thumbBuffer),
+    thumbVariants,
   };
 }

@@ -1,24 +1,42 @@
-import { MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DEFAULT_UPLOAD_CONFIG, UploadQueueItem } from "@/features/photos/types";
+import {
+  MutableRefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  DEFAULT_UPLOAD_CONFIG,
+  UploadQueueItem,
+} from "@/features/photos/types";
 import { createInitialStages } from "@/features/photos/components/upload/constants";
 import { UploadQueueStats } from "./types";
 
-const makeQueueId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const makeQueueId = (): string =>
+  `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 interface UseUploadQueueStoreResult {
   queue: UploadQueueItem[];
   queueRef: MutableRefObject<UploadQueueItem[]>;
   thumbBlobRef: MutableRefObject<Map<string, Blob>>;
+  thumbVariantBlobRef: MutableRefObject<
+    Map<string, Partial<Record<"400" | "800" | "1600", Blob>>>
+  >;
   updateItemById: (id: string, updates: Partial<UploadQueueItem>) => void;
   updateStageById: (
     id: string,
     stageId: string,
-    updates: Partial<UploadQueueItem["stages"][number]>
+    updates: Partial<UploadQueueItem["stages"][number]>,
   ) => void;
   enqueueStaticFiles: (files: FileList | File[]) => void;
   removeItem: (id: string) => void;
   retryItem: (id: string) => void;
-  applyDraftField: (id: string, field: "description" | "original_filename" | "category", value: string) => void;
+  applyDraftField: (
+    id: string,
+    field: "description" | "original_filename" | "category",
+    value: string,
+  ) => void;
   clearResources: () => void;
   stats: UploadQueueStats;
 }
@@ -27,35 +45,49 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
   const [queue, setQueue] = useState<UploadQueueItem[]>([]);
   const queueRef = useRef<UploadQueueItem[]>([]);
   const thumbBlobRef = useRef<Map<string, Blob>>(new Map());
+  const thumbVariantBlobRef = useRef<
+    Map<string, Partial<Record<"400" | "800" | "1600", Blob>>>
+  >(new Map());
 
   useEffect(() => {
     queueRef.current = queue;
   }, [queue]);
 
-  const updateItemById = useCallback((id: string, updates: Partial<UploadQueueItem>) => {
-    setQueue((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
-  }, []);
+  const updateItemById = useCallback(
+    (id: string, updates: Partial<UploadQueueItem>) => {
+      setQueue((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+      );
+    },
+    [],
+  );
 
   const updateStageById = useCallback(
-    (id: string, stageId: string, updates: Partial<UploadQueueItem["stages"][number]>) => {
+    (
+      id: string,
+      stageId: string,
+      updates: Partial<UploadQueueItem["stages"][number]>,
+    ) => {
       setQueue((prev) =>
         prev.map((item) => {
           if (item.id !== id) return item;
           return {
             ...item,
             stages: item.stages.map((stage) =>
-              stage.id === stageId ? { ...stage, ...updates } : stage
+              stage.id === stageId ? { ...stage, ...updates } : stage,
             ),
           };
-        })
+        }),
       );
     },
-    []
+    [],
   );
 
   const enqueueStaticFiles = useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files).filter(
-      (file) => file.type.startsWith("image/") && file.size <= DEFAULT_UPLOAD_CONFIG.maxFileSize
+      (file) =>
+        file.type.startsWith("image/") &&
+        file.size <= DEFAULT_UPLOAD_CONFIG.maxFileSize,
     );
 
     const newItems: UploadQueueItem[] = fileArray.map((file) => ({
@@ -77,6 +109,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
         URL.revokeObjectURL(item.thumbnail);
       }
       thumbBlobRef.current.delete(id);
+      thumbVariantBlobRef.current.delete(id);
       return prev.filter((entry) => entry.id !== id);
     });
   }, []);
@@ -112,16 +145,17 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
           workerSlot: undefined,
           stages: createInitialStages(),
         };
-      })
+      }),
     );
     thumbBlobRef.current.delete(id);
+    thumbVariantBlobRef.current.delete(id);
   }, []);
 
   const applyDraftField = useCallback(
     (
       id: string,
       field: "description" | "original_filename" | "category",
-      value: string
+      value: string,
     ) => {
       setQueue((prev) =>
         prev.map((item) => {
@@ -129,19 +163,21 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
           return {
             ...item,
             editDraft: {
-              description: item.editDraft?.description ?? item.metadata?.description ?? "",
+              description:
+                item.editDraft?.description ?? item.metadata?.description ?? "",
               original_filename:
                 item.editDraft?.original_filename ??
                 item.metadata?.original_filename ??
                 item.file.name,
-              category: item.editDraft?.category ?? item.metadata?.category ?? "",
+              category:
+                item.editDraft?.category ?? item.metadata?.category ?? "",
               [field]: value,
             },
           };
-        })
+        }),
       );
     },
-    []
+    [],
   );
 
   const clearResources = useCallback(() => {
@@ -151,6 +187,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
       }
     });
     thumbBlobRef.current.clear();
+    thumbVariantBlobRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -161,16 +198,32 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
 
   const stats = useMemo<UploadQueueStats>(() => {
     const parsedCount = queue.filter(
-      (item) => item.status === "parsed" || item.status === "ready_to_upload"
+      (item) => item.status === "parsed" || item.status === "ready_to_upload",
     ).length;
-    const parseFailedCount = queue.filter((item) => item.status === "parse_failed").length;
-    const parseActiveCount = queue.filter((item) => item.status === "parsing").length;
-    const uploadActiveCount = queue.filter((item) => item.status === "uploading").length;
-    const uploadCompletedCount = queue.filter((item) => item.status === "upload_completed").length;
-    const uploadFailedCount = queue.filter((item) => item.status === "upload_failed").length;
-    const totalBytes = queue.reduce((sum, item) => sum + item.file.size + (item.liveVideoFile?.size || 0), 0);
+    const parseFailedCount = queue.filter(
+      (item) => item.status === "parse_failed",
+    ).length;
+    const parseActiveCount = queue.filter(
+      (item) => item.status === "parsing",
+    ).length;
+    const uploadActiveCount = queue.filter(
+      (item) => item.status === "uploading",
+    ).length;
+    const uploadCompletedCount = queue.filter(
+      (item) => item.status === "upload_completed",
+    ).length;
+    const uploadFailedCount = queue.filter(
+      (item) => item.status === "upload_failed",
+    ).length;
+    const totalBytes = queue.reduce(
+      (sum, item) => sum + item.file.size + (item.liveVideoFile?.size || 0),
+      0,
+    );
     const isParseDone =
-      queue.length > 0 && queue.every((item) => item.status !== "queued_parse" && item.status !== "parsing");
+      queue.length > 0 &&
+      queue.every(
+        (item) => item.status !== "queued_parse" && item.status !== "parsing",
+      );
 
     return {
       parsedCount,
@@ -188,6 +241,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
     queue,
     queueRef,
     thumbBlobRef,
+    thumbVariantBlobRef,
     updateItemById,
     updateStageById,
     enqueueStaticFiles,

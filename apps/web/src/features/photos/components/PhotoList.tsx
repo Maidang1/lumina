@@ -31,15 +31,13 @@ const PhotoList: React.FC<PhotoListProps> = ({
       return;
     }
 
-    // Calculate center of screen for transition source as fallback
-    // In list view, precise transition is less critical or harder to calculate per row image
     if (onPhotoClick) {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       onPhotoClick(photo, {
         photoId: photo.id,
-        left: rect.left + 8, // Approx image position
+        left: rect.left + 8,
         top: rect.top + 8,
-        width: 48, // Approx image size
+        width: 48,
         height: 48,
         borderRadius: 4,
       });
@@ -77,6 +75,8 @@ const PhotoList: React.FC<PhotoListProps> = ({
                 <div className="relative h-12 w-12 overflow-hidden rounded bg-zinc-800">
                   <img
                     src={photo.thumbnail}
+                    srcSet={photo.thumbnailSrcSet}
+                    sizes={photo.thumbnailSizes}
                     alt={photo.title}
                     className="h-full w-full object-cover"
                     loading="lazy"

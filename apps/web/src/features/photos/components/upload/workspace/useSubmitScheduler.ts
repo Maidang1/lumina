@@ -9,6 +9,9 @@ interface UseSubmitSchedulerParams {
   queue: UploadQueueItem[];
   updateItemById: (id: string, updates: Partial<UploadQueueItem>) => void;
   thumbBlobRef: MutableRefObject<Map<string, Blob>>;
+  thumbVariantBlobRef: MutableRefObject<
+    Map<string, Partial<Record<"400" | "800" | "1600", Blob>>>
+  >;
   onUploadCompleted?: (successCount: number) => void;
 }
 
@@ -23,15 +26,20 @@ export const useSubmitScheduler = ({
   queue,
   updateItemById,
   thumbBlobRef,
+  thumbVariantBlobRef,
   onUploadCompleted,
 }: UseSubmitSchedulerParams): UseSubmitSchedulerResult => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const doSubmitItem = useCallback(
     async (
-      item: UploadQueueItem
-    ): Promise<{ ok: true; queueId: string; metadata: UploadQueueItem["metadata"] } | { ok: false }> => {
+      item: UploadQueueItem,
+    ): Promise<
+      | { ok: true; queueId: string; metadata: UploadQueueItem["metadata"] }
+      | { ok: false }
+    > => {
       const thumbBlob = thumbBlobRef.current.get(item.id);
+      const thumbVariantBlobs = thumbVariantBlobRef.current.get(item.id);
       if (!item.metadata || !thumbBlob) {
         updateItemById(item.id, {
           status: "upload_failed",
@@ -49,7 +57,9 @@ export const useSubmitScheduler = ({
         ...item.metadata,
         ...(description !== undefined ? { description } : { description: "" }),
         ...(filenameDraft ? { original_filename: filenameDraft } : {}),
-        ...(categoryDraft !== undefined ? { category: categoryDraft } : { category: "" }),
+        ...(categoryDraft !== undefined
+          ? { category: categoryDraft }
+          : { category: "" }),
       };
 
       updateItemById(item.id, {
@@ -65,6 +75,7 @@ export const useSubmitScheduler = ({
           item,
           metadata: finalMetadata,
           thumbBlob,
+          thumbVariantBlobs,
           deferFinalize: true,
           onProgress: (progress) => updateItemById(item.id, { progress }),
         });
@@ -87,12 +98,15 @@ export const useSubmitScheduler = ({
         return { ok: false };
       }
     },
-    [thumbBlobRef, updateItemById]
+    [thumbBlobRef, thumbVariantBlobRef, updateItemById],
   );
 
   const handleSubmitAll = useCallback(async (): Promise<void> => {
     const candidates = queue.filter(
-      (item) => item.status === "parsed" || item.status === "ready_to_upload" || item.status === "upload_failed"
+      (item) =>
+        item.status === "parsed" ||
+        item.status === "ready_to_upload" ||
+        item.status === "upload_failed",
     );
 
     if (candidates.length === 0) {
@@ -101,7 +115,10 @@ export const useSubmitScheduler = ({
 
     setIsSubmitting(true);
     let nextIndex = 0;
-    const finalizeCandidates: Array<{ queueId: string; metadata: UploadQueueItem["metadata"] }> = [];
+    const finalizeCandidates: Array<{
+      queueId: string;
+      metadata: UploadQueueItem["metadata"];
+    }> = [];
 
     const workerTotal = Math.min(SUBMIT_WORKERS, candidates.length);
     const workers = Array.from({ length: workerTotal }, async () => {
@@ -127,17 +144,22 @@ export const useSubmitScheduler = ({
     if (finalizeCandidates.length > 0) {
       try {
         const metadatas = finalizeCandidates.flatMap((entry) =>
-          entry.metadata ? [entry.metadata] : []
+          entry.metadata ? [entry.metadata] : [],
         );
-        const finalizeResult = await uploadService.finalizeImageBatch(metadatas);
-        const failedIds = new Set(finalizeResult.failed_items?.map((item) => item.image_id) || []);
+        const finalizeResult =
+          await uploadService.finalizeImageBatch(metadatas);
+        const failedIds = new Set(
+          finalizeResult.failed_items?.map((item) => item.image_id) || [],
+        );
 
         finalizeCandidates.forEach(({ queueId, metadata }) => {
           if (!metadata) {
             return;
           }
           if (failedIds.has(metadata.image_id)) {
-            const failure = finalizeResult.failed_items?.find((item) => item.image_id === metadata.image_id);
+            const failure = finalizeResult.failed_items?.find(
+              (item) => item.image_id === metadata.image_id,
+            );
             updateItemById(queueId, {
               status: "upload_failed",
               uploadError: failure?.reason || "Finalize failed",
@@ -154,7 +176,8 @@ export const useSubmitScheduler = ({
           });
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Batch submit failed";
+        const message =
+          error instanceof Error ? error.message : "Batch submit failed";
         finalizeCandidates.forEach(({ queueId }) => {
           updateItemById(queueId, {
             status: "upload_failed",
@@ -176,9 +199,12 @@ export const useSubmitScheduler = ({
 
   const canSubmit = useMemo(() => {
     const isParseDone =
-      queue.length > 0 && queue.every((item) => item.status !== "queued_parse" && item.status !== "parsing");
+      queue.length > 0 &&
+      queue.every(
+        (item) => item.status !== "queued_parse" && item.status !== "parsing",
+      );
     const parsedCount = queue.filter(
-      (item) => item.status === "parsed" || item.status === "ready_to_upload"
+      (item) => item.status === "parsed" || item.status === "ready_to_upload",
     ).length;
 
     return isParseDone && parsedCount > 0 && !isSubmitting;

@@ -1,7 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { animated, to, useSpring } from "@react-spring/web";
 import { Photo, PhotoOpenTransition } from "@/features/photos/types";
 import { videoLoaderManager } from "@/features/photos/services/videoLoaderManager";
+import { thumbhashToDataUrl } from "@/features/photos/services/thumbhash";
 import { useLivePhotoControls } from "./hooks/useLivePhotoControls";
 
 interface PhotoCardProps {
@@ -34,6 +41,10 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   const [isConvertingVideo, setIsConvertingVideo] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const thumbhashDataUrl = useMemo(
+    () => thumbhashToDataUrl(photo.metadata?.thumbhash),
+    [photo.metadata?.thumbhash],
+  );
 
   const hasVideo = photo.videoSource?.type === "live-photo";
 
@@ -161,6 +172,10 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     };
   }, [stopVideo]);
 
+  useEffect(() => {
+    setIsLoaded(false);
+  }, [photo.id, photo.thumbnail]);
+
   const getTransitionSource = useCallback((): PhotoOpenTransition => {
     const rect = cardRef.current?.getBoundingClientRect();
     if (!rect) {
@@ -282,11 +297,21 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
           ),
         }}
       >
+        {isVisible && thumbhashDataUrl && (
+          <img
+            src={thumbhashDataUrl}
+            alt=""
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-0 h-full w-full scale-105 object-cover blur-sm transition-opacity duration-300 ${isLoaded ? "opacity-0" : "opacity-100"}`}
+          />
+        )}
         {isVisible && (
           <img
             src={photo.thumbnail}
+            srcSet={photo.thumbnailSrcSet}
+            sizes={photo.thumbnailSizes}
             alt={photo.title}
-            className={`h-full w-full object-cover transition-transform duration-500 ease-out ${compact ? "" : "group-hover:scale-[1.03]"}`}
+            className={`h-full w-full object-cover transition-all duration-500 ease-out ${isLoaded ? "opacity-100" : "opacity-0"} ${compact ? "" : "group-hover:scale-[1.03]"}`}
             onLoad={() => setIsLoaded(true)}
           />
         )}

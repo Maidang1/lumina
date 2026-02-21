@@ -32,7 +32,15 @@ interface UploadOptions {
   livePhotoMode: "none" | "pair-by-name";
 }
 
-const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".avif"]);
+const IMAGE_EXTENSIONS = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".heic",
+  ".heif",
+  ".avif",
+]);
 
 async function collectFiles(inputs: string[]): Promise<string[]> {
   const out: string[] = [];
@@ -73,7 +81,10 @@ async function readManifest(manifestPath: string): Promise<UploadManifest> {
   }
 }
 
-async function writeManifest(manifestPath: string, manifest: UploadManifest): Promise<void> {
+async function writeManifest(
+  manifestPath: string,
+  manifest: UploadManifest,
+): Promise<void> {
   manifest.updatedAt = new Date().toISOString();
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
 }
@@ -115,11 +126,14 @@ async function findLiveVideo(filePath: string): Promise<string | undefined> {
 
 async function uploadOne(
   filePath: string,
-  options: UploadOptions
+  options: UploadOptions,
 ): Promise<{ ok: true; imageId: string } | { ok: false; error: string }> {
   try {
     const bytes = new Uint8Array(await fs.readFile(filePath));
-    const livePath = options.livePhotoMode === "pair-by-name" ? await findLiveVideo(filePath) : undefined;
+    const livePath =
+      options.livePhotoMode === "pair-by-name"
+        ? await findLiveVideo(filePath)
+        : undefined;
 
     const processed = await processForUpload({
       fileName: path.basename(filePath),
@@ -144,22 +158,30 @@ async function uploadOne(
       bytes,
       processed.metadata.files.original.mime,
       processed.thumb,
+      processed.thumbVariants,
       processed.metadata,
       processed.metadata.files.live_video
         ? {
             bytes: new Uint8Array(await fs.readFile(livePath!)),
             mime: processed.metadata.files.live_video.mime,
           }
-        : undefined
+        : undefined,
     );
 
     return { ok: true, imageId: processed.metadata.image_id };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "upload failed" };
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "upload failed",
+    };
   }
 }
 
-async function runPool<T>(items: T[], concurrency: number, worker: (item: T) => Promise<void>): Promise<void> {
+async function runPool<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
   let index = 0;
   const runners = Array.from({ length: Math.max(1, concurrency) }, async () => {
     while (index < items.length) {
@@ -171,7 +193,10 @@ async function runPool<T>(items: T[], concurrency: number, worker: (item: T) => 
   await Promise.all(runners);
 }
 
-async function handleUpload(input: string[], options: UploadOptions): Promise<void> {
+async function handleUpload(
+  input: string[],
+  options: UploadOptions,
+): Promise<void> {
   const files = await collectFiles(input);
   const manifest = await readManifest(options.manifest);
 
@@ -204,13 +229,17 @@ async function handleUpload(input: string[], options: UploadOptions): Promise<vo
 
     await writeManifest(options.manifest, manifest);
     process.stdout.write(
-      `[lumina-upload] total=${manifest.records.length} success=${success} failed=${failed} pending=${manifest.records.filter((r) => r.status !== "uploaded").length}\n`
+      `[lumina-upload] total=${manifest.records.length} success=${success} failed=${failed} pending=${manifest.records.filter((r) => r.status !== "uploaded").length}\n`,
     );
   });
 
-  const finalPending = manifest.records.filter((r) => r.status === "pending" || r.status === "processing");
+  const finalPending = manifest.records.filter(
+    (r) => r.status === "pending" || r.status === "processing",
+  );
   if (finalPending.length > 0) {
-    process.stdout.write(`[lumina-upload] ${finalPending.length} item(s) remain pending. run resume to continue.\n`);
+    process.stdout.write(
+      `[lumina-upload] ${finalPending.length} item(s) remain pending. run resume to continue.\n`,
+    );
     process.exitCode = 2;
   } else if (manifest.records.some((r) => r.status === "failed")) {
     process.exitCode = 1;
@@ -219,13 +248,17 @@ async function handleUpload(input: string[], options: UploadOptions): Promise<vo
 
 async function handleResume(options: UploadOptions): Promise<void> {
   const manifest = await readManifest(options.manifest);
-  const toRetry = manifest.records.filter((r) => r.status !== "uploaded").map((r) => r.source);
+  const toRetry = manifest.records
+    .filter((r) => r.status !== "uploaded")
+    .map((r) => r.source);
   await handleUpload(toRetry, options);
 }
 
 async function handleValidate(input: string[]): Promise<void> {
   const files = await collectFiles(input);
-  process.stdout.write(JSON.stringify({ count: files.length, files }, null, 2) + "\n");
+  process.stdout.write(
+    JSON.stringify({ count: files.length, files }, null, 2) + "\n",
+  );
 }
 
 const uploadCommand = defineCommand({
@@ -287,7 +320,9 @@ const uploadCommand = defineCommand({
   },
   async run({ args }) {
     if (!args.owner || !args.repo || !args.token) {
-      throw new Error("--owner --repo --token are required (or set env LUMINA_GH_OWNER/LUMINA_GH_REPO/LUMINA_GITHUB_TOKEN)");
+      throw new Error(
+        "--owner --repo --token are required (or set env LUMINA_GH_OWNER/LUMINA_GH_REPO/LUMINA_GITHUB_TOKEN)",
+      );
     }
 
     const input = Array.isArray(args.input) ? args.input : [args.input];
@@ -359,7 +394,9 @@ const resumeCommand = defineCommand({
   },
   async run({ args }) {
     if (!args.owner || !args.repo || !args.token) {
-      throw new Error("--owner --repo --token are required (or set env LUMINA_GH_OWNER/LUMINA_GH_REPO/LUMINA_GITHUB_TOKEN)");
+      throw new Error(
+        "--owner --repo --token are required (or set env LUMINA_GH_OWNER/LUMINA_GH_REPO/LUMINA_GITHUB_TOKEN)",
+      );
     }
 
     await handleResume({

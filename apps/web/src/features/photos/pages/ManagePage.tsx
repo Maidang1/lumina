@@ -31,6 +31,8 @@ const ManagePage: React.FC = () => {
   const {
     isBatchMode,
     selectedIds,
+    batchResult,
+    clearBatchResult,
     handleBatchSelectToggle,
     handleBatchDelete,
     handleBatchDownload,
@@ -76,6 +78,8 @@ const ManagePage: React.FC = () => {
         <div className="flex flex-col gap-6">
           <ManageBatchActions
             selectedCount={selectedIds.size}
+            batchResult={batchResult}
+            onClearBatchResult={clearBatchResult}
             onClearSelection={handleClearSelection}
             onBatchTag={handleBatchTag}
             onBatchDownload={handleBatchDownload}

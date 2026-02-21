@@ -74,7 +74,10 @@ export class UploadService {
     window.localStorage.setItem(UPLOAD_TOKEN_STORAGE_KEY, normalized);
   }
 
-  private async parseJson<T>(response: Response, fallbackMessage: string): Promise<T> {
+  private async parseJson<T>(
+    response: Response,
+    fallbackMessage: string,
+  ): Promise<T> {
     let payload: unknown;
 
     try {
@@ -96,19 +99,31 @@ export class UploadService {
     original: File,
     thumb: Blob,
     metadata: ImageMetadata,
+    thumbVariantBlobs?: Partial<Record<"400" | "800" | "1600", Blob>>,
     liveVideo?: File,
     uploadMode: "static" | "live_photo" = "static",
     onProgress?: (progress: number) => void,
-    options?: { deferFinalize?: boolean }
+    options?: { deferFinalize?: boolean },
   ): Promise<UploadResult> {
     const uploadToken = this.getUploadToken();
     if (!uploadToken) {
-      throw new ApiRequestError("Missing UPLOAD_TOKEN. Please configure it before upload.", 401);
+      throw new ApiRequestError(
+        "Missing UPLOAD_TOKEN. Please configure it before upload.",
+        401,
+      );
     }
 
     const formData = new FormData();
     formData.append("original", original);
     formData.append("thumb", thumb, "thumb.webp");
+    if (thumbVariantBlobs) {
+      for (const size of ["400", "800", "1600"] as const) {
+        const variant = thumbVariantBlobs[size];
+        if (variant) {
+          formData.append(`thumb_${size}`, variant, `thumb-${size}.webp`);
+        }
+      }
+    }
     formData.append("metadata", JSON.stringify(metadata));
     formData.append("upload_mode", uploadMode);
     if (options?.deferFinalize) {
@@ -129,9 +144,10 @@ export class UploadService {
       });
 
       xhr.addEventListener("load", () => {
-        const fallbackMessage = xhr.status >= 200 && xhr.status < 300
-          ? "Failed to parse upload response"
-          : `Upload failed: ${xhr.status}`;
+        const fallbackMessage =
+          xhr.status >= 200 && xhr.status < 300
+            ? "Failed to parse upload response"
+            : `Upload failed: ${xhr.status}`;
 
         let parsed: unknown;
         try {
@@ -147,7 +163,12 @@ export class UploadService {
         }
 
         const error = parsed as UploadError;
-        reject(new ApiRequestError(error.message || error.error || fallbackMessage, xhr.status));
+        reject(
+          new ApiRequestError(
+            error.message || error.error || fallbackMessage,
+            xhr.status,
+          ),
+        );
       });
 
       xhr.addEventListener("error", () => {
@@ -167,20 +188,31 @@ export class UploadService {
 
   async getImage(imageId: string): Promise<ImageMetadata> {
     const response = await fetch(this.getEndpoint(this.getImagePath(imageId)));
-    return this.parseJson<ImageMetadata>(response, `Failed to fetch image: ${response.status}`);
+    return this.parseJson<ImageMetadata>(
+      response,
+      `Failed to fetch image: ${response.status}`,
+    );
   }
 
   getImageUrl(imageId: string, type: "original" | "thumb" | "live"): string {
     return this.getEndpoint(`${this.getImagePath(imageId)}/${type}`);
   }
 
-  async listImages(cursor?: string, limit: number = 20): Promise<ImageListResponse> {
+  async listImages(
+    cursor?: string,
+    limit: number = 20,
+  ): Promise<ImageListResponse> {
     const params = new URLSearchParams();
     if (cursor) params.set("cursor", cursor);
     params.set("limit", String(limit));
 
-    const response = await fetch(this.getEndpoint(`/v1/images?${params.toString()}`));
-    return this.parseJson<ImageListResponse>(response, `Failed to list images: ${response.status}`);
+    const response = await fetch(
+      this.getEndpoint(`/v1/images?${params.toString()}`),
+    );
+    return this.parseJson<ImageListResponse>(
+      response,
+      `Failed to list images: ${response.status}`,
+    );
   }
 
   async listAllImages(limitPerPage: number = 50): Promise<ImageMetadata[]> {
@@ -199,7 +231,10 @@ export class UploadService {
   async deleteImage(imageId: string): Promise<DeleteImageResult> {
     const uploadToken = this.getUploadToken();
     if (!uploadToken) {
-      throw new ApiRequestError("Missing UPLOAD_TOKEN. Please configure it before delete.", 401);
+      throw new ApiRequestError(
+        "Missing UPLOAD_TOKEN. Please configure it before delete.",
+        401,
+      );
     }
 
     const response = await fetch(this.getEndpoint(this.getImagePath(imageId)), {
@@ -209,18 +244,32 @@ export class UploadService {
       },
     });
 
-    return this.parseJson<DeleteImageResult>(response, `Failed to delete image: ${response.status}`);
+    return this.parseJson<DeleteImageResult>(
+      response,
+      `Failed to delete image: ${response.status}`,
+    );
   }
 
   async updateImageMetadata(
     imageId: string,
     updates: Partial<
-      Pick<ImageMetadata, "description" | "original_filename" | "category" | "privacy" | "geo" | "processing">
-    >
+      Pick<
+        ImageMetadata,
+        | "description"
+        | "original_filename"
+        | "category"
+        | "privacy"
+        | "geo"
+        | "processing"
+      >
+    >,
   ): Promise<ImageMetadata> {
     const uploadToken = this.getUploadToken();
     if (!uploadToken) {
-      throw new ApiRequestError("Missing UPLOAD_TOKEN. Please configure it before update.", 401);
+      throw new ApiRequestError(
+        "Missing UPLOAD_TOKEN. Please configure it before update.",
+        401,
+      );
     }
 
     const response = await fetch(this.getEndpoint(this.getImagePath(imageId)), {
@@ -232,13 +281,21 @@ export class UploadService {
       body: JSON.stringify(updates),
     });
 
-    return this.parseJson<ImageMetadata>(response, `Failed to update metadata: ${response.status}`);
+    return this.parseJson<ImageMetadata>(
+      response,
+      `Failed to update metadata: ${response.status}`,
+    );
   }
 
-  async finalizeImageBatch(items: ImageMetadata[]): Promise<BatchFinalizeResult> {
+  async finalizeImageBatch(
+    items: ImageMetadata[],
+  ): Promise<BatchFinalizeResult> {
     const uploadToken = this.getUploadToken();
     if (!uploadToken) {
-      throw new ApiRequestError("Missing UPLOAD_TOKEN. Please configure it before finalize.", 401);
+      throw new ApiRequestError(
+        "Missing UPLOAD_TOKEN. Please configure it before finalize.",
+        401,
+      );
     }
     if (items.length === 0) {
       return {
@@ -247,45 +304,57 @@ export class UploadService {
       };
     }
 
-    const response = await fetch(this.getEndpoint("/v1/images/finalize-batch"), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Upload-Token": uploadToken,
+    const response = await fetch(
+      this.getEndpoint("/v1/images/finalize-batch"),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Upload-Token": uploadToken,
+        },
+        body: JSON.stringify({
+          items: items.map((metadata) => ({ metadata })),
+        }),
       },
-      body: JSON.stringify({
-        items: items.map((metadata) => ({ metadata })),
-      }),
-    });
+    );
 
-    return this.parseJson<BatchFinalizeResult>(response, `Failed to finalize batch: ${response.status}`);
+    return this.parseJson<BatchFinalizeResult>(
+      response,
+      `Failed to finalize batch: ${response.status}`,
+    );
   }
 
   async createSignedShareUrl(
     imageId: string,
     type: "original" | "thumb" | "live" = "original",
-    expiresInSeconds: number = 24 * 60 * 60
+    expiresInSeconds: number = 24 * 60 * 60,
   ): Promise<SignedShareResult> {
     const uploadToken = this.getUploadToken();
     if (!uploadToken) {
-      throw new ApiRequestError("Missing UPLOAD_TOKEN. Please configure it before creating share links.", 401);
+      throw new ApiRequestError(
+        "Missing UPLOAD_TOKEN. Please configure it before creating share links.",
+        401,
+      );
     }
 
-    const response = await fetch(this.getEndpoint(`${this.getImagePath(imageId)}/share`), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Upload-Token": uploadToken,
+    const response = await fetch(
+      this.getEndpoint(`${this.getImagePath(imageId)}/share`),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Upload-Token": uploadToken,
+        },
+        body: JSON.stringify({
+          type,
+          expires_in_seconds: expiresInSeconds,
+        }),
       },
-      body: JSON.stringify({
-        type,
-        expires_in_seconds: expiresInSeconds,
-      }),
-    });
+    );
 
     return this.parseJson<SignedShareResult>(
       response,
-      `Failed to create signed share url: ${response.status}`
+      `Failed to create signed share url: ${response.status}`,
     );
   }
 }

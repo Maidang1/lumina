@@ -31,7 +31,7 @@ interface UseManageActionsResult {
   deletingPhotoId: string | null;
   handleOpenUpload: () => void;
   handleUploadFileSelected: (event: ChangeEvent<HTMLInputElement>) => void;
-  handleDeletePhoto: (photoId: string) => Promise<void>;
+  handleDeletePhoto: (photoId: string) => Promise<boolean>;
   markDeleteTokenMissing: () => void;
 }
 
@@ -80,25 +80,26 @@ export const useManageActions = ({
   );
 
   const handleDeletePhoto = useCallback(
-    async (photoId: string): Promise<void> => {
+    async (photoId: string): Promise<boolean> => {
       if (deletingPhotoId === photoId) {
-        return;
+        return false;
       }
 
       if (!uploadService.hasUploadToken()) {
         setIsDeleteTokenConfigured(false);
-        window.alert("Missing upload_token. Delete is unavailable.");
-        return;
+        return false;
       }
 
       try {
         setDeletingPhotoId(photoId);
         await uploadService.deleteImage(photoId);
         removePhotoById(photoId);
+        return true;
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Delete failed";
-        window.alert(message);
+        console.error(message);
+        return false;
       } finally {
         setDeletingPhotoId((prev) => (prev === photoId ? null : prev));
         setIsDeleteTokenConfigured(uploadService.hasUploadToken());

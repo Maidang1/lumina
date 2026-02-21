@@ -8,6 +8,8 @@ import {
   decodeBase64Utf8,
   decodeImageListCursor,
   encodeImageListCursor,
+  buildWeakEtagFromString,
+  ifNoneMatchSatisfied,
   validateUploadToken,
   mapGitHubErrorToHttp,
   jsonResponse,
@@ -43,11 +45,15 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
     const formData = await request.formData();
     const original = formData.get("original");
     const thumb = formData.get("thumb");
+    const thumb400 = formData.get("thumb_400");
+    const thumb800 = formData.get("thumb_800");
+    const thumb1600 = formData.get("thumb_1600");
     const liveVideo = formData.get("live_video");
     const metadataStr = formData.get("metadata");
     const uploadModeValue = formData.get("upload_mode");
     const deferFinalizeValue = formData.get("defer_finalize");
-    const uploadMode = uploadModeValue === "live_photo" ? "live_photo" : "static";
+    const uploadMode =
+      uploadModeValue === "live_photo" ? "live_photo" : "static";
     const deferFinalize = deferFinalizeValue === "true";
 
     if (!original || !(original instanceof File)) {
@@ -81,7 +87,11 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
 
     if (uploadMode === "live_photo") {
       if (!liveVideo || !(liveVideo instanceof File)) {
-        return errorResponse(env, "Missing live video file for live photo upload", 400);
+        return errorResponse(
+          env,
+          "Missing live video file for live photo upload",
+          400,
+        );
       }
       const isMovType =
         liveVideo.type === "video/quicktime" ||
@@ -105,21 +115,35 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
 
     const originalBytes = new Uint8Array(await original.arrayBuffer());
     const thumbBytes = new Uint8Array(await thumb.arrayBuffer());
+    const thumbVariantBytes: Partial<
+      Record<"400" | "800" | "1600", Uint8Array>
+    > = {};
+    if (thumb400 instanceof Blob) {
+      thumbVariantBytes["400"] = new Uint8Array(await thumb400.arrayBuffer());
+    }
+    if (thumb800 instanceof Blob) {
+      thumbVariantBytes["800"] = new Uint8Array(await thumb800.arrayBuffer());
+    }
+    if (thumb1600 instanceof Blob) {
+      thumbVariantBytes["1600"] = new Uint8Array(await thumb1600.arrayBuffer());
+    }
     const liveVideoBytes =
       uploadMode === "live_photo" && liveVideo instanceof File
         ? new Uint8Array(await liveVideo.arrayBuffer())
         : undefined;
 
-    const { originalPath, thumbPath, liveVideoPath, metaPath } = await github.uploadImage(
-      originalBytes,
-      original.type,
-      thumbBytes,
-      metadata,
-      liveVideoBytes && liveVideo instanceof File
-        ? { bytes: liveVideoBytes, mime: liveVideo.type || "video/quicktime" }
-        : undefined,
-      { deferFinalize }
-    );
+    const { originalPath, thumbPath, liveVideoPath, metaPath } =
+      await github.uploadImage(
+        originalBytes,
+        original.type,
+        thumbBytes,
+        thumbVariantBytes,
+        metadata,
+        liveVideoBytes && liveVideo instanceof File
+          ? { bytes: liveVideoBytes, mime: liveVideo.type || "video/quicktime" }
+          : undefined,
+        { deferFinalize },
+      );
 
     const result: UploadResult = {
       image_id: metadata.image_id,
@@ -137,14 +161,20 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
     console.error("Upload error:", error);
     const mapped = mapGitHubErrorToHttp(env, error);
     if (mapped) return mapped;
-    return errorResponse(env, error instanceof Error ? error.message : "Upload failed", 500);
+    return errorResponse(
+      env,
+      error instanceof Error ? error.message : "Upload failed",
+      500,
+    );
   }
 }
 
 async function handleListImages(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const rawLimit = parseInt(url.searchParams.get("limit") || "20", 10);
-  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 20;
+  const limit = Number.isFinite(rawLimit)
+    ? Math.min(Math.max(rawLimit, 1), 100)
+    : 20;
   const cursor = url.searchParams.get("cursor");
   const cursorData = cursor ? decodeImageListCursor(cursor) : null;
   if (cursor && !cursorData) {
@@ -152,13 +182,45 @@ async function handleListImages(request: Request, env: Env): Promise<Response> {
   }
 
   try {
+    const respondWithEtag = async (
+      payload: {
+        images: ImageMetadata[];
+        next_cursor?: string;
+        total: number;
+      },
+      etagHint?: string,
+    ): Promise<Response> => {
+      const body = JSON.stringify(payload);
+      const etag = etagHint || (await buildWeakEtagFromString(body));
+      if (ifNoneMatchSatisfied(request, etag)) {
+        return new Response(null, {
+          status: 304,
+          headers: {
+            ...corsHeaders(env),
+            ETag: etag,
+            "Cache-Control": "public, max-age=300, must-revalidate",
+          },
+        });
+      }
+      return new Response(body, {
+        status: 200,
+        headers: {
+          ...corsHeaders(env),
+          "Content-Type": "application/json",
+          ETag: etag,
+          "Cache-Control": "public, max-age=300, must-revalidate",
+        },
+      });
+    };
+
     const github = createGitHubClient(env);
-    const index = await github.getImageIndex();
+    const { index, sha: indexSha } = await github.getImageIndexWithSha();
     if (index && index.items.length > 0) {
       const filteredIndex = cursorData
         ? index.items.filter((item) => {
             const timeDiff =
-              new Date(cursorData.created_at).getTime() - new Date(item.created_at).getTime();
+              new Date(cursorData.created_at).getTime() -
+              new Date(item.created_at).getTime();
             if (timeDiff !== 0) {
               return timeDiff > 0;
             }
@@ -177,7 +239,7 @@ async function handleListImages(request: Request, env: Env): Promise<Response> {
             } catch {
               return null;
             }
-          })
+          }),
         )
       ).filter((item): item is ImageMetadata => item !== null);
 
@@ -189,11 +251,18 @@ async function handleListImages(request: Request, env: Env): Promise<Response> {
             })
           : undefined;
 
-      return jsonResponse(env, {
-        images: pageMetas,
-        next_cursor: nextCursor,
-        total: index.items.length,
-      });
+      const pageEtag = indexSha
+        ? `W/"idx:${indexSha}:${cursor || ""}:${limit}"`
+        : undefined;
+
+      return respondWithEtag(
+        {
+          images: pageMetas,
+          next_cursor: nextCursor,
+          total: index.items.length,
+        },
+        pageEtag,
+      );
     }
 
     const p1Dirs = await github.listDirectory("objects");
@@ -261,7 +330,7 @@ async function handleListImages(request: Request, env: Env): Promise<Response> {
           })
         : undefined;
 
-    return jsonResponse(env, {
+    return respondWithEtag({
       images: page,
       next_cursor: nextCursor,
       total: sorted.length,

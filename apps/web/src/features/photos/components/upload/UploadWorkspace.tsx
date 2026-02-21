@@ -37,6 +37,7 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
   const {
     queue,
     thumbBlobRef,
+    thumbVariantBlobRef,
     enqueueStaticFiles,
     updateItemById,
     updateStageById,
@@ -52,14 +53,17 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
     updateItemById,
     updateStageById,
     thumbBlobRef,
+    thumbVariantBlobRef,
   });
 
-  const { isSubmitting, canSubmit, submitWorkers, handleSubmitAll } = useSubmitScheduler({
-    queue,
-    updateItemById,
-    thumbBlobRef,
-    onUploadCompleted,
-  });
+  const { isSubmitting, canSubmit, submitWorkers, handleSubmitAll } =
+    useSubmitScheduler({
+      queue,
+      updateItemById,
+      thumbBlobRef,
+      thumbVariantBlobRef,
+      onUploadCompleted,
+    });
 
   const handleFiles = useCallback(
     (files: FileList | File[]) => {
@@ -70,7 +74,7 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
       clearTokenError();
       enqueueStaticFiles(files);
     },
-    [clearTokenError, enqueueStaticFiles, setTokenError]
+    [clearTokenError, enqueueStaticFiles, setTokenError],
   );
 
   useEffect(() => {
@@ -102,7 +106,10 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
       />
 
       {!isTokenConfigured && (
-        <UploadTokenAlert uploadToken={uploadToken} onChange={updateUploadToken} />
+        <UploadTokenAlert
+          uploadToken={uploadToken}
+          onChange={updateUploadToken}
+        />
       )}
 
       {queue.length > 0 ? (
@@ -130,7 +137,10 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
                 const item = queue.find((i) => i.id === id);
                 if (item?.result?.image_id) {
                   try {
-                    await uploadService.updateImageMetadata(item.result.image_id, { category });
+                    await uploadService.updateImageMetadata(
+                      item.result.image_id,
+                      { category },
+                    );
                   } catch (e) {
                     console.error("Failed to save category", e);
                   }
@@ -143,7 +153,10 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
                 const item = queue.find((i) => i.id === id);
                 if (item?.result?.image_id) {
                   try {
-                    await uploadService.updateImageMetadata(item.result.image_id, { description });
+                    await uploadService.updateImageMetadata(
+                      item.result.image_id,
+                      { description },
+                    );
                   } catch (e) {
                     console.error("Failed to save description", e);
                   }

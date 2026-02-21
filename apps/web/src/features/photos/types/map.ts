@@ -1,6 +1,8 @@
 import { Photo } from "@/features/photos/types";
 
 export type RegionBoundaryLevel = "district" | "city" | "province";
+export type MapLayerMode = "boundary" | "cluster" | "heat";
+export type MapThemeMode = "dark" | "light";
 
 export interface RegionInfo {
   country: string;

@@ -1,4 +1,10 @@
-import { MutableRefObject, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  MutableRefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { UploadQueueItem } from "@/features/photos/types";
 import { parseUploadItem } from "@/features/photos/components/upload/processUploadItem";
 
@@ -9,9 +15,12 @@ interface UseParseSchedulerParams {
   updateStageById: (
     id: string,
     stageId: string,
-    updates: Partial<UploadQueueItem["stages"][number]>
+    updates: Partial<UploadQueueItem["stages"][number]>,
   ) => void;
   thumbBlobRef: MutableRefObject<Map<string, Blob>>;
+  thumbVariantBlobRef: MutableRefObject<
+    Map<string, Partial<Record<"400" | "800" | "1600", Blob>>>
+  >;
 }
 
 interface UseParseSchedulerResult {
@@ -24,6 +33,7 @@ export const useParseScheduler = ({
   updateItemById,
   updateStageById,
   thumbBlobRef,
+  thumbVariantBlobRef,
 }: UseParseSchedulerParams): UseParseSchedulerResult => {
   const inFlightParseRef = useRef<Set<string>>(new Set());
 
@@ -54,10 +64,15 @@ export const useParseScheduler = ({
         const parsed = await parseUploadItem({
           item,
           updateItem: (updates) => updateItemById(item.id, updates),
-          updateStage: (stageId, updates) => updateStageById(item.id, stageId, updates),
+          updateStage: (stageId, updates) =>
+            updateStageById(item.id, stageId, updates),
         });
 
         thumbBlobRef.current.set(item.id, parsed.thumbBlob);
+        thumbVariantBlobRef.current.set(
+          item.id,
+          parsed.thumbVariantBlobs || {},
+        );
         updateItemById(item.id, {
           status: "parsed",
           progress: 100,
@@ -73,7 +88,7 @@ export const useParseScheduler = ({
         inFlightParseRef.current.delete(item.id);
       }
     },
-    [thumbBlobRef, updateItemById, updateStageById]
+    [thumbBlobRef, thumbVariantBlobRef, updateItemById, updateStageById],
   );
 
   useEffect(() => {
@@ -81,7 +96,9 @@ export const useParseScheduler = ({
       return;
     }
 
-    const activeCount = queue.filter((item) => item.status === "parsing").length;
+    const activeCount = queue.filter(
+      (item) => item.status === "parsing",
+    ).length;
     const availableSlots = Math.max(0, parseWorkerCount - activeCount);
     if (availableSlots <= 0) return;
 

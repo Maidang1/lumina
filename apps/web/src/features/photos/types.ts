@@ -33,6 +33,8 @@ export interface Photo {
   id: string;
   url: string;
   thumbnail: string;
+  thumbnailSrcSet?: string;
+  thumbnailSizes?: string;
   isLive: boolean;
   liveUrl?: string;
   liveMime?: string;
@@ -114,7 +116,11 @@ export interface ImageListResponse {
   total: number;
 }
 
-export type ProcessingStatus = "pending" | "processing" | "completed" | "failed";
+export type ProcessingStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed";
 
 export interface ProcessingStage {
   id: string;

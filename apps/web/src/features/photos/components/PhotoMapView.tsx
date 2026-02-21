@@ -1,9 +1,23 @@
-import React, { useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Loader2, MapPin, Share2 } from "lucide-react";
 import { Photo } from "@/features/photos/types";
-import { RegionAggregate } from "@/features/photos/types/map";
+import {
+  buildTimeSortedTrack,
+  createRouteGpx,
+} from "@/features/photos/components/photo-map/mapData";
+import {
+  MapLayerMode,
+  MapThemeMode,
+  RegionAggregate,
+} from "@/features/photos/types/map";
 import { Button } from "@/shared/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui/dialog";
 import MapSidePanel from "@/features/photos/components/photo-map/MapSidePanel";
 import { useMapRegionData } from "@/features/photos/components/photo-map/useMapRegionData";
 import { useLeafletMapLayer } from "@/features/photos/components/photo-map/useLeafletMapLayer";
@@ -14,8 +28,14 @@ interface PhotoMapViewProps {
   onPhotoClick: (photo: Photo) => void;
 }
 
-const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => {
+const PhotoMapView: React.FC<PhotoMapViewProps> = ({
+  photos,
+  onPhotoClick,
+}) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const [mapLayerMode, setMapLayerMode] = useState<MapLayerMode>("boundary");
+  const [mapTheme, setMapTheme] = useState<MapThemeMode>("dark");
+  const [showRoute, setShowRoute] = useState(true);
 
   const {
     activeMonth,
@@ -31,16 +51,26 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
     isLoadingBoundaries,
   } = useMapRegionData(photos);
 
-  const { mapReady, mapError, focusRegion, captureCurrentMapCanvas } = useLeafletMapLayer({
-    mapContainerRef,
-    activeMonth,
-    visiblePoints,
-    provinceAggregates,
-    boundaryByRegionKey,
-    selectedRegionKey,
-    setSelectedRegionKey: (key) => setSelectedRegionKey(key),
-    onPhotoClick,
-  });
+  const routePoints = useMemo(
+    () => buildTimeSortedTrack(visiblePoints),
+    [visiblePoints],
+  );
+
+  const { mapReady, mapError, focusRegion, captureCurrentMapCanvas } =
+    useLeafletMapLayer({
+      mapContainerRef,
+      activeMonth,
+      visiblePoints,
+      routePoints,
+      provinceAggregates,
+      boundaryByRegionKey,
+      selectedRegionKey,
+      setSelectedRegionKey: (key) => setSelectedRegionKey(key),
+      onPhotoClick,
+      mapLayerMode,
+      mapTheme,
+      showRoute,
+    });
 
   const {
     isSharing,
@@ -66,6 +96,20 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
     }
   };
 
+  const handleExportGpx = (): void => {
+    if (routePoints.length < 2) return;
+    const gpx = createRouteGpx(routePoints, `Lumina Route ${timeRangeLabel}`);
+    const blob = new Blob([gpx], { type: "application/gpx+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `lumina-route-${activeMonth === "all" ? "all" : activeMonth}.gpx`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#0a0a0a]">
       <div className="absolute left-4 top-4 z-[400] flex flex-wrap items-center gap-3 rounded-2xl border border-white/[0.12] bg-[#141414]/88 px-4 py-2.5 shadow-[0_14px_38px_rgba(0,0,0,0.42)] backdrop-blur-lg transition-colors duration-200 hover:bg-[#161616]/95">
@@ -88,7 +132,11 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
           variant="outline"
           className="h-9 cursor-pointer rounded-full border-white/[0.12] bg-[#141414]/90 px-4 text-xs font-medium text-gray-200 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-md transition-colors duration-200 hover:bg-[#181818] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSharing ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
+          {isSharing ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Share2 size={14} />
+          )}
           <span>Share</span>
         </Button>
       </div>
@@ -125,11 +173,15 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
         <div ref={mapContainerRef} className="h-full w-full grayscale-[0.2]" />
 
         {!mapReady && !mapError && (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-500">Loading map...</div>
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-500">
+            Loading map...
+          </div>
         )}
 
         {mapError && (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-red-400">{mapError}</div>
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-red-400">
+            {mapError}
+          </div>
         )}
 
         <div className="absolute bottom-6 right-4 z-[400] w-64 max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#141414]/88 p-3 shadow-[0_14px_36px_rgba(0,0,0,0.42)] backdrop-blur-lg">
@@ -142,6 +194,14 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
             onRegionClick={handleRegionClick}
             isResolvingRegions={isResolvingRegions}
             isLoadingBoundaries={isLoadingBoundaries}
+            mapLayerMode={mapLayerMode}
+            onMapLayerModeChange={setMapLayerMode}
+            mapTheme={mapTheme}
+            onMapThemeChange={setMapTheme}
+            showRoute={showRoute}
+            onToggleRoute={() => setShowRoute((prev) => !prev)}
+            canExportGpx={routePoints.length > 1}
+            onExportGpx={handleExportGpx}
           />
         </div>
       </div>
@@ -156,13 +216,21 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({ photos, onPhotoClick }) => 
       >
         <DialogContent className="mx-4 w-full max-w-[1160px] border-white/10 bg-[#141414] p-4 sm:p-5">
           <DialogHeader className="mb-3">
-            <DialogTitle className="text-base text-gray-200">Travel Poster Preview</DialogTitle>
+            <DialogTitle className="text-base text-gray-200">
+              Travel Poster Preview
+            </DialogTitle>
           </DialogHeader>
           <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0A0A0A]">
             {posterPreviewUrl ? (
-              <img src={posterPreviewUrl} alt="Travel poster preview" className="h-auto w-full object-contain" />
+              <img
+                src={posterPreviewUrl}
+                alt="Travel poster preview"
+                className="h-auto w-full object-contain"
+              />
             ) : (
-              <div className="flex h-[360px] items-center justify-center text-sm text-gray-500">Preview unavailable</div>
+              <div className="flex h-[360px] items-center justify-center text-sm text-gray-500">
+                Preview unavailable
+              </div>
             )}
           </div>
           <DialogFooter className="mt-4 gap-2">

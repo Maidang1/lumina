@@ -1,4 +1,8 @@
-import { GeoJsonGeometry, RegionBoundaryResult, RegionInfo } from "@/features/photos/types/map";
+import {
+  GeoJsonGeometry,
+  RegionBoundaryResult,
+  RegionInfo,
+} from "@/features/photos/types/map";
 
 const GEOCODE_CACHE_KEY = "lumina.map.region.geocode.v3";
 const BOUNDARY_CACHE_KEY = "lumina.map.region.boundary.v3";
@@ -20,7 +24,8 @@ interface NominatimSearchResponse {
 }
 
 let geocodeMemoryCache: Record<string, RegionInfo> | null = null;
-let boundaryMemoryCache: Record<string, RegionBoundaryResult | null> | null = null;
+let boundaryMemoryCache: Record<string, RegionBoundaryResult | null> | null =
+  null;
 let requestChain: Promise<unknown> = Promise.resolve();
 let lastRequestAt = 0;
 
@@ -56,7 +61,8 @@ const isDistrictLikeName = (value: string): boolean =>
 const isCityLikeName = (value: string): boolean =>
   /(市|州|地区|盟|自治州)$/.test(trimValue(value));
 
-const toCoordinateKey = (lat: number, lng: number): string => `${lat.toFixed(4)},${lng.toFixed(4)}`;
+const toCoordinateKey = (lat: number, lng: number): string =>
+  `${lat.toFixed(4)},${lng.toFixed(4)}`;
 
 const parseJsonCache = <T>(key: string): T | null => {
   if (typeof window === "undefined") return null;
@@ -80,13 +86,17 @@ const writeJsonCache = (key: string, value: unknown): void => {
 
 const getGeocodeCache = (): Record<string, RegionInfo> => {
   if (geocodeMemoryCache) return geocodeMemoryCache;
-  geocodeMemoryCache = parseJsonCache<Record<string, RegionInfo>>(GEOCODE_CACHE_KEY) ?? {};
+  geocodeMemoryCache =
+    parseJsonCache<Record<string, RegionInfo>>(GEOCODE_CACHE_KEY) ?? {};
   return geocodeMemoryCache;
 };
 
 const getBoundaryCache = (): Record<string, RegionBoundaryResult | null> => {
   if (boundaryMemoryCache) return boundaryMemoryCache;
-  boundaryMemoryCache = parseJsonCache<Record<string, RegionBoundaryResult | null>>(BOUNDARY_CACHE_KEY) ?? {};
+  boundaryMemoryCache =
+    parseJsonCache<Record<string, RegionBoundaryResult | null>>(
+      BOUNDARY_CACHE_KEY,
+    ) ?? {};
   return boundaryMemoryCache;
 };
 
@@ -104,12 +114,16 @@ const queueRequest = async <T>(task: () => Promise<T>): Promise<T> => {
   const next = requestChain.then(run, run);
   requestChain = next.then(
     () => undefined,
-    () => undefined
+    () => undefined,
   );
   return next;
 };
 
-const formatDisplayName = (province: string, city: string, district: string): string => {
+const formatDisplayName = (
+  province: string,
+  city: string,
+  district: string,
+): string => {
   const parts = [province, city, district].filter(Boolean);
   return parts.join("·") || "Unknown Region";
 };
@@ -121,7 +135,10 @@ const normalizeMunicipalityCity = (province: string): string => {
   return "";
 };
 
-const selectCityName = (address: NominatimAddress, province: string): string => {
+const selectCityName = (
+  address: NominatimAddress,
+  province: string,
+): string => {
   const candidates = [
     trimValue(address.city),
     trimValue(address.municipality),
@@ -148,20 +165,30 @@ const selectCityName = (address: NominatimAddress, province: string): string => 
 
 const toRegionInfo = (address: NominatimAddress): RegionInfo => {
   const country = trimValue(address.country) || "China";
-  const provinceRaw = trimValue(address.state) || trimValue(address.province) || trimValue(address.region);
-  const province = provinceRaw ? normalizeProvince(provinceRaw) : "Unknown Province";
+  const provinceRaw =
+    trimValue(address.state) ||
+    trimValue(address.province) ||
+    trimValue(address.region);
+  const province = provinceRaw
+    ? normalizeProvince(provinceRaw)
+    : "Unknown Province";
   const cityRaw = selectCityName(address, province);
   const districtRaw =
     trimValue(address.district) ||
     trimValue(address.county) ||
     trimValue(address.city_district) ||
     trimValue(address.borough) ||
-    (isStreetLevelName(trimValue(address.suburb)) ? "" : trimValue(address.suburb)) ||
+    (isStreetLevelName(trimValue(address.suburb))
+      ? ""
+      : trimValue(address.suburb)) ||
     trimValue(address.town);
 
   const city = cityRaw ? normalizeCity(cityRaw) : "Unknown City";
-  const district = districtRaw ? normalizeDistrict(districtRaw) : "Unknown District";
-  const displayName = city && city !== "Unknown City" ? `${province}·${city}` : province;
+  const district = districtRaw
+    ? normalizeDistrict(districtRaw)
+    : "Unknown District";
+  const displayName =
+    city && city !== "Unknown City" ? `${province}·${city}` : province;
   const cacheKey = `CN|${province}|${city}`;
 
   return {
@@ -187,7 +214,10 @@ const fetchJson = async <T>(url: string): Promise<T> =>
     return (await response.json()) as T;
   });
 
-export async function reverseGeocodeToRegion(lat: number, lng: number): Promise<RegionInfo> {
+export async function reverseGeocodeToRegion(
+  lat: number,
+  lng: number,
+): Promise<RegionInfo> {
   const key = toCoordinateKey(lat, lng);
   const geocodeCache = getGeocodeCache();
   if (geocodeCache[key]) {
@@ -222,18 +252,26 @@ export async function reverseGeocodeToRegion(lat: number, lng: number): Promise<
   }
 }
 
-const isAreaGeometry = (geojson: GeoJsonGeometry | null | undefined): boolean => {
+const isAreaGeometry = (
+  geojson: GeoJsonGeometry | null | undefined,
+): boolean => {
   if (!geojson) return false;
-  if (geojson.type === "Polygon" || geojson.type === "MultiPolygon") return true;
-  if (geojson.type === "GeometryCollection" && Array.isArray(geojson.geometries)) {
-    return geojson.geometries.some((item) => item.type === "Polygon" || item.type === "MultiPolygon");
+  if (geojson.type === "Polygon" || geojson.type === "MultiPolygon")
+    return true;
+  if (
+    geojson.type === "GeometryCollection" &&
+    Array.isArray(geojson.geometries)
+  ) {
+    return geojson.geometries.some(
+      (item) => item.type === "Polygon" || item.type === "MultiPolygon",
+    );
   }
   return false;
 };
 
 const pickBestBoundaryCandidate = (
   payload: NominatimSearchResponse[],
-  targetLevel: "city" | "province"
+  targetLevel: "city" | "province",
 ): GeoJsonGeometry | null => {
   const candidates = payload.filter((item) => isAreaGeometry(item.geojson));
   if (candidates.length === 0) {
@@ -243,9 +281,18 @@ const pickBestBoundaryCandidate = (
   const scored = candidates
     .map((item) => {
       let score = 0;
-      if (item.class === "boundary" && item.type === "administrative") score += 100;
-      if (targetLevel === "city" && (item.addresstype === "city" || item.addresstype === "municipality")) score += 80;
-      if (targetLevel === "province" && (item.addresstype === "state" || item.addresstype === "province")) score += 80;
+      if (item.class === "boundary" && item.type === "administrative")
+        score += 100;
+      if (
+        targetLevel === "city" &&
+        (item.addresstype === "city" || item.addresstype === "municipality")
+      )
+        score += 80;
+      if (
+        targetLevel === "province" &&
+        (item.addresstype === "state" || item.addresstype === "province")
+      )
+        score += 80;
       score += Math.round((item.importance ?? 0) * 10);
       return { item, score };
     })
@@ -256,7 +303,7 @@ const pickBestBoundaryCandidate = (
 
 const searchBoundary = async (
   query: string,
-  targetLevel: "city" | "province"
+  targetLevel: "city" | "province",
 ): Promise<GeoJsonGeometry | null> => {
   const url = new URL("https://nominatim.openstreetmap.org/search");
   url.searchParams.set("format", "jsonv2");
@@ -281,7 +328,9 @@ const searchBoundary = async (
   }
 };
 
-const buildBoundaryQueryCandidates = (region: RegionInfo): Array<{ level: "city" | "province"; query: string }> => {
+const buildBoundaryQueryCandidates = (
+  region: RegionInfo,
+): Array<{ level: "city" | "province"; query: string }> => {
   const candidates: Array<{ level: "city" | "province"; query: string }> = [];
   const push = (level: "city" | "province", query: string): void => {
     const normalized = query.replace(/\s+/g, " ").trim();
@@ -298,7 +347,9 @@ const buildBoundaryQueryCandidates = (region: RegionInfo): Array<{ level: "city"
   return candidates;
 };
 
-export async function getRegionBoundary(region: RegionInfo): Promise<RegionBoundaryResult | null> {
+export async function getRegionBoundary(
+  region: RegionInfo,
+): Promise<RegionBoundaryResult | null> {
   const boundaryCache = getBoundaryCache();
   if (region.cacheKey in boundaryCache) {
     return boundaryCache[region.cacheKey];

@@ -42,7 +42,8 @@ function sleep(ms: number): Promise<void> {
 
 function sortIndexEntries(items: ImageIndexEntry[]): ImageIndexEntry[] {
   return items.sort((a, b) => {
-    const timeDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    const timeDiff =
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     if (timeDiff !== 0) return timeDiff;
     return b.image_id.localeCompare(a.image_id);
   });
@@ -96,7 +97,10 @@ export class GitHubClient {
     };
   }
 
-  private async fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  private async fetchWithRetry(
+    url: string,
+    init: RequestInit,
+  ): Promise<Response> {
     let lastError: unknown;
     for (let attempt = 1; attempt <= this.retryMaxAttempts; attempt += 1) {
       try {
@@ -123,16 +127,19 @@ export class GitHubClient {
       }
     }
 
-    throw lastError instanceof Error ? lastError : new Error("GitHub request failed");
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("GitHub request failed");
   }
 
   private normalizeMetadataPaths(
     metadata: ImageMetadata,
     originalMime?: string,
-    liveVideoMime?: string
+    liveVideoMime?: string,
   ): {
     originalPath: string;
     thumbPath: string;
+    thumbVariantPaths: Partial<Record<"400" | "800" | "1600", string>>;
     liveVideoPath?: string;
     metaPath: string;
   } {
@@ -141,6 +148,17 @@ export class GitHubClient {
       metadata.files.original.path ||
       `${objectDir}/original.${guessExtension(originalMime || metadata.files.original.mime)}`;
     const thumbPath = metadata.files.thumb.path || `${objectDir}/thumb.webp`;
+    const thumbVariantPaths: Partial<Record<"400" | "800" | "1600", string>> =
+      {};
+    if (metadata.files.thumb_variants) {
+      for (const size of ["400", "800", "1600"] as const) {
+        const variant = metadata.files.thumb_variants[size];
+        if (!variant) continue;
+        const variantPath = variant.path || `${objectDir}/thumb-${size}.webp`;
+        variant.path = variantPath;
+        thumbVariantPaths[size] = variantPath;
+      }
+    }
     const liveVideoPath = metadata.files.live_video
       ? metadata.files.live_video.path ||
         `${objectDir}/live.${guessExtension(liveVideoMime || metadata.files.live_video.mime)}`
@@ -153,10 +171,19 @@ export class GitHubClient {
       metadata.files.live_video.path = liveVideoPath;
     }
 
-    return { originalPath, thumbPath, liveVideoPath, metaPath };
+    return {
+      originalPath,
+      thumbPath,
+      thumbVariantPaths,
+      liveVideoPath,
+      metaPath,
+    };
   }
 
-  private buildNextIndex(existing: ImageIndexFile | null, metadatas: ImageMetadata[]): ImageIndexFile {
+  private buildNextIndex(
+    existing: ImageIndexFile | null,
+    metadatas: ImageMetadata[],
+  ): ImageIndexFile {
     const map = new Map<string, ImageIndexEntry>();
     if (existing?.items) {
       for (const item of existing.items) {
@@ -181,7 +208,7 @@ export class GitHubClient {
 
   private async commitFilesBatch(
     files: Array<{ path: string; contentBase64: string }>,
-    message: string
+    message: string,
   ): Promise<void> {
     if (files.length === 0) {
       return;
@@ -191,7 +218,7 @@ export class GitHubClient {
       const refUrl = getGitApiUrl(
         this.env.GH_OWNER,
         this.env.GH_REPO,
-        `ref/heads/${encodeURIComponent(this.env.GH_BRANCH)}`
+        `ref/heads/${encodeURIComponent(this.env.GH_BRANCH)}`,
       );
       const refRes = await this.fetchWithRetry(refUrl, {
         method: "GET",
@@ -207,24 +234,41 @@ export class GitHubClient {
         throw new Error("GitHub ref lookup failed: missing head sha");
       }
 
-      const commitUrl = getGitApiUrl(this.env.GH_OWNER, this.env.GH_REPO, `commits/${headSha}`);
+      const commitUrl = getGitApiUrl(
+        this.env.GH_OWNER,
+        this.env.GH_REPO,
+        `commits/${headSha}`,
+      );
       const commitRes = await this.fetchWithRetry(commitUrl, {
         method: "GET",
         headers: this.getHeaders(),
       });
       if (!commitRes.ok) {
         const text = await commitRes.text();
-        throw new Error(`GitHub commit lookup failed: ${commitRes.status} ${text}`);
+        throw new Error(
+          `GitHub commit lookup failed: ${commitRes.status} ${text}`,
+        );
       }
-      const commitData = (await commitRes.json()) as { tree?: { sha?: string } };
+      const commitData = (await commitRes.json()) as {
+        tree?: { sha?: string };
+      };
       const baseTreeSha = commitData.tree?.sha;
       if (!baseTreeSha) {
         throw new Error("GitHub commit lookup failed: missing base tree sha");
       }
 
-      const treeEntries: Array<{ path: string; mode: "100644"; type: "blob"; sha: string }> = [];
+      const treeEntries: Array<{
+        path: string;
+        mode: "100644";
+        type: "blob";
+        sha: string;
+      }> = [];
       for (const file of files) {
-        const blobUrl = getGitApiUrl(this.env.GH_OWNER, this.env.GH_REPO, "blobs");
+        const blobUrl = getGitApiUrl(
+          this.env.GH_OWNER,
+          this.env.GH_REPO,
+          "blobs",
+        );
         const blobRes = await this.fetchWithRetry(blobUrl, {
           method: "POST",
           headers: this.getHeaders(),
@@ -235,7 +279,9 @@ export class GitHubClient {
         });
         if (!blobRes.ok) {
           const text = await blobRes.text();
-          throw new Error(`GitHub blob create failed: ${blobRes.status} ${text}`);
+          throw new Error(
+            `GitHub blob create failed: ${blobRes.status} ${text}`,
+          );
         }
         const blobData = (await blobRes.json()) as { sha?: string };
         if (!blobData.sha) {
@@ -249,7 +295,11 @@ export class GitHubClient {
         });
       }
 
-      const treeUrl = getGitApiUrl(this.env.GH_OWNER, this.env.GH_REPO, "trees");
+      const treeUrl = getGitApiUrl(
+        this.env.GH_OWNER,
+        this.env.GH_REPO,
+        "trees",
+      );
       const treeRes = await this.fetchWithRetry(treeUrl, {
         method: "POST",
         headers: this.getHeaders(),
@@ -267,7 +317,11 @@ export class GitHubClient {
         throw new Error("GitHub tree create failed: missing tree sha");
       }
 
-      const createCommitUrl = getGitApiUrl(this.env.GH_OWNER, this.env.GH_REPO, "commits");
+      const createCommitUrl = getGitApiUrl(
+        this.env.GH_OWNER,
+        this.env.GH_REPO,
+        "commits",
+      );
       const createCommitRes = await this.fetchWithRetry(createCommitUrl, {
         method: "POST",
         headers: this.getHeaders(),
@@ -279,9 +333,13 @@ export class GitHubClient {
       });
       if (!createCommitRes.ok) {
         const text = await createCommitRes.text();
-        throw new Error(`GitHub commit create failed: ${createCommitRes.status} ${text}`);
+        throw new Error(
+          `GitHub commit create failed: ${createCommitRes.status} ${text}`,
+        );
       }
-      const createCommitData = (await createCommitRes.json()) as { sha?: string };
+      const createCommitData = (await createCommitRes.json()) as {
+        sha?: string;
+      };
       if (!createCommitData.sha) {
         throw new Error("GitHub commit create failed: missing commit sha");
       }
@@ -289,7 +347,7 @@ export class GitHubClient {
       const updateRefUrl = getGitApiUrl(
         this.env.GH_OWNER,
         this.env.GH_REPO,
-        `refs/heads/${encodeURIComponent(this.env.GH_BRANCH)}`
+        `refs/heads/${encodeURIComponent(this.env.GH_BRANCH)}`,
       );
       const updateRefRes = await this.fetchWithRetry(updateRefUrl, {
         method: "PATCH",
@@ -304,19 +362,27 @@ export class GitHubClient {
         return;
       }
 
-      if ([409, 422].includes(updateRefRes.status) && attempt < GIT_BATCH_MAX_ATTEMPTS) {
+      if (
+        [409, 422].includes(updateRefRes.status) &&
+        attempt < GIT_BATCH_MAX_ATTEMPTS
+      ) {
         await sleep(this.retryBaseDelayMs * attempt);
         continue;
       }
 
       const text = await updateRefRes.text();
-      throw new Error(`GitHub ref update failed: ${updateRefRes.status} ${text}`);
+      throw new Error(
+        `GitHub ref update failed: ${updateRefRes.status} ${text}`,
+      );
     }
   }
 
   async getFile(path: string): Promise<GitHubFileResponse> {
     const url = getApiUrl(this.env.GH_OWNER, this.env.GH_REPO, path);
-    const response = await this.fetchWithRetry(url, { method: "GET", headers: this.getHeaders() });
+    const response = await this.fetchWithRetry(url, {
+      method: "GET",
+      headers: this.getHeaders(),
+    });
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -331,7 +397,10 @@ export class GitHubClient {
 
   async listDirectory(path: string): Promise<GitHubFileResponse[]> {
     const url = getApiUrl(this.env.GH_OWNER, this.env.GH_REPO, path);
-    const response = await this.fetchWithRetry(url, { method: "GET", headers: this.getHeaders() });
+    const response = await this.fetchWithRetry(url, {
+      method: "GET",
+      headers: this.getHeaders(),
+    });
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -422,7 +491,7 @@ export class GitHubClient {
               typeof item?.created_at === "string" &&
               typeof item?.meta_path === "string"
             );
-          })
+          }),
         ),
       };
     } catch (error) {
@@ -433,7 +502,47 @@ export class GitHubClient {
     }
   }
 
-  async upsertImageIndex(metadata: ImageMetadata, metaPath: string): Promise<void> {
+  async getImageIndexWithSha(): Promise<{
+    index: ImageIndexFile | null;
+    sha?: string;
+  }> {
+    try {
+      const file = await this.getFile(IMAGE_INDEX_PATH);
+      const content = decodeBase64Utf8(file.content);
+      const parsed = JSON.parse(content) as Partial<ImageIndexFile>;
+
+      if (!Array.isArray(parsed.items)) {
+        return { index: null, sha: file.sha };
+      }
+
+      return {
+        index: {
+          version: "1",
+          updated_at: parsed.updated_at || new Date().toISOString(),
+          items: sortIndexEntries(
+            parsed.items.filter((item): item is ImageIndexEntry => {
+              return (
+                typeof item?.image_id === "string" &&
+                typeof item?.created_at === "string" &&
+                typeof item?.meta_path === "string"
+              );
+            }),
+          ),
+        },
+        sha: file.sha,
+      };
+    } catch (error) {
+      if (error instanceof Error && error.message === "File not found") {
+        return { index: null };
+      }
+      throw error;
+    }
+  }
+
+  async upsertImageIndex(
+    metadata: ImageMetadata,
+    metaPath: string,
+  ): Promise<void> {
     const existing =
       (await this.getImageIndex()) ||
       ({
@@ -442,7 +551,9 @@ export class GitHubClient {
         items: [],
       } as ImageIndexFile);
 
-    const nextItems = existing.items.filter((item) => item.image_id !== metadata.image_id);
+    const nextItems = existing.items.filter(
+      (item) => item.image_id !== metadata.image_id,
+    );
     nextItems.push({
       image_id: metadata.image_id,
       created_at: metadata.timestamps.created_at,
@@ -457,14 +568,20 @@ export class GitHubClient {
 
     const bytes = new TextEncoder().encode(JSON.stringify(nextIndex, null, 2));
     const b64 = bytesToBase64(bytes);
-    await this.putFile(IMAGE_INDEX_PATH, b64, `Update image index: ${metadata.image_id}`);
+    await this.putFile(
+      IMAGE_INDEX_PATH,
+      b64,
+      `Update image index: ${metadata.image_id}`,
+    );
   }
 
   async removeImageIndex(imageId: string): Promise<void> {
     const existing = await this.getImageIndex();
     if (!existing) return;
 
-    const nextItems = existing.items.filter((item) => item.image_id !== imageId);
+    const nextItems = existing.items.filter(
+      (item) => item.image_id !== imageId,
+    );
     if (nextItems.length === existing.items.length) return;
 
     const nextIndex: ImageIndexFile = {
@@ -475,33 +592,70 @@ export class GitHubClient {
 
     const bytes = new TextEncoder().encode(JSON.stringify(nextIndex, null, 2));
     const b64 = bytesToBase64(bytes);
-    await this.putFile(IMAGE_INDEX_PATH, b64, `Remove image from index: ${imageId}`);
+    await this.putFile(
+      IMAGE_INDEX_PATH,
+      b64,
+      `Remove image from index: ${imageId}`,
+    );
   }
 
   async uploadImage(
     original: Uint8Array,
     originalMime: string,
     thumb: Uint8Array,
+    thumbVariants:
+      | Partial<Record<"400" | "800" | "1600", Uint8Array>>
+      | undefined,
     metadata: ImageMetadata,
     liveVideo?: { bytes: Uint8Array; mime: string },
-    options?: { deferFinalize?: boolean }
-  ): Promise<{ originalPath: string; thumbPath: string; liveVideoPath?: string; metaPath: string }> {
-    const { originalPath, thumbPath, liveVideoPath, metaPath } = this.normalizeMetadataPaths(
-      metadata,
-      originalMime,
-      liveVideo?.mime
-    );
+    options?: { deferFinalize?: boolean },
+  ): Promise<{
+    originalPath: string;
+    thumbPath: string;
+    liveVideoPath?: string;
+    metaPath: string;
+  }> {
+    const {
+      originalPath,
+      thumbPath,
+      thumbVariantPaths,
+      liveVideoPath,
+      metaPath,
+    } = this.normalizeMetadataPaths(metadata, originalMime, liveVideo?.mime);
 
     const originalB64 = bytesToBase64(original);
     const thumbB64 = bytesToBase64(thumb);
     const liveVideoB64 = liveVideo ? bytesToBase64(liveVideo.bytes) : undefined;
 
-    await this.putFile(originalPath, originalB64, `Upload ${metadata.image_id} - original`);
+    await this.putFile(
+      originalPath,
+      originalB64,
+      `Upload ${metadata.image_id} - original`,
+    );
     await sleep(WRITE_INTERVAL_MS);
-    await this.putFile(thumbPath, thumbB64, `Upload ${metadata.image_id} - thumbnail`);
+    await this.putFile(
+      thumbPath,
+      thumbB64,
+      `Upload ${metadata.image_id} - thumbnail`,
+    );
     await sleep(WRITE_INTERVAL_MS);
+    for (const size of ["400", "800", "1600"] as const) {
+      const variantPath = thumbVariantPaths[size];
+      const variantBytes = thumbVariants?.[size];
+      if (!variantPath || !variantBytes) continue;
+      await this.putFile(
+        variantPath,
+        bytesToBase64(variantBytes),
+        `Upload ${metadata.image_id} - thumbnail ${size}`,
+      );
+      await sleep(WRITE_INTERVAL_MS);
+    }
     if (liveVideoPath && liveVideoB64) {
-      await this.putFile(liveVideoPath, liveVideoB64, `Upload ${metadata.image_id} - live video`);
+      await this.putFile(
+        liveVideoPath,
+        liveVideoB64,
+        `Upload ${metadata.image_id} - live video`,
+      );
       await sleep(WRITE_INTERVAL_MS);
     }
 
@@ -515,9 +669,15 @@ export class GitHubClient {
   async updateImageMetadata(metadata: ImageMetadata): Promise<void> {
     this.normalizeMetadataPaths(metadata);
     const metaPath = imageIdToMetaPath(metadata.image_id);
-    const metaBytes = new TextEncoder().encode(JSON.stringify(metadata, null, 2));
+    const metaBytes = new TextEncoder().encode(
+      JSON.stringify(metadata, null, 2),
+    );
     const metaB64 = bytesToBase64(metaBytes);
-    await this.putFile(metaPath, metaB64, `Update metadata: ${metadata.image_id}`);
+    await this.putFile(
+      metaPath,
+      metaB64,
+      `Update metadata: ${metadata.image_id}`,
+    );
   }
 
   async updateImageMetadataWithIndex(metadata: ImageMetadata): Promise<void> {
@@ -538,22 +698,30 @@ export class GitHubClient {
 
     const existingIndex = await this.getImageIndex();
     const nextIndex = this.buildNextIndex(existingIndex, normalized);
-    const indexBytes = new TextEncoder().encode(JSON.stringify(nextIndex, null, 2));
+    const indexBytes = new TextEncoder().encode(
+      JSON.stringify(nextIndex, null, 2),
+    );
 
-    const files: Array<{ path: string; contentBase64: string }> = normalized.map((metadata) => {
-      const metaBytes = new TextEncoder().encode(JSON.stringify(metadata, null, 2));
-      return {
-        path: imageIdToMetaPath(metadata.image_id),
-        contentBase64: bytesToBase64(metaBytes),
-      };
-    });
+    const files: Array<{ path: string; contentBase64: string }> =
+      normalized.map((metadata) => {
+        const metaBytes = new TextEncoder().encode(
+          JSON.stringify(metadata, null, 2),
+        );
+        return {
+          path: imageIdToMetaPath(metadata.image_id),
+          contentBase64: bytesToBase64(metaBytes),
+        };
+      });
 
     files.push({
       path: IMAGE_INDEX_PATH,
       contentBase64: bytesToBase64(indexBytes),
     });
 
-    await this.commitFilesBatch(files, `Finalize ${normalized.length} image metadata entries`);
+    await this.commitFilesBatch(
+      files,
+      `Finalize ${normalized.length} image metadata entries`,
+    );
   }
 
   async deleteImageAssets(metadata: ImageMetadata): Promise<string[]> {
@@ -561,6 +729,13 @@ export class GitHubClient {
     const objectDir = imageIdToObjectPath(imageId);
     const fallbackOriginalPath = `${objectDir}/original.${guessExtension(metadata.files.original.mime)}`;
     const fallbackThumbPath = `${objectDir}/thumb.webp`;
+    const fallbackThumbVariantPaths: Partial<
+      Record<"400" | "800" | "1600", string>
+    > = {
+      "400": `${objectDir}/thumb-400.webp`,
+      "800": `${objectDir}/thumb-800.webp`,
+      "1600": `${objectDir}/thumb-1600.webp`,
+    };
     const fallbackLivePath = metadata.files.live_video
       ? `${objectDir}/live.${guessExtension(metadata.files.live_video.mime)}`
       : undefined;
@@ -568,6 +743,12 @@ export class GitHubClient {
     const paths = [
       metadata.files.original.path || fallbackOriginalPath,
       metadata.files.thumb.path || fallbackThumbPath,
+      metadata.files.thumb_variants?.["400"]?.path ||
+        fallbackThumbVariantPaths["400"],
+      metadata.files.thumb_variants?.["800"]?.path ||
+        fallbackThumbVariantPaths["800"],
+      metadata.files.thumb_variants?.["1600"]?.path ||
+        fallbackThumbVariantPaths["1600"],
       metadata.files.live_video?.path || fallbackLivePath,
       imageIdToMetaPath(imageId),
     ].filter((path): path is string => Boolean(path));
@@ -581,7 +762,10 @@ export class GitHubClient {
         deletedPaths.push(path);
         await sleep(WRITE_INTERVAL_MS);
       } catch (error) {
-        if (error instanceof Error && error.message.includes("File not found")) {
+        if (
+          error instanceof Error &&
+          error.message.includes("File not found")
+        ) {
           continue;
         }
         throw error;
@@ -593,6 +777,9 @@ export class GitHubClient {
   }
 }
 
-export function createGitHubClient(env: Env, options?: GitHubClientOptions): GitHubClient {
+export function createGitHubClient(
+  env: Env,
+  options?: GitHubClientOptions,
+): GitHubClient {
   return new GitHubClient(env, options);
 }
