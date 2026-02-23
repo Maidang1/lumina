@@ -19,27 +19,12 @@ export interface ExifData {
   date: string;
 }
 
-export type VideoSource =
-  | {
-      type: "live-photo";
-      videoUrl: string;
-      mime?: string;
-    }
-  | {
-      type: "none";
-    };
-
 export interface Photo {
   id: string;
   url: string;
   thumbnail: string;
   thumbnailSrcSet?: string;
   thumbnailSizes?: string;
-  isLive: boolean;
-  liveUrl?: string;
-  liveMime?: string;
-  videoSource?: VideoSource;
-  livePlaybackReady?: boolean;
   title: string;
   location: string;
   category: string;
@@ -143,8 +128,6 @@ export interface ProcessingTaskMetric {
 export interface UploadQueueItem {
   id: string;
   file: File;
-  liveVideoFile?: File;
-  uploadMode: "static" | "live_photo";
   status:
     | "queued"
     | "processing"
@@ -203,5 +186,7 @@ export interface PhotoOpenTransition {
   height: number;
   borderRadius: number;
   sourceScale?: number;
+  sourceViewportWidth?: number;
+  sourceViewportHeight?: number;
   capturedAt?: number;
 }

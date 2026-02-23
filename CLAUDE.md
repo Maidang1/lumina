@@ -9,7 +9,6 @@ Lumina 是一个基于 pnpm + Turbo 的 monorepo 摄影作品集项目，使用 
 核心功能：
 - 瀑布流画廊，支持 EXIF 信息和地图展示
 - 浏览器端图像处理管道（EXIF 提取、OCR、pHash、模糊检测、主色提取）
-- iOS Live Photo 上传和播放（静态图 + MOV 视频）
 - Cloudflare Pages Functions API，后端存储使用 GitHub 对象存储
 - Token 保护的写入 API 和可选的签名分享 URL
 
@@ -107,13 +106,12 @@ lumina-upload \
 
 ```
 GET    /api/v1/images               # 列出图片（分页）
-POST   /api/v1/images               # 上传图片 + 缩略图 + 元数据（+ Live 视频）
+POST   /api/v1/images               # 上传图片 + 缩略图 + 元数据
 GET    /api/v1/images/:id           # 获取元数据
 PATCH  /api/v1/images/:id           # 更新元数据字段
 DELETE /api/v1/images/:id           # 删除图片资源
 GET    /api/v1/images/:id/thumb     # 重定向到缩略图
 GET    /api/v1/images/:id/original  # 重定向到原图
-GET    /api/v1/images/:id/live      # 重定向到 Live 视频
 POST   /api/v1/images/:id/share     # 生成签名资源 URL
 ```
 
@@ -142,7 +140,7 @@ POST   /api/v1/images/:id/share     # 生成签名资源 URL
 
 ### 签名 URL
 
-- 当配置 `SHARE_SIGNING_SECRET` 时，支持为图片/视频资源生成签名 URL
+- 当配置 `SHARE_SIGNING_SECRET` 时，支持为图片资源生成签名 URL
 - 签名逻辑在 `functions/utils/share.ts` 中实现
 
 ## 包依赖关系

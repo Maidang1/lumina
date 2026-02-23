@@ -1,6 +1,5 @@
 import React from "react";
 import { Photo, PhotoOpenTransition } from "@/features/photos/types";
-import { Film } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -40,6 +39,10 @@ const PhotoList: React.FC<PhotoListProps> = ({
         width: 48,
         height: 48,
         borderRadius: 4,
+        sourceScale: window.visualViewport?.scale ?? 1,
+        sourceViewportWidth: window.innerWidth,
+        sourceViewportHeight: window.innerHeight,
+        capturedAt: Date.now(),
       });
     }
   };
@@ -81,11 +84,6 @@ const PhotoList: React.FC<PhotoListProps> = ({
                     className="h-full w-full object-cover"
                     loading="lazy"
                   />
-                  {photo.isLive && (
-                    <div className="absolute top-0.5 right-0.5 rounded-full bg-black/50 p-0.5">
-                      <Film size={8} className="text-white" />
-                    </div>
-                  )}
                   {selectionMode && (
                     <div
                       className={`absolute inset-0 flex items-center justify-center bg-black/40 ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}

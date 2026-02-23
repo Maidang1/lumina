@@ -78,14 +78,6 @@ export interface ImageMetadata {
     original: FileMeta;
     thumb: ThumbMeta;
     thumb_variants?: Partial<Record<"400" | "800" | "1600", ThumbVariantMeta>>;
-    live_video?: FileMeta;
-  };
-  live_photo?: {
-    enabled: boolean;
-    pair_id: string;
-    still_hash: string;
-    video_hash: string;
-    duration_ms?: number;
   };
   exif?: ExifSummary;
   privacy: PrivacyInfo;
@@ -110,14 +102,12 @@ export interface UploadResult {
   stored: {
     original_path: string;
     thumb_path: string;
-    live_video_path?: string;
     meta_path: string;
   };
   urls: {
     meta: string;
     thumb: string;
     original: string;
-    live?: string;
   };
 }
 

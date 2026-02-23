@@ -103,11 +103,7 @@ export async function processForUpload(
   const opts = { ...DEFAULTS, ...options };
   const startedAt = Date.now();
 
-  const stillHash = sha256(input.bytes);
-  const videoHash = input.liveVideo ? sha256(input.liveVideo.bytes) : undefined;
-  const imageId = videoHash
-    ? sha256(Buffer.from(`${stillHash}:${videoHash}`))
-    : stillHash;
+  const imageId = sha256(input.bytes);
 
   const originalImage = sharp(input.bytes, { failOn: "none" });
   const meta = await originalImage.metadata();
@@ -269,26 +265,7 @@ export async function processForUpload(
         height: thumbMeta.height || 0,
       },
       thumb_variants: thumbVariantMetas,
-      ...(input.liveVideo
-        ? {
-            live_video: {
-              path: "",
-              mime: input.liveVideo.mimeType,
-              bytes: input.liveVideo.bytes.byteLength,
-            },
-          }
-        : {}),
     },
-    ...(input.liveVideo && videoHash
-      ? {
-          live_photo: {
-            enabled: true,
-            pair_id: imageId,
-            still_hash: stillHash,
-            video_hash: videoHash,
-          },
-        }
-      : {}),
     exif: exifSummary
       ? {
           ...exifSummary,

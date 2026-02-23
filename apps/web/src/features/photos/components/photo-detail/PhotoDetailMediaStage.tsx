@@ -1,87 +1,42 @@
 import React from "react";
-import { animated, SpringValue } from "@react-spring/web";
+import { animated } from "@react-spring/web";
 import { Loader2 } from "lucide-react";
 import { DialogTitle } from "@/shared/ui/dialog";
 import { Photo } from "@/features/photos/types";
+import { PhotoDetailLoadState } from "@/features/photos/components/photo-detail/usePhotoDetailMedia";
 
 interface PhotoDetailMediaStageProps {
   photo: Photo;
-  hasVideo: boolean;
+  loadState: PhotoDetailLoadState;
   isOriginalLoaded: boolean;
   loadProgress: number;
-  isLivePlaying: boolean;
-  liveFrameSize: { width: number; height: number } | null;
-  liveVideoRef: React.RefObject<HTMLVideoElement | null>;
   thumbnailImageRef: React.RefObject<HTMLImageElement | null>;
   imageContainerRef: React.RefObject<HTMLDivElement | null>;
   onOriginalLoaded: () => void;
-  onStopVideo: () => void;
-  onLongPressStart: () => void;
-  onLongPressEnd: () => void;
-  useAnimation: boolean;
-  animationSpring: {
-    x: SpringValue<number>;
-    y: SpringValue<number>;
-    width: SpringValue<number>;
-    height: SpringValue<number>;
-    borderRadius: SpringValue<number>;
-  };
-  imageOpacity: SpringValue<number>;
+  onOriginalError: () => void;
 }
 
 const PhotoDetailMediaStage: React.FC<PhotoDetailMediaStageProps> = ({
   photo,
-  hasVideo,
+  loadState,
   isOriginalLoaded,
   loadProgress,
-  isLivePlaying,
-  liveFrameSize,
-  liveVideoRef,
   thumbnailImageRef,
   imageContainerRef,
   onOriginalLoaded,
-  onStopVideo,
-  onLongPressStart,
-  onLongPressEnd,
-  useAnimation,
-  animationSpring,
+  onOriginalError,
 }) => {
   return (
     <div
       ref={imageContainerRef}
       className="relative flex h-full min-w-0 flex-1 items-center justify-center overflow-hidden bg-transparent"
-      onMouseDown={onLongPressStart}
-      onMouseUp={onLongPressEnd}
-      onMouseLeave={onLongPressEnd}
-      onTouchStart={onLongPressStart}
-      onTouchEnd={onLongPressEnd}
     >
       <DialogTitle className="sr-only">{photo.title}</DialogTitle>
 
-      {useAnimation && (
-        <animated.div
-          className="pointer-events-none fixed z-[60] overflow-hidden shadow-2xl will-change-transform"
-          style={{
-            left: animationSpring.x,
-            top: animationSpring.y,
-            width: animationSpring.width,
-            height: animationSpring.height,
-            borderRadius: animationSpring.borderRadius,
-          }}
-        >
-          <img src={photo.thumbnail} alt={photo.title} className="h-full w-full object-contain" />
-        </animated.div>
-      )}
-
-      <div
-        className={`relative z-10 flex h-full w-full min-w-0 items-center justify-center overflow-hidden transition-opacity duration-200 ${
-          useAnimation ? "opacity-0" : "opacity-100"
-        }`}
-      >
+      <div className="relative z-10 flex h-full w-full min-w-0 items-center justify-center overflow-hidden">
         <div className="relative flex h-full w-full items-center justify-center overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
             <img
-              ref={thumbnailImageRef}
               src={photo.thumbnail}
               alt=""
               aria-hidden
@@ -90,41 +45,30 @@ const PhotoDetailMediaStage: React.FC<PhotoDetailMediaStageProps> = ({
             <div className="absolute inset-0 bg-black/25" />
           </div>
 
+          <img
+            ref={thumbnailImageRef}
+            src={photo.thumbnail}
+            alt={photo.title}
+            width={photo.width}
+            height={photo.height}
+            className={`absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain transition-opacity duration-300 ${
+              isOriginalLoaded ? "opacity-0" : "opacity-100"
+            }`}
+          />
+
           <animated.img
             src={photo.url}
             alt={photo.title}
-            className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain"
+            width={photo.width}
+            height={photo.height}
+            className="absolute inset-0 m-auto h-auto max-h-full w-auto max-w-full object-contain transition-opacity duration-220"
             style={{ opacity: isOriginalLoaded ? 1 : 0 }}
             onLoad={onOriginalLoaded}
+            onError={onOriginalError}
           />
         </div>
 
-        {hasVideo && (
-          <video
-            ref={liveVideoRef}
-            className="pointer-events-none absolute left-1/2 top-1/2 object-cover shadow-2xl transition-opacity duration-200"
-            style={{
-              opacity: isLivePlaying ? 1 : 0,
-              width: liveFrameSize?.width,
-              height: liveFrameSize?.height,
-              transform: "translate(-50%, -50%)",
-            }}
-            muted
-            playsInline
-            preload="metadata"
-            poster={photo.thumbnail}
-            onEnded={onStopVideo}
-          />
-        )}
-
-        {hasVideo && (
-          <div className="pointer-events-none absolute left-5 top-5 z-20 flex items-center gap-2 rounded-full border border-[#c9a962]/25 bg-black/50 px-3 py-1.5 backdrop-blur-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#c9a962]/80" />
-            <span className="text-[10px] font-medium uppercase tracking-[0.15em] text-[#c9a962]">Live</span>
-          </div>
-        )}
-
-        {!isOriginalLoaded && (
+        {loadState === "loading" && (
           <div className="absolute bottom-3 right-3 z-30 flex items-center gap-2 rounded-lg border border-white/[0.08] bg-black/70 px-2.5 py-1.5 backdrop-blur-md">
             <Loader2 className="h-3 w-3 animate-spin text-white/60" />
             <span className="text-[10px] text-white/50">Original {loadProgress}%</span>
@@ -134,6 +78,12 @@ const PhotoDetailMediaStage: React.FC<PhotoDetailMediaStageProps> = ({
                 style={{ width: `${loadProgress}%` }}
               />
             </div>
+          </div>
+        )}
+
+        {loadState === "error" && (
+          <div className="absolute bottom-3 right-3 z-30 rounded-lg border border-amber-300/20 bg-black/80 px-3 py-1.5 text-[10px] text-amber-200 backdrop-blur-md">
+            Failed to load original. Showing preview.
           </div>
         )}
       </div>

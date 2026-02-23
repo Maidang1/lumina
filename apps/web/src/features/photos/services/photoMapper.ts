@@ -66,6 +66,24 @@ function buildThumbSrcSet(
   ].join(", ");
 }
 
+function extractPrimaryRegion(metadata: ImageMetadata): string {
+  const region = metadata.geo?.region;
+  if (!region) {
+    return "";
+  }
+  if (region.province?.trim()) {
+    return region.province.trim();
+  }
+  if (region.country?.trim()) {
+    return region.country.trim();
+  }
+  if (region.display_name?.trim()) {
+    const raw = region.display_name.trim();
+    return raw.split(/[·,，/]/)[0]?.trim() || raw;
+  }
+  return "";
+}
+
 export function metadataToPhoto(metadata: ImageMetadata): Photo {
   const date = metadata.exif?.DateTimeOriginal
     ? metadata.exif.DateTimeOriginal.split("T")[0]
@@ -77,10 +95,6 @@ export function metadataToPhoto(metadata: ImageMetadata): Photo {
     metadata.files.thumb_variants?.["800"] ||
     metadata.files.thumb_variants?.["1600"],
   );
-  const isLive = Boolean(metadata.files.live_video?.path);
-  const liveUrl = metadata.files.live_video?.path
-    ? `/api/v1/images/${encodeURIComponent(metadata.image_id)}/live?v=${version}`
-    : undefined;
   return {
     id: metadata.image_id,
     url: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/original?v=${version}`,
@@ -91,18 +105,8 @@ export function metadataToPhoto(metadata: ImageMetadata): Photo {
       hasThumbVariants,
     ),
     thumbnailSizes: "(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw",
-    isLive,
-    liveUrl,
-    liveMime: metadata.files.live_video?.mime,
-    videoSource: liveUrl
-      ? {
-          type: "live-photo",
-          videoUrl: liveUrl,
-          mime: metadata.files.live_video?.mime,
-        }
-      : { type: "none" },
     title: metadata.original_filename || metadata.exif?.Model || "Untitled",
-    location: metadata.geo?.region?.display_name || "",
+    location: extractPrimaryRegion(metadata),
     category: metadata.category || "",
     width: metadata.derived.dimensions.width,
     height: metadata.derived.dimensions.height,

@@ -35,15 +35,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return errorResponse(env, "Invalid image_id", 400);
   }
 
-  let body: { type?: "original" | "thumb" | "live"; expires_in_seconds?: number };
+  let body: { type?: "original" | "thumb"; expires_in_seconds?: number };
   try {
-    body = (await request.json()) as { type?: "original" | "thumb" | "live"; expires_in_seconds?: number };
+    body = (await request.json()) as { type?: "original" | "thumb"; expires_in_seconds?: number };
   } catch {
     return errorResponse(env, "Invalid request body", 400);
   }
 
   const type = body.type ?? "original";
-  if (type !== "original" && type !== "thumb" && type !== "live") {
+  if (type !== "original" && type !== "thumb") {
     return errorResponse(env, "Invalid type", 400);
   }
 

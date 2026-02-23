@@ -19,7 +19,7 @@ export interface DeleteImageResult {
 export interface SignedShareResult {
   url: string;
   expires_in_seconds: number;
-  type: "original" | "thumb" | "live";
+  type: "original" | "thumb";
 }
 
 const DEFAULT_OPTIONS: UploadOptions = {
@@ -100,8 +100,6 @@ export class UploadService {
     thumb: Blob,
     metadata: ImageMetadata,
     thumbVariantBlobs?: Partial<Record<"400" | "800" | "1600", Blob>>,
-    liveVideo?: File,
-    uploadMode: "static" | "live_photo" = "static",
     onProgress?: (progress: number) => void,
     options?: { deferFinalize?: boolean },
   ): Promise<UploadResult> {
@@ -125,14 +123,9 @@ export class UploadService {
       }
     }
     formData.append("metadata", JSON.stringify(metadata));
-    formData.append("upload_mode", uploadMode);
     if (options?.deferFinalize) {
       formData.append("defer_finalize", "true");
     }
-    if (liveVideo) {
-      formData.append("live_video", liveVideo, liveVideo.name || "live.mov");
-    }
-
     const xhr = new XMLHttpRequest();
 
     return new Promise((resolve, reject) => {
@@ -194,7 +187,7 @@ export class UploadService {
     );
   }
 
-  getImageUrl(imageId: string, type: "original" | "thumb" | "live"): string {
+  getImageUrl(imageId: string, type: "original" | "thumb"): string {
     return this.getEndpoint(`${this.getImagePath(imageId)}/${type}`);
   }
 
@@ -326,7 +319,7 @@ export class UploadService {
 
   async createSignedShareUrl(
     imageId: string,
-    type: "original" | "thumb" | "live" = "original",
+    type: "original" | "thumb" = "original",
     expiresInSeconds: number = 24 * 60 * 60,
   ): Promise<SignedShareResult> {
     const uploadToken = this.getUploadToken();

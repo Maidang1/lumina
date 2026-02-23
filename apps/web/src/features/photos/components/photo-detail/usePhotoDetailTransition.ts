@@ -9,6 +9,9 @@ const CLOSE_OVERLAY_DURATION_MS = 180;
 const CLOSE_CONTROLS_DURATION_MS = 140;
 const CLOSE_INFO_PANEL_DURATION_MS = 160;
 const CLOSE_FALLBACK_DELAY_MS = 300;
+const MATCHED_TRANSITION_MAX_AGE_MS = 1200;
+const MATCHED_TRANSITION_MAX_SCALE_DELTA = 0.15;
+const MATCHED_TRANSITION_MAX_VIEWPORT_DELTA_PX = 96;
 
 const matchedOpenSpring = { mass: 0.85, tension: 320, friction: 30 };
 const gentleOpenSpring = { mass: 1, tension: 230, friction: 28 };
@@ -18,13 +21,11 @@ interface UsePhotoDetailTransitionParams {
   openingTransition: PhotoOpenTransition | null;
   onClose: () => void;
   stopVideo: () => void;
-  isOriginalLoaded: boolean;
 }
 
 interface UsePhotoDetailTransitionResult {
   transitionState: "idle" | "opening" | "closing";
   overlaySpring: { opacity: import("@react-spring/web").SpringValue<number> };
-  imageSpring: { opacity: import("@react-spring/web").SpringValue<number> };
   controlsSpring: {
     opacity: import("@react-spring/web").SpringValue<number>;
     transform: import("@react-spring/web").SpringValue<string>;
@@ -49,7 +50,6 @@ export const usePhotoDetailTransition = ({
   openingTransition,
   onClose,
   stopVideo,
-  isOriginalLoaded,
 }: UsePhotoDetailTransitionParams): UsePhotoDetailTransitionResult => {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -136,10 +136,7 @@ export const usePhotoDetailTransition = ({
     [openingTransition, photo.id]
   );
 
-  const canUseMatchedTransition = useMemo(
-    () => false,
-    []
-  );
+  const canUseMatchedTransition = false;
 
   useEffect(() => {
     if (!canUseMatchedTransition) {
@@ -241,11 +238,6 @@ export const usePhotoDetailTransition = ({
     config: transitionState === "closing" ? { duration: CLOSE_OVERLAY_DURATION_MS } : { tension: 280, friction: 34 },
   });
 
-  const imageSpring = useSpring({
-    opacity: isOriginalLoaded ? 1 : 0,
-    config: { tension: 180, friction: 28 },
-  });
-
   const controlsSpring = useSpring({
     opacity: transitionState === "closing" ? 0 : 1,
     transform: transitionState === "closing" ? "translateY(-8px)" : "translateY(0px)",
@@ -303,7 +295,6 @@ export const usePhotoDetailTransition = ({
   return {
     transitionState,
     overlaySpring,
-    imageSpring,
     controlsSpring,
     infoPanelSpring,
     spring,

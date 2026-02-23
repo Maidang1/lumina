@@ -23,8 +23,6 @@ export interface ProcessingTaskMetric {
 
 export interface BrowserUploadItem {
   file: File;
-  liveVideoFile?: File;
-  uploadMode: "static" | "live_photo";
 }
 
 export interface BrowserThumbnailResult {
@@ -374,20 +372,7 @@ export async function parseUploadItemInBrowser({
   const concurrencyProfile = `adaptive:${Math.min(4, Math.max(2, Math.floor(getHardwareConcurrency() / 2)))}w:${getOcrConcurrency()}ocr`;
 
   markStageProcessing("hash");
-  const stillHashPromise = deps.computeSHA256(file);
-  const liveVideoHashPromise = item.liveVideoFile
-    ? deps.computeSHA256(item.liveVideoFile)
-    : Promise.resolve<string | null>(null);
-  const [stillHash, liveVideoHash] = await Promise.all([
-    stillHashPromise,
-    liveVideoHashPromise,
-  ]);
-  const imageId =
-    item.uploadMode === "live_photo" && liveVideoHash
-      ? await deps.computeSHA256(
-          new Blob([stillHash, ":", liveVideoHash], { type: "text/plain" }),
-        )
-      : stillHash;
+  const imageId = await deps.computeSHA256(file);
   taskMetrics.push({
     task_id: "hash",
     status: "completed",
@@ -595,26 +580,7 @@ export async function parseUploadItemInBrowser({
             ),
           }
         : {}),
-      ...(item.liveVideoFile
-        ? {
-            live_video: {
-              path: "",
-              mime: item.liveVideoFile.type || "video/quicktime",
-              bytes: item.liveVideoFile.size,
-            },
-          }
-        : {}),
     },
-    ...(item.uploadMode === "live_photo" && liveVideoHash
-      ? {
-          live_photo: {
-            enabled: true,
-            pair_id: imageId,
-            still_hash: stillHash,
-            video_hash: liveVideoHash,
-          },
-        }
-      : {}),
     exif: sanitizedExif,
     privacy,
     ...(region ? { geo: { region } } : {}),

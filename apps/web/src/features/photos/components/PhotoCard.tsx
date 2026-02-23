@@ -7,9 +7,8 @@ import React, {
 } from "react";
 import { animated, to, useSpring } from "@react-spring/web";
 import { Photo, PhotoOpenTransition } from "@/features/photos/types";
-import { videoLoaderManager } from "@/features/photos/services/videoLoaderManager";
 import { thumbhashToDataUrl } from "@/features/photos/services/thumbhash";
-import { useLivePhotoControls } from "./hooks/useLivePhotoControls";
+import { imagePrefetchService } from "@/features/photos/services/imagePrefetchService";
 
 interface PhotoCardProps {
   photo: Photo;
@@ -36,17 +35,12 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   const [isVisible, setIsVisible] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [isVideoReady, setIsVideoReady] = useState(false);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-  const [isConvertingVideo, setIsConvertingVideo] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const hoverPrefetchTimerRef = useRef<number | null>(null);
   const thumbhashDataUrl = useMemo(
     () => thumbhashToDataUrl(photo.metadata?.thumbhash),
     [photo.metadata?.thumbhash],
   );
-
-  const hasVideo = photo.videoSource?.type === "live-photo";
 
   const enterSpring = useSpring({
     from: {
@@ -71,36 +65,6 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     },
     config: { tension: 280, friction: 32 },
   });
-
-  const stopVideo = useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.pause();
-    video.currentTime = 0;
-    setIsVideoPlaying(false);
-  }, []);
-
-  const playVideo = useCallback(() => {
-    const video = videoRef.current;
-    if (!video || !isVideoReady || isConvertingVideo || isVideoPlaying) return;
-    setIsVideoPlaying(true);
-    video.currentTime = 0;
-    video.play().catch(() => {
-      setIsVideoPlaying(false);
-    });
-  }, [isConvertingVideo, isVideoPlaying, isVideoReady]);
-
-  const { handleStart: handleHoverStart, handleEnd: handleHoverEnd } =
-    useLivePhotoControls({
-      mode: "hover",
-      enabled: hasVideo,
-      isPlaying: isVideoPlaying,
-      isVideoReady,
-      onPlay: playVideo,
-      onStop: stopVideo,
-      delayMs: 200,
-      disableHover: prefersReducedMotion,
-    });
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -133,44 +97,13 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   }, []);
 
   useEffect(() => {
-    if (
-      !hasVideo ||
-      !isLoaded ||
-      !isVisible ||
-      isVideoReady ||
-      !videoRef.current ||
-      !photo.videoSource
-    ) {
-      return;
-    }
-    let cancelled = false;
-    setIsConvertingVideo(false);
-    void videoLoaderManager
-      .processVideo(photo.videoSource, videoRef.current, {
-        onLoadingStateUpdate: (state) => {
-          if (cancelled) return;
-          setIsConvertingVideo(Boolean(state.isConverting));
-        },
-      })
-      .then(() => {
-        if (!cancelled) {
-          setIsVideoReady(true);
-        }
-      })
-      .catch(() => {
-        // Video loading failed silently
-      });
-
     return () => {
-      cancelled = true;
+      if (hoverPrefetchTimerRef.current !== null) {
+        window.clearTimeout(hoverPrefetchTimerRef.current);
+        hoverPrefetchTimerRef.current = null;
+      }
     };
-  }, [hasVideo, isLoaded, isVideoReady, isVisible, photo.videoSource]);
-
-  useEffect(() => {
-    return () => {
-      stopVideo();
-    };
-  }, [stopVideo]);
+  }, []);
 
   useEffect(() => {
     setIsLoaded(false);
@@ -187,6 +120,8 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         height: 1,
         borderRadius: 16,
         sourceScale: window.visualViewport?.scale ?? 1,
+        sourceViewportWidth: window.innerWidth,
+        sourceViewportHeight: window.innerHeight,
         capturedAt: Date.now(),
       };
     }
@@ -207,6 +142,8 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       height: rect.height,
       borderRadius,
       sourceScale: window.visualViewport?.scale ?? 1,
+      sourceViewportWidth: window.innerWidth,
+      sourceViewportHeight: window.innerHeight,
       capturedAt: Date.now(),
     };
   }, [photo.id]);
@@ -225,6 +162,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       return;
     }
     if (canOpenDetail && onClick) {
+      imagePrefetchService.prefetch(photo.url, { priority: "high" });
       onClick(photo, getTransitionSource());
     }
   }, [
@@ -259,11 +197,20 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       }}
       onMouseEnter={() => {
         setIsHovered(true);
-        handleHoverStart();
+        if (hoverPrefetchTimerRef.current !== null) {
+          window.clearTimeout(hoverPrefetchTimerRef.current);
+        }
+        hoverPrefetchTimerRef.current = window.setTimeout(() => {
+          imagePrefetchService.prefetch(photo.url, { priority: "low" });
+          hoverPrefetchTimerRef.current = null;
+        }, 120);
       }}
       onMouseLeave={() => {
         setIsHovered(false);
-        handleHoverEnd();
+        if (hoverPrefetchTimerRef.current !== null) {
+          window.clearTimeout(hoverPrefetchTimerRef.current);
+          hoverPrefetchTimerRef.current = null;
+        }
       }}
       style={{
         aspectRatio: cardAspectRatio,
@@ -317,26 +264,28 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
         )}
       </animated.div>
 
-      {hasVideo && (
-        <video
-          ref={videoRef}
-          className={`pointer-events-none absolute inset-0 z-0 h-full w-full object-cover transition-opacity duration-500 ${
-            isVideoPlaying ? "opacity-100" : "opacity-0"
-          }`}
-          muted
-          playsInline
-          preload="metadata"
-          onEnded={stopVideo}
-        />
-      )}
-
       {!compact && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex translate-y-2 flex-col justify-end p-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 sm:p-5">
-          <h3 className="font-serif text-lg text-white tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.65)]">
-            {photo.filename}
-          </h3>
+          {(photo.location || photo.category) && (
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              {photo.location && (
+                <div className="flex items-center gap-1.5 rounded-md border border-white/20 bg-black/60 px-3 py-1 backdrop-blur-sm">
+                  <span className="text-xs font-medium text-white">
+                    {photo.location}
+                  </span>
+                </div>
+              )}
+              {photo.category && (
+                <div className="flex items-center gap-1.5 rounded-md border border-white/20 bg-black/60 px-3 py-1 backdrop-blur-sm">
+                  <span className="text-xs font-medium text-white">
+                    {photo.category}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
-          <div className="mt-1.5 flex items-center gap-3 text-[10px] font-medium tracking-[0.22em] text-white/65 uppercase">
+          <div className="flex items-center gap-3 text-[10px] font-medium tracking-[0.22em] text-white/65 uppercase">
             <span>
               {photo.width} × {photo.height}
             </span>
@@ -347,28 +296,6 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
               </>
             )}
           </div>
-        </div>
-      )}
-
-      {!compact && (photo.category || photo.isLive) && (
-        <div className="absolute left-3 top-3 z-20 flex gap-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-          {photo.category && (
-            <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1 backdrop-blur-sm">
-              <span className="text-xs font-medium text-white">
-                {photo.category}
-              </span>
-            </div>
-          )}
-          {photo.isLive && (
-            <div className="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-2 py-1 backdrop-blur-sm">
-              <div
-                className={`h-1.5 w-1.5 rounded-full ${isConvertingVideo ? "bg-white/60 animate-pulse motion-reduce:animate-none" : "bg-white"}`}
-              />
-              <span className="text-[10px] font-medium tracking-widest text-white uppercase">
-                Live
-              </span>
-            </div>
-          )}
         </div>
       )}
     </animated.div>

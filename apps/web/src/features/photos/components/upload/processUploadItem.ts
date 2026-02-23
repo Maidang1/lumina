@@ -121,8 +121,6 @@ export const submitUploadItem = async ({
     thumbBlob,
     metadata,
     thumbVariantBlobs,
-    item.liveVideoFile,
-    item.uploadMode,
     onProgress,
     { deferFinalize },
   );

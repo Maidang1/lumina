@@ -135,12 +135,10 @@ export class GitHubClient {
   private normalizeMetadataPaths(
     metadata: ImageMetadata,
     originalMime?: string,
-    liveVideoMime?: string,
   ): {
     originalPath: string;
     thumbPath: string;
     thumbVariantPaths: Partial<Record<"400" | "800" | "1600", string>>;
-    liveVideoPath?: string;
     metaPath: string;
   } {
     const objectDir = imageIdToObjectPath(metadata.image_id);
@@ -159,23 +157,14 @@ export class GitHubClient {
         thumbVariantPaths[size] = variantPath;
       }
     }
-    const liveVideoPath = metadata.files.live_video
-      ? metadata.files.live_video.path ||
-        `${objectDir}/live.${guessExtension(liveVideoMime || metadata.files.live_video.mime)}`
-      : undefined;
     const metaPath = imageIdToMetaPath(metadata.image_id);
 
     metadata.files.original.path = originalPath;
     metadata.files.thumb.path = thumbPath;
-    if (liveVideoPath && metadata.files.live_video) {
-      metadata.files.live_video.path = liveVideoPath;
-    }
-
     return {
       originalPath,
       thumbPath,
       thumbVariantPaths,
-      liveVideoPath,
       metaPath,
     };
   }
@@ -607,25 +596,17 @@ export class GitHubClient {
       | Partial<Record<"400" | "800" | "1600", Uint8Array>>
       | undefined,
     metadata: ImageMetadata,
-    liveVideo?: { bytes: Uint8Array; mime: string },
     options?: { deferFinalize?: boolean },
   ): Promise<{
     originalPath: string;
     thumbPath: string;
-    liveVideoPath?: string;
     metaPath: string;
   }> {
-    const {
-      originalPath,
-      thumbPath,
-      thumbVariantPaths,
-      liveVideoPath,
-      metaPath,
-    } = this.normalizeMetadataPaths(metadata, originalMime, liveVideo?.mime);
+    const { originalPath, thumbPath, thumbVariantPaths, metaPath } =
+      this.normalizeMetadataPaths(metadata, originalMime);
 
     const originalB64 = bytesToBase64(original);
     const thumbB64 = bytesToBase64(thumb);
-    const liveVideoB64 = liveVideo ? bytesToBase64(liveVideo.bytes) : undefined;
 
     await this.putFile(
       originalPath,
@@ -650,20 +631,11 @@ export class GitHubClient {
       );
       await sleep(WRITE_INTERVAL_MS);
     }
-    if (liveVideoPath && liveVideoB64) {
-      await this.putFile(
-        liveVideoPath,
-        liveVideoB64,
-        `Upload ${metadata.image_id} - live video`,
-      );
-      await sleep(WRITE_INTERVAL_MS);
-    }
-
     if (!options?.deferFinalize) {
       await this.updateImageMetadataWithIndex(metadata);
     }
 
-    return { originalPath, thumbPath, liveVideoPath, metaPath };
+    return { originalPath, thumbPath, metaPath };
   }
 
   async updateImageMetadata(metadata: ImageMetadata): Promise<void> {
@@ -736,10 +708,6 @@ export class GitHubClient {
       "800": `${objectDir}/thumb-800.webp`,
       "1600": `${objectDir}/thumb-1600.webp`,
     };
-    const fallbackLivePath = metadata.files.live_video
-      ? `${objectDir}/live.${guessExtension(metadata.files.live_video.mime)}`
-      : undefined;
-
     const paths = [
       metadata.files.original.path || fallbackOriginalPath,
       metadata.files.thumb.path || fallbackThumbPath,
@@ -749,7 +717,6 @@ export class GitHubClient {
         fallbackThumbVariantPaths["800"],
       metadata.files.thumb_variants?.["1600"]?.path ||
         fallbackThumbVariantPaths["1600"],
-      metadata.files.live_video?.path || fallbackLivePath,
       imageIdToMetaPath(imageId),
     ].filter((path): path is string => Boolean(path));
 

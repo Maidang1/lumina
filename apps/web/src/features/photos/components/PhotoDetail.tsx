@@ -33,37 +33,26 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   openingTransition = null,
 }) => {
   const {
-    hasVideo,
+    loadState,
     isOriginalLoaded,
     loadProgress,
-    isLivePlaying,
-    isConvertingVideo,
-    livePlaybackError,
-    liveFrameSize,
-    liveVideoRef,
     thumbnailImageRef,
     imageContainerRef,
-    setIsOriginalLoaded,
-    handleLongPressStart,
-    handleLongPressEnd,
-    stopVideo,
+    handleOriginalLoaded,
+    handleOriginalError,
   } = usePhotoDetailMedia(photo);
 
   const {
     transitionState,
     overlaySpring,
-    imageSpring,
     controlsSpring,
     infoPanelSpring,
-    spring,
-    useAnimation,
     handleRequestClose,
   } = usePhotoDetailTransition({
     photo,
     openingTransition,
     onClose,
-    stopVideo,
-    isOriginalLoaded,
+    stopVideo: () => undefined,
   });
 
   usePhotoDetailKeyboardNav({
@@ -106,21 +95,13 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
         >
           <PhotoDetailMediaStage
             photo={photo}
-            hasVideo={hasVideo}
+            loadState={loadState}
             isOriginalLoaded={isOriginalLoaded}
             loadProgress={loadProgress}
-            isLivePlaying={isLivePlaying}
-            liveFrameSize={liveFrameSize}
-            liveVideoRef={liveVideoRef}
             thumbnailImageRef={thumbnailImageRef}
             imageContainerRef={imageContainerRef}
-            onOriginalLoaded={() => setIsOriginalLoaded(true)}
-            onStopVideo={stopVideo}
-            onLongPressStart={handleLongPressStart}
-            onLongPressEnd={handleLongPressEnd}
-            useAnimation={useAnimation}
-            animationSpring={spring}
-            imageOpacity={imageSpring.opacity}
+            onOriginalLoaded={handleOriginalLoaded}
+            onOriginalError={handleOriginalError}
           />
 
           <animated.div
@@ -133,9 +114,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
             <PhotoDetailInfoPanel
               photo={photo}
               tags={tags}
-              hasVideo={hasVideo}
-              isConvertingVideo={isConvertingVideo}
-              livePlaybackError={livePlaybackError}
             />
           </animated.div>
         </animated.div>

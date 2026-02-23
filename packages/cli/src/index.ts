@@ -29,7 +29,6 @@ interface UploadOptions {
   ocrConcurrency: number;
   retry: number;
   manifest: string;
-  livePhotoMode: "none" | "pair-by-name";
 }
 
 const IMAGE_EXTENSIONS = new Set([
@@ -112,42 +111,17 @@ function guessMime(filePath: string): string {
   return "application/octet-stream";
 }
 
-async function findLiveVideo(filePath: string): Promise<string | undefined> {
-  const dir = path.dirname(filePath);
-  const base = path.basename(filePath, path.extname(filePath));
-  const candidateMov = path.join(dir, `${base}.mov`);
-  try {
-    await fs.access(candidateMov);
-    return candidateMov;
-  } catch {
-    return undefined;
-  }
-}
-
 async function uploadOne(
   filePath: string,
   options: UploadOptions,
 ): Promise<{ ok: true; imageId: string } | { ok: false; error: string }> {
   try {
     const bytes = new Uint8Array(await fs.readFile(filePath));
-    const livePath =
-      options.livePhotoMode === "pair-by-name"
-        ? await findLiveVideo(filePath)
-        : undefined;
 
     const processed = await processForUpload({
       fileName: path.basename(filePath),
       mimeType: guessMime(filePath),
       bytes,
-      ...(livePath
-        ? {
-            liveVideo: {
-              fileName: path.basename(livePath),
-              mimeType: "video/quicktime",
-              bytes: new Uint8Array(await fs.readFile(livePath)),
-            },
-          }
-        : {}),
     });
 
     const github = createGitHubClient(getEnvConfig(options), {
@@ -160,12 +134,6 @@ async function uploadOne(
       processed.thumb,
       processed.thumbVariants,
       processed.metadata,
-      processed.metadata.files.live_video
-        ? {
-            bytes: new Uint8Array(await fs.readFile(livePath!)),
-            mime: processed.metadata.files.live_video.mime,
-          }
-        : undefined,
     );
 
     return { ok: true, imageId: processed.metadata.image_id };
@@ -312,11 +280,6 @@ const uploadCommand = defineCommand({
       description: "Manifest path",
       default: ".lumina-upload-manifest.json",
     },
-    "live-photo-mode": {
-      type: "string",
-      description: "none|pair-by-name",
-      default: "pair-by-name",
-    },
   },
   async run({ args }) {
     if (!args.owner || !args.repo || !args.token) {
@@ -335,7 +298,6 @@ const uploadCommand = defineCommand({
       ocrConcurrency: Number(args["ocr-concurrency"]),
       retry: Number(args.retry),
       manifest: args.manifest,
-      livePhotoMode: args["live-photo-mode"] as "none" | "pair-by-name",
     });
   },
 });
@@ -386,11 +348,6 @@ const resumeCommand = defineCommand({
       description: "Manifest path",
       default: ".lumina-upload-manifest.json",
     },
-    "live-photo-mode": {
-      type: "string",
-      description: "none|pair-by-name",
-      default: "pair-by-name",
-    },
   },
   async run({ args }) {
     if (!args.owner || !args.repo || !args.token) {
@@ -408,7 +365,6 @@ const resumeCommand = defineCommand({
       ocrConcurrency: Number(args["ocr-concurrency"]),
       retry: Number(args.retry),
       manifest: args.manifest,
-      livePhotoMode: args["live-photo-mode"] as "none" | "pair-by-name",
     });
   },
 });

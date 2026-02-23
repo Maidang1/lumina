@@ -56,7 +56,7 @@ function formatEta(etaSeconds?: number): string {
 }
 
 function getItemBytes(item: UploadQueueItem): number {
-  return item.file.size + (item.liveVideoFile?.size || 0);
+  return item.file.size;
 }
 
 const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({

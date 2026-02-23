@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
 import PhotoGrid from "@/features/photos/components/PhotoGrid";
 import PhotoDetail from "@/features/photos/components/PhotoDetail";
@@ -8,6 +8,7 @@ import ManagePage from "@/features/photos/pages/ManagePage";
 import { usePhotosCollection } from "@/features/photos/hooks/usePhotosCollection";
 import { useLocalStorageState } from "@/shared/lib/useLocalStorageState";
 import { PhotoOpenTransition } from "@/features/photos/types";
+import { imagePrefetchService } from "@/features/photos/services/imagePrefetchService";
 
 const TAG_STORAGE_KEY = "lumina.photo_tags";
 
@@ -36,6 +37,20 @@ const GalleryShell: React.FC = () => {
     if (!selectedPhoto) return -1;
     return photos.findIndex((photo) => photo.id === selectedPhoto.id);
   }, [photos, selectedPhoto]);
+
+  useEffect(() => {
+    if (!selectedPhoto || selectedPhotoIndex < 0) return;
+    imagePrefetchService.prefetch(selectedPhoto.url, { priority: "high" });
+
+    const prevPhoto = photos[selectedPhotoIndex - 1];
+    const nextPhoto = photos[selectedPhotoIndex + 1];
+    if (prevPhoto) {
+      imagePrefetchService.prefetch(prevPhoto.url, { priority: "low" });
+    }
+    if (nextPhoto) {
+      imagePrefetchService.prefetch(nextPhoto.url, { priority: "low" });
+    }
+  }, [photos, selectedPhoto, selectedPhotoIndex]);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -103,6 +118,7 @@ const GalleryShell: React.FC = () => {
               <PhotoGrid
                 photos={photos}
                 onPhotoClick={(photo, transitionSource) => {
+                  imagePrefetchService.prefetch(photo.url, { priority: "high" });
                   setOpenTransition(transitionSource);
                   setSelectedPhotoId(photo.id);
                 }}
@@ -111,6 +127,7 @@ const GalleryShell: React.FC = () => {
               <PhotoMapView
                 photos={photos}
                 onPhotoClick={(photo) => {
+                  imagePrefetchService.prefetch(photo.url, { priority: "high" });
                   setOpenTransition(null);
                   setSelectedPhotoId(photo.id);
                 }}

@@ -93,7 +93,6 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
     const newItems: UploadQueueItem[] = fileArray.map((file) => ({
       id: makeQueueId(),
       file,
-      uploadMode: "static",
       status: "queued_parse",
       progress: 0,
       stages: createInitialStages(),
@@ -216,7 +215,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
       (item) => item.status === "upload_failed",
     ).length;
     const totalBytes = queue.reduce(
-      (sum, item) => sum + item.file.size + (item.liveVideoFile?.size || 0),
+      (sum, item) => sum + item.file.size,
       0,
     );
     const isParseDone =

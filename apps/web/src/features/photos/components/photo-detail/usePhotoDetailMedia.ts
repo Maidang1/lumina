@@ -1,218 +1,93 @@
-import { MutableRefObject, useCallback, useEffect, useRef, useState } from "react";
+import { MutableRefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Photo } from "@/features/photos/types";
-import { useLivePhotoControls } from "@/features/photos/components/hooks/useLivePhotoControls";
-import { videoLoaderManager } from "@/features/photos/services/videoLoaderManager";
+
+export type PhotoDetailLoadState = "idle" | "loading" | "loaded" | "error";
 
 interface UsePhotoDetailMediaResult {
-  hasVideo: boolean;
+  loadState: PhotoDetailLoadState;
   isOriginalLoaded: boolean;
   loadProgress: number;
-  isLivePlaying: boolean;
-  isVideoReady: boolean;
-  isConvertingVideo: boolean;
-  livePlaybackError: string | null;
-  liveFrameSize: { width: number; height: number } | null;
-  liveVideoRef: MutableRefObject<HTMLVideoElement | null>;
   thumbnailImageRef: MutableRefObject<HTMLImageElement | null>;
   imageContainerRef: MutableRefObject<HTMLDivElement | null>;
-  setIsOriginalLoaded: (loaded: boolean) => void;
-  handleLongPressStart: () => void;
-  handleLongPressEnd: () => void;
-  stopVideo: () => void;
+  handleOriginalLoaded: () => void;
+  handleOriginalError: () => void;
 }
 
 export const usePhotoDetailMedia = (photo: Photo): UsePhotoDetailMediaResult => {
+  const [loadState, setLoadState] = useState<PhotoDetailLoadState>("idle");
   const [isOriginalLoaded, setIsOriginalLoaded] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
-  const [isLivePlaying, setIsLivePlaying] = useState(false);
-  const [isVideoReady, setIsVideoReady] = useState(false);
-  const [isConvertingVideo, setIsConvertingVideo] = useState(false);
-  const [livePlaybackError, setLivePlaybackError] = useState<string | null>(null);
-  const [liveFrameSize, setLiveFrameSize] = useState<{ width: number; height: number } | null>(null);
 
-  const liveVideoRef = useRef<HTMLVideoElement | null>(null);
   const thumbnailImageRef = useRef<HTMLImageElement | null>(null);
   const imageContainerRef = useRef<HTMLDivElement | null>(null);
+  const progressTimerRef = useRef<number | null>(null);
+  const revealTimerRef = useRef<number | null>(null);
 
-  const hasVideo = photo.videoSource?.type === "live-photo";
-
-  useEffect(() => {
-    setIsOriginalLoaded(false);
-    setLoadProgress(0);
-  }, [photo.id]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadImageWithProgress = async (): Promise<void> => {
-      if (cancelled) return;
-      setLoadProgress(0);
-
-      try {
-        const response = await fetch(photo.url, { mode: "cors" });
-        if (!response.ok || !response.body) {
-          throw new Error("Failed to fetch image");
-        }
-
-        const reader = response.body.getReader();
-        const contentLength = response.headers.get("content-length");
-        const total = contentLength ? parseInt(contentLength, 10) : 0;
-        let received = 0;
-
-        while (!cancelled) {
-          const { done, value } = await reader.read();
-          if (done || cancelled) break;
-
-          received += value.length;
-          if (total > 0) {
-            setLoadProgress(Math.round((received / total) * 100));
-          }
-        }
-
-        if (!cancelled) {
-          setLoadProgress(100);
-        }
-      } catch {
-        if (!cancelled) {
-          setLoadProgress(100);
-        }
-      }
-    };
-
-    void loadImageWithProgress();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [photo.id, photo.url]);
-
-  const stopVideo = useCallback(() => {
-    const video = liveVideoRef.current;
-    if (!video) return;
-    video.pause();
-    video.currentTime = 0;
-    setIsLivePlaying(false);
+  const clearProgressTimer = useCallback(() => {
+    if (progressTimerRef.current !== null) {
+      window.clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+    }
   }, []);
 
-  const playVideo = useCallback(() => {
-    const video = liveVideoRef.current;
-    if (!video || !isVideoReady || isConvertingVideo) return;
-    setLivePlaybackError(null);
-    setIsLivePlaying(true);
-    video.currentTime = 0;
-    video.play().catch(() => {
-      setIsLivePlaying(false);
-      setLivePlaybackError(
-        "Live photo playback failed. Your browser may not support this codec. Try downloading and opening with a system player."
-      );
-    });
-  }, [isConvertingVideo, isVideoReady]);
-
-  const { handleStart: handleLongPressStart, handleEnd: handleLongPressEnd } = useLivePhotoControls({
-    mode: "long-press",
-    enabled: hasVideo,
-    isPlaying: isLivePlaying,
-    isVideoReady,
-    onPlay: playVideo,
-    onStop: stopVideo,
-    delayMs: 200,
-  });
-
-  useEffect(() => {
-    setIsLivePlaying(false);
-    setLivePlaybackError(null);
-    setIsVideoReady(false);
-    setIsConvertingVideo(false);
-    setLiveFrameSize(null);
-  }, [photo.id]);
-
-  useEffect(() => {
-    const image = thumbnailImageRef.current;
-    if (!image) return;
-
-    const updateLiveFrameSize = (): void => {
-      const rect = image.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      setLiveFrameSize({ width: rect.width, height: rect.height });
-    };
-
-    updateLiveFrameSize();
-
-    const observer =
-      typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => {
-            updateLiveFrameSize();
-          })
-        : null;
-
-    observer?.observe(image);
-    window.addEventListener("resize", updateLiveFrameSize);
-
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener("resize", updateLiveFrameSize);
-    };
-  }, [photo.id, isOriginalLoaded]);
-
-  useEffect(() => {
-    if (!hasVideo || !liveVideoRef.current || isVideoReady || !photo.videoSource) {
-      return;
+  const clearRevealTimer = useCallback(() => {
+    if (revealTimerRef.current !== null) {
+      window.clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
     }
+  }, []);
 
-    let cancelled = false;
-    void videoLoaderManager
-      .processVideo(photo.videoSource, liveVideoRef.current, {
-        onLoadingStateUpdate: (state) => {
-          if (!cancelled) {
-            setIsConvertingVideo(Boolean(state.isConverting));
-          }
-        },
-      })
-      .then(() => {
-        if (!cancelled) {
-          setIsVideoReady(true);
-          setLivePlaybackError(null);
+  useLayoutEffect(() => {
+    clearProgressTimer();
+    clearRevealTimer();
+    setLoadState("loading");
+    setIsOriginalLoaded(false);
+    setLoadProgress(18);
+    progressTimerRef.current = window.setInterval(() => {
+      setLoadProgress((current) => {
+        if (current >= 80) {
+          return current;
         }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLivePlaybackError(
-            "Failed to load live video. The browser may not support MOV/HEVC, or the source is temporarily unavailable."
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsConvertingVideo(false);
-        }
+        return Math.min(current + 7, 80);
       });
-
+    }, 140);
     return () => {
-      cancelled = true;
+      clearProgressTimer();
+      clearRevealTimer();
     };
-  }, [hasVideo, isVideoReady, photo.videoSource]);
+  }, [clearProgressTimer, clearRevealTimer, photo.id]);
+
+  const handleOriginalLoaded = useCallback(() => {
+    clearProgressTimer();
+    setLoadState("loaded");
+    setLoadProgress(100);
+    revealTimerRef.current = window.setTimeout(() => {
+      setIsOriginalLoaded(true);
+      revealTimerRef.current = null;
+    }, 50);
+  }, [clearProgressTimer]);
+
+  const handleOriginalError = useCallback(() => {
+    clearProgressTimer();
+    clearRevealTimer();
+    setIsOriginalLoaded(false);
+    setLoadState("error");
+  }, [clearProgressTimer, clearRevealTimer]);
 
   useEffect(() => {
     return () => {
-      stopVideo();
+      clearProgressTimer();
+      clearRevealTimer();
     };
-  }, [stopVideo]);
+  }, [clearProgressTimer, clearRevealTimer]);
 
   return {
-    hasVideo,
+    loadState,
     isOriginalLoaded,
     loadProgress,
-    isLivePlaying,
-    isVideoReady,
-    isConvertingVideo,
-    livePlaybackError,
-    liveFrameSize,
-    liveVideoRef,
     thumbnailImageRef,
     imageContainerRef,
-    setIsOriginalLoaded,
-    handleLongPressStart,
-    handleLongPressEnd,
-    stopVideo,
+    handleOriginalLoaded,
+    handleOriginalError,
   };
 };

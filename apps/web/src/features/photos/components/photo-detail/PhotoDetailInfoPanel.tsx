@@ -3,7 +3,6 @@ import {
   Camera,
   Aperture,
   FileText,
-  Loader2,
   Scan,
   Zap,
   Tag,
@@ -18,17 +17,11 @@ import { formatBytes, formatExifText, formatTime } from "./formatters";
 interface PhotoDetailInfoPanelProps {
   photo: Photo;
   tags: string[];
-  hasVideo: boolean;
-  isConvertingVideo: boolean;
-  livePlaybackError: string | null;
 }
 
 const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
   photo,
   tags,
-  hasVideo,
-  isConvertingVideo,
-  livePlaybackError,
 }) => {
   const metadata = photo.metadata;
   const focalLength = formatFocalLength(photo.exif.focalLength);
@@ -188,23 +181,6 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
           </div>
         </div>
 
-        {/* Video Status */}
-        {(hasVideo || isConvertingVideo || livePlaybackError) && (
-          <div className="rounded-lg bg-white/[0.03] p-3 text-xs border border-white/10">
-            {hasVideo && (
-              <p className="text-neutral-300 mb-1">Live Photo Available</p>
-            )}
-            {isConvertingVideo && (
-              <p className="flex items-center gap-2 text-[#c9a962]">
-                <Loader2 size={10} className="animate-spin" /> Processing
-                video...
-              </p>
-            )}
-            {livePlaybackError && (
-              <p className="text-rose-400">{livePlaybackError}</p>
-            )}
-          </div>
-        )}
       </div>
     </ScrollArea>
   );

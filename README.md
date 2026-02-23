@@ -6,7 +6,6 @@ Lumina is a photography portfolio monorepo built with React, TypeScript, Rsbuild
 
 - Masonry gallery with EXIF and map display
 - Browser-side image pipeline (EXIF, OCR, pHash, blur detection, dominant color)
-- iOS Live Photo upload/playback (still + MOV)
 - Cloudflare Pages Functions API backed by GitHub object storage
 - Token-protected write APIs and optional signed share URLs
 
@@ -67,7 +66,6 @@ PATCH  /api/v1/images/:id
 DELETE /api/v1/images/:id
 GET    /api/v1/images/:id/thumb
 GET    /api/v1/images/:id/original
-GET    /api/v1/images/:id/live
 POST   /api/v1/images/:id/share
 ```
 

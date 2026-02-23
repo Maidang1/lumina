@@ -4,11 +4,6 @@ export interface UploadPipelineInput {
   fileName: string;
   mimeType: string;
   bytes: Uint8Array;
-  liveVideo?: {
-    fileName: string;
-    mimeType: string;
-    bytes: Uint8Array;
-  };
 }
 
 export interface UploadPipelineOutput {

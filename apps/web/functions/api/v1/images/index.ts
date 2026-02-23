@@ -48,12 +48,8 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
     const thumb400 = formData.get("thumb_400");
     const thumb800 = formData.get("thumb_800");
     const thumb1600 = formData.get("thumb_1600");
-    const liveVideo = formData.get("live_video");
     const metadataStr = formData.get("metadata");
-    const uploadModeValue = formData.get("upload_mode");
     const deferFinalizeValue = formData.get("defer_finalize");
-    const uploadMode =
-      uploadModeValue === "live_photo" ? "live_photo" : "static";
     const deferFinalize = deferFinalizeValue === "true";
 
     if (!original || !(original instanceof File)) {
@@ -80,35 +76,8 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
     }
 
     const MAX_SIZE = 25 * 1024 * 1024;
-    const MAX_LIVE_VIDEO_SIZE = 10 * 1024 * 1024;
     if (original.size > MAX_SIZE) {
       return errorResponse(env, "File too large", 413);
-    }
-
-    if (uploadMode === "live_photo") {
-      if (!liveVideo || !(liveVideo instanceof File)) {
-        return errorResponse(
-          env,
-          "Missing live video file for live photo upload",
-          400,
-        );
-      }
-      const isMovType =
-        liveVideo.type === "video/quicktime" ||
-        liveVideo.name.toLowerCase().endsWith(".mov");
-      if (!isMovType) {
-        return errorResponse(env, "Invalid live video type. Must be MOV", 400);
-      }
-      if (liveVideo.size > MAX_LIVE_VIDEO_SIZE) {
-        return errorResponse(env, "Live video file too large", 413);
-      }
-      if (!metadata.files.live_video) {
-        metadata.files.live_video = {
-          path: "",
-          mime: liveVideo.type || "video/quicktime",
-          bytes: liveVideo.size,
-        };
-      }
     }
 
     const github = createGitHubClient(env);
@@ -127,21 +96,13 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
     if (thumb1600 instanceof Blob) {
       thumbVariantBytes["1600"] = new Uint8Array(await thumb1600.arrayBuffer());
     }
-    const liveVideoBytes =
-      uploadMode === "live_photo" && liveVideo instanceof File
-        ? new Uint8Array(await liveVideo.arrayBuffer())
-        : undefined;
-
-    const { originalPath, thumbPath, liveVideoPath, metaPath } =
+    const { originalPath, thumbPath, metaPath } =
       await github.uploadImage(
         originalBytes,
         original.type,
         thumbBytes,
         thumbVariantBytes,
         metadata,
-        liveVideoBytes && liveVideo instanceof File
-          ? { bytes: liveVideoBytes, mime: liveVideo.type || "video/quicktime" }
-          : undefined,
         { deferFinalize },
       );
 
@@ -150,7 +111,6 @@ async function handleUpload(request: Request, env: Env): Promise<Response> {
       stored: {
         original_path: originalPath,
         thumb_path: thumbPath,
-        live_video_path: liveVideoPath,
         meta_path: metaPath,
       },
       urls: buildImageApiUrls(metadata.image_id),

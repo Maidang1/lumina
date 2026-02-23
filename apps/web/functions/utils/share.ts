@@ -1,7 +1,7 @@
 import type { Env } from "@luminafe/contracts";
 import { errorResponse } from "./http";
 
-export type SignedAssetType = "original" | "thumb" | "live";
+export type SignedAssetType = "original" | "thumb";
 
 const encoder = new TextEncoder();
 

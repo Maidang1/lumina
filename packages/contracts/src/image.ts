@@ -21,7 +21,6 @@ export function buildImageApiUrls(imageId: string): UploadResult["urls"] {
     meta: `/api/v1/images/${encoded}`,
     thumb: `/api/v1/images/${encoded}/thumb`,
     original: `/api/v1/images/${encoded}/original`,
-    live: `/api/v1/images/${encoded}/live`,
   };
 }
 
