@@ -14,10 +14,13 @@
     "cli:build": "pnpm --filter @luminafe/cli build",
     "cli:pack": "npm_config_cache=/tmp/.npm-cache pnpm --filter @luminafe/cli exec npm pack --dry-run",
     "cli:publish": "npm_config_cache=/tmp/.npm-cache pnpm --filter @luminafe/cli publish --access public",
-    "deploy": "pnpm --filter @luminafe/web run deploy"
+    "deploy": "pnpm --filter @luminafe/web run deploy",
+    "knip": "knip"
   },
   "devDependencies": {
+    "@types/node": "^22.14.0",
+    "knip": "^5.85.0",
     "turbo": "^2.5.6",
-    "typescript": "~5.8.2"
+    "typescript": "~5.8.3"
   }
 }

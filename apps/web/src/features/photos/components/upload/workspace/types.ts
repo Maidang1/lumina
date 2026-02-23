@@ -1,7 +1,5 @@
 import { UploadQueueItem } from "@/features/photos/types";
 
-export type UploadWorkspaceStatus = UploadQueueItem["status"];
-
 export interface UploadQueueStats {
   parsedCount: number;
   parseFailedCount: number;

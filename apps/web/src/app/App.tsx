@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, Navigate, Route, Routes } from "react-router-dom";
+import {
+  Link,
+  Navigate,
+  Route,
+  Routes,
+  useSearchParams,
+} from "react-router-dom";
 import PhotoGrid from "@/features/photos/components/PhotoGrid";
 import PhotoDetail from "@/features/photos/components/PhotoDetail";
 import PhotoMapView from "@/features/photos/components/PhotoMapView";
@@ -11,17 +17,29 @@ import { PhotoOpenTransition } from "@/features/photos/types";
 import { imagePrefetchService } from "@/features/photos/services/imagePrefetchService";
 
 const TAG_STORAGE_KEY = "lumina.photo_tags";
+type GalleryTab = "gallery" | "map";
 
 const GalleryShell: React.FC = () => {
   const { photos, isLoading } = usePhotosCollection();
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [openTransition, setOpenTransition] =
     useState<PhotoOpenTransition | null>(null);
-  const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const viewMode: GalleryTab = tabParam === "map" ? "map" : "gallery";
   const [photoTags] = useLocalStorageState<Record<string, string[]>>(
     TAG_STORAGE_KEY,
     {},
   );
+
+  useEffect(() => {
+    if (tabParam === "gallery" || tabParam === "map" || tabParam === null) {
+      return;
+    }
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.set("tab", "gallery");
+    setSearchParams(nextSearchParams, { replace: true });
+  }, [searchParams, setSearchParams, tabParam]);
 
   const closeDetail = useCallback((): void => {
     setSelectedPhotoId(null);
@@ -52,6 +70,15 @@ const GalleryShell: React.FC = () => {
     }
   }, [photos, selectedPhoto, selectedPhotoIndex]);
 
+  const handleTabChange = useCallback(
+    (nextTab: GalleryTab): void => {
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.set("tab", nextTab);
+      setSearchParams(nextSearchParams);
+    },
+    [searchParams, setSearchParams],
+  );
+
   return (
     <div className="min-h-screen bg-black text-white">
       <header className="sticky top-0 z-30 mx-auto w-full max-w-[1720px]">
@@ -70,15 +97,15 @@ const GalleryShell: React.FC = () => {
             <div className="flex items-center gap-6 text-sm font-medium">
               <button
                 type="button"
-                className={`cursor-pointer transition-colors duration-200 ${viewMode === "grid" ? "text-white" : "text-white/40 hover:text-white/75"}`}
-                onClick={() => setViewMode("grid")}
+                className={`cursor-pointer transition-colors duration-200 ${viewMode === "gallery" ? "text-white" : "text-white/40 hover:text-white/75"}`}
+                onClick={() => handleTabChange("gallery")}
               >
                 Gallery
               </button>
               <button
                 type="button"
                 className={`cursor-pointer transition-colors duration-200 ${viewMode === "map" ? "text-white" : "text-white/40 hover:text-white/75"}`}
-                onClick={() => setViewMode("map")}
+                onClick={() => handleTabChange("map")}
               >
                 Map
               </button>
@@ -114,7 +141,7 @@ const GalleryShell: React.FC = () => {
           </div>
         ) : (
           <>
-            {viewMode === "grid" ? (
+            {viewMode === "gallery" ? (
               <PhotoGrid
                 photos={photos}
                 onPhotoClick={(photo, transitionSource) => {

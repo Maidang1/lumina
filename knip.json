@@ -1,0 +1,24 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "tags": [
+    "-lintignore"
+  ],
+  "workspaces": {
+    ".": {
+      "ignoreBinaries": [
+        "sleep"
+      ],
+      "ignore": [
+        "apps/web/functions/**/*.ts",
+        "apps/web/src/shared/ui/**/*.tsx",
+        "apps/web/src/features/photos/components/photo-map/mapData.ts",
+        "apps/web/src/features/photos/components/photo-map/leafletRuntime.ts",
+        "apps/web/src/features/photos/services/uploadService.ts",
+        "apps/web/src/features/photos/types.ts",
+        "apps/web/src/features/photos/components/photo-detail/formatters.ts",
+        "apps/web/src/features/photos/components/photo-detail/types.ts",
+        "packages/upload-core/src/browser/pipeline.ts"
+      ]
+    }
+  }
+}

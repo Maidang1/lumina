@@ -21,10 +21,10 @@
     "pack:dry": "npm_config_cache=/tmp/.npm-cache npm pack --dry-run"
   },
   "dependencies": {
-    "citty": "^0.2.1",
-    "exifr": "^7.1.3",
-    "sharp": "^0.34.3",
-    "tesseract.js": "^6.0.1"
+    "@luminafe/contracts": "workspace:*",
+    "@luminafe/github-storage": "workspace:*",
+    "@luminafe/upload-core": "workspace:*",
+    "citty": "^0.2.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

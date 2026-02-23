@@ -15,12 +15,9 @@ import {
   LeafletWindow,
   MAP_THEME_PRESETS,
   ensureLeafletAssets,
-  ensureLeafletClusterAsset,
-  ensureLeafletHeatAsset,
   ensureLeafletImageAsset,
 } from "@/features/photos/components/photo-map/leafletRuntime";
 import {
-  MapLayerMode,
   MapThemeMode,
   RegionAggregate,
   RegionBoundaryResult,
@@ -36,7 +33,6 @@ interface UseLeafletMapLayerParams {
   selectedRegionKey: string | null;
   setSelectedRegionKey: (key: string) => void;
   onPhotoClick: (photo: Photo) => void;
-  mapLayerMode: MapLayerMode;
   mapTheme: MapThemeMode;
   showRoute: boolean;
 }
@@ -58,13 +54,11 @@ export const useLeafletMapLayer = ({
   selectedRegionKey,
   setSelectedRegionKey,
   onPhotoClick,
-  mapLayerMode,
   mapTheme,
   showRoute,
 }: UseLeafletMapLayerParams): UseLeafletMapLayerResult => {
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [modeAssetVersion, setModeAssetVersion] = useState(0);
   const mapRef = useRef<LeafletMap | null>(null);
   const boundaryLayerRef = useRef<LeafletLayerGroup | null>(null);
   const pointsLayerRef = useRef<LeafletLayer | LeafletLayerGroup | null>(null);
@@ -99,7 +93,6 @@ export const useLeafletMapLayer = ({
 
           const themePreset = MAP_THEME_PRESETS[mapTheme];
           baseTileLayerRef.current = L.tileLayer(themePreset.baseTileUrl, {
-            crossOrigin: true,
             attribution: themePreset.baseAttribution,
             noWrap: true,
           }).addTo(map);
@@ -107,7 +100,6 @@ export const useLeafletMapLayer = ({
           overlayTileLayerRef.current = L.tileLayer(
             themePreset.overlayTileUrl,
             {
-              crossOrigin: true,
               attribution: themePreset.overlayAttribution,
               noWrap: true,
               opacity: 0.72,
@@ -153,39 +145,6 @@ export const useLeafletMapLayer = ({
   }, [mapReady, mapTheme]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const ensureModeAssets = async (): Promise<void> => {
-      try {
-        if (mapLayerMode === "cluster") {
-          await ensureLeafletClusterAsset();
-        }
-        if (mapLayerMode === "heat") {
-          await ensureLeafletHeatAsset();
-        }
-        if (!cancelled) {
-          setMapError(null);
-          setModeAssetVersion((prev) => prev + 1);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setMapError(
-            error instanceof Error
-              ? error.message
-              : "Failed to load map mode assets",
-          );
-        }
-      }
-    };
-
-    void ensureModeAssets();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [mapLayerMode]);
-
-  useEffect(() => {
     if (!mapReady) return;
 
     const map = mapRef.current;
@@ -207,114 +166,38 @@ export const useLeafletMapLayer = ({
       }
     });
 
-    if (mapLayerMode === "boundary") {
-      const maxCount = Math.max(
-        ...provinceAggregates.map((item) => item.count),
-        1,
-      );
-      for (const aggregate of provinceAggregates) {
-        const boundary = boundaryByRegionKey[aggregate.key];
-        if (!boundary) continue;
+    const maxCount = Math.max(
+      ...provinceAggregates.map((item) => item.count),
+      1,
+    );
+    for (const aggregate of provinceAggregates) {
+      const boundary = boundaryByRegionKey[aggregate.key];
+      if (!boundary) continue;
 
-        const intensity = getIntensity(aggregate.count, maxCount);
-        const isSelected = selectedRegionKey === aggregate.key;
-        const strokeWidth = isSelected ? 2 : 1;
+      const intensity = getIntensity(aggregate.count, maxCount);
+      const isSelected = selectedRegionKey === aggregate.key;
+      const strokeWidth = isSelected ? 2 : 1;
 
-        const layer = L.geoJSON(boundary.geojson, {
-          style: () => ({
-            color: isSelected ? "#ffffff" : "#a1a1aa",
-            weight: strokeWidth,
-            opacity: isSelected ? 1 : 0.8,
-            fillColor: isSelected ? "#ffffff" : "#d4d4d8",
-            fillOpacity: isSelected ? 0.3 : 0.15 + 0.03 * intensity,
-          }),
-        })
-          .bindTooltip(
-            `${aggregate.region.displayName} · ${aggregate.count} photos`,
-          )
-          .on("click", () => {
-            setSelectedRegionKey(aggregate.key);
-            if (aggregate.photos[0]) {
-              onPhotoClick(aggregate.photos[0]);
-            }
-          });
-
-        layer.addTo(boundaryLayer);
-      }
-    } else if (mapLayerMode === "cluster") {
-      if (L.markerClusterGroup) {
-        const clusterLayer = L.markerClusterGroup({
-          showCoverageOnHover: false,
-          maxClusterRadius: 48,
-        });
-        for (const point of visiblePoints) {
-          if (!point.coordinates) continue;
-          const marker = L.marker([
-            point.coordinates.lat,
-            point.coordinates.lng,
-          ]);
-          marker.bindTooltip?.(point.photo.filename);
-          marker.on?.("click", () => {
-            onPhotoClick(point.photo);
-          });
-          clusterLayer.addLayer(marker);
-        }
-        clusterLayer.addTo(map);
-        pointsLayerRef.current = clusterLayer;
-      } else {
-        const markerLayer = L.layerGroup().addTo(map);
-        for (const point of visiblePoints) {
-          if (!point.coordinates) continue;
-          const marker = L.circleMarker(
-            [point.coordinates.lat, point.coordinates.lng],
-            {
-              radius: 5,
-              color: "#d4d4d8",
-              weight: 1,
-              fillColor: "#ffffff",
-              fillOpacity: 0.8,
-            },
-          );
-          marker.bindTooltip?.(point.photo.filename);
-          marker.on?.("click", () => onPhotoClick(point.photo));
-          if (markerLayer.addLayer) {
-            markerLayer.addLayer(marker);
+      const layer = L.geoJSON(boundary.geojson, {
+        style: () => ({
+          color: isSelected ? "#ffffff" : "#a1a1aa",
+          weight: strokeWidth,
+          opacity: isSelected ? 1 : 0.8,
+          fillColor: isSelected ? "#ffffff" : "#d4d4d8",
+          fillOpacity: isSelected ? 0.3 : 0.15 + 0.03 * intensity,
+        }),
+      })
+        .bindTooltip(
+          `${aggregate.region.displayName} · ${aggregate.count} photos`,
+        )
+        .on("click", () => {
+          setSelectedRegionKey(aggregate.key);
+          if (aggregate.photos[0]) {
+            onPhotoClick(aggregate.photos[0]);
           }
-        }
-        pointsLayerRef.current = markerLayer;
-      }
-    } else {
-      if (L.heatLayer) {
-        const heatLayer = L.heatLayer(
-          visiblePoints
-            .filter(
-              (
-                point,
-              ): point is GeoPoint & {
-                coordinates: { lat: number; lng: number };
-              } => point.coordinates !== null,
-            )
-            .map((point) => [
-              point.coordinates.lat,
-              point.coordinates.lng,
-              0.7,
-            ]),
-          {
-            radius: 24,
-            blur: 20,
-            minOpacity: 0.32,
-            maxZoom: 9,
-            gradient: {
-              0.2: "#4f46e5",
-              0.4: "#06b6d4",
-              0.7: "#f59e0b",
-              1.0: "#ef4444",
-            },
-          },
-        );
-        heatLayer.addTo(map);
-        pointsLayerRef.current = heatLayer;
-      }
+        });
+
+      layer.addTo(boundaryLayer);
     }
 
     if (showRoute && routePoints.length > 1) {
@@ -358,7 +241,6 @@ export const useLeafletMapLayer = ({
 
     const fitKey = [
       activeMonth,
-      mapLayerMode,
       showRoute ? "route-on" : "route-off",
       coordinates.length,
       routePoints.length,
@@ -368,24 +250,20 @@ export const useLeafletMapLayer = ({
 
     if (lastAutoFitKeyRef.current !== fitKey) {
       const bounds = L.latLngBounds(coordinates);
-      if (mapLayerMode === "boundary") {
-        provinceAggregates.forEach((aggregate) => {
-          const boundary = boundaryByRegionKey[aggregate.key];
-          if (boundary && boundary.geojson) {
-            const layer = L.geoJSON(boundary.geojson);
-            bounds.extend(layer.getBounds());
-          }
-        });
-      }
+      provinceAggregates.forEach((aggregate) => {
+        const boundary = boundaryByRegionKey[aggregate.key];
+        if (boundary && boundary.geojson) {
+          const layer = L.geoJSON(boundary.geojson);
+          bounds.extend(layer.getBounds());
+        }
+      });
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 8 });
       lastAutoFitKeyRef.current = fitKey;
     }
   }, [
     activeMonth,
     boundaryByRegionKey,
-    mapLayerMode,
     mapReady,
-    modeAssetVersion,
     onPhotoClick,
     provinceAggregates,
     routePoints,

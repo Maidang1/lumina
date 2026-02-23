@@ -21,7 +21,7 @@ import { uploadService } from "@/features/photos/services/uploadService";
 import { reverseGeocodeToRegion } from "@/features/photos/services/geoRegionService";
 import { parseUploadItemInBrowser } from "@luminafe/upload-core/browser";
 
-export interface ParseUploadItemOptions {
+interface ParseUploadItemOptions {
   item: UploadQueueItem;
   updateItem: (updates: Partial<UploadQueueItem>) => void;
   updateStage: (stageId: string, updates: Partial<ProcessingStage>) => void;
@@ -36,7 +36,7 @@ interface ProcessUploadItemOptions extends ParseUploadItemOptions {
   onUploadComplete?: (metadata: ImageMetadata) => void;
 }
 
-export interface SubmitUploadItemOptions {
+interface SubmitUploadItemOptions {
   item: UploadQueueItem;
   metadata: ImageMetadata;
   thumbBlob: Blob;
@@ -45,7 +45,7 @@ export interface SubmitUploadItemOptions {
   onProgress?: (progress: number) => void;
 }
 
-export interface ParsedUploadItemResult {
+interface ParsedUploadItemResult {
   metadata: ImageMetadata;
   thumbBlob: Blob;
   thumbVariantBlobs?: Partial<Record<"400" | "800" | "1600", Blob>>;
@@ -126,7 +126,7 @@ export const submitUploadItem = async ({
   );
 };
 
-export const processUploadItem = async ({
+const processUploadItem = async ({
   item,
   requestDescription,
   updateItem,

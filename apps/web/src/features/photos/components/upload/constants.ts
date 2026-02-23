@@ -1,7 +1,5 @@
 import { ProcessingStage } from "@/features/photos/types";
 
-export const MAX_LIVE_VIDEO_SIZE = 10 * 1024 * 1024;
-
 export const createInitialStages = (): ProcessingStage[] => [
   { id: "hash", name: "Computing Hash", status: "pending", progress: 0 },
   { id: "thumbnail", name: "Generating Thumbnail", status: "pending", progress: 0 },

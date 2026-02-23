@@ -1,27 +1,9 @@
-import React, { useMemo, useRef, useState } from "react";
-import { Loader2, MapPin, Share2 } from "lucide-react";
+import React, { useRef } from "react";
+import { MapPin } from "lucide-react";
 import { Photo } from "@/features/photos/types";
-import {
-  buildTimeSortedTrack,
-  createRouteGpx,
-} from "@/features/photos/components/photo-map/mapData";
-import {
-  MapLayerMode,
-  MapThemeMode,
-  RegionAggregate,
-} from "@/features/photos/types/map";
-import { Button } from "@/shared/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/ui/dialog";
 import MapSidePanel from "@/features/photos/components/photo-map/MapSidePanel";
 import { useMapRegionData } from "@/features/photos/components/photo-map/useMapRegionData";
 import { useLeafletMapLayer } from "@/features/photos/components/photo-map/useLeafletMapLayer";
-import { useMapPosterShare } from "@/features/photos/components/photo-map/useMapPosterShare";
 
 interface PhotoMapViewProps {
   photos: Photo[];
@@ -33,9 +15,8 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({
   onPhotoClick,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const [mapLayerMode, setMapLayerMode] = useState<MapLayerMode>("boundary");
-  const [mapTheme, setMapTheme] = useState<MapThemeMode>("dark");
-  const [showRoute, setShowRoute] = useState(true);
+  const mapTheme = "dark";
+  const showRoute = false;
 
   const {
     activeMonth,
@@ -43,72 +24,24 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({
     monthBuckets,
     visiblePoints,
     provinceAggregates,
-    timeRangeLabel,
     selectedRegionKey,
     setSelectedRegionKey,
     boundaryByRegionKey,
-    isResolvingRegions,
-    isLoadingBoundaries,
   } = useMapRegionData(photos);
 
-  const routePoints = useMemo(
-    () => buildTimeSortedTrack(visiblePoints),
-    [visiblePoints],
-  );
-
-  const { mapReady, mapError, focusRegion, captureCurrentMapCanvas } =
-    useLeafletMapLayer({
-      mapContainerRef,
-      activeMonth,
-      visiblePoints,
-      routePoints,
-      provinceAggregates,
-      boundaryByRegionKey,
-      selectedRegionKey,
-      setSelectedRegionKey: (key) => setSelectedRegionKey(key),
-      onPhotoClick,
-      mapLayerMode,
-      mapTheme,
-      showRoute,
-    });
-
-  const {
-    isSharing,
-    isPosterPreviewOpen,
-    posterPreviewUrl,
-    isPosterActionRunning,
-    handleShareMap,
-    handleDownloadPoster,
-    handleCopyPoster,
-    closePosterPreview,
-  } = useMapPosterShare({
-    visiblePointsCount: visiblePoints.length,
-    regionAggregates: provinceAggregates,
-    timeRangeLabel,
-    captureCurrentMapCanvas,
+  const { mapReady, mapError } = useLeafletMapLayer({
+    mapContainerRef,
+    activeMonth,
+    visiblePoints,
+    routePoints: [],
+    provinceAggregates,
+    boundaryByRegionKey,
+    selectedRegionKey,
+    setSelectedRegionKey: (key) => setSelectedRegionKey(key),
+    onPhotoClick,
+    mapTheme,
+    showRoute,
   });
-
-  const handleRegionClick = (aggregate: RegionAggregate): void => {
-    setSelectedRegionKey(aggregate.key);
-    focusRegion(aggregate);
-    if (aggregate.photos[0]) {
-      onPhotoClick(aggregate.photos[0]);
-    }
-  };
-
-  const handleExportGpx = (): void => {
-    if (routePoints.length < 2) return;
-    const gpx = createRouteGpx(routePoints, `Lumina Route ${timeRangeLabel}`);
-    const blob = new Blob([gpx], { type: "application/gpx+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `lumina-route-${activeMonth === "all" ? "all" : activeMonth}.gpx`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-  };
 
   return (
     <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#0a0a0a]">
@@ -120,25 +53,6 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({
             {visiblePoints.length} points
           </span>
         </div>
-      </div>
-
-      <div className="absolute right-4 top-4 z-[400] flex items-center gap-2">
-        <Button
-          type="button"
-          onClick={() => {
-            void handleShareMap();
-          }}
-          disabled={isSharing}
-          variant="outline"
-          className="h-9 cursor-pointer rounded-full border-white/[0.12] bg-[#141414]/90 px-4 text-xs font-medium text-gray-200 shadow-[0_10px_30px_rgba(0,0,0,0.32)] backdrop-blur-md transition-colors duration-200 hover:bg-[#181818] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSharing ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <Share2 size={14} />
-          )}
-          <span>Share</span>
-        </Button>
       </div>
 
       <div className="relative h-full w-full">
@@ -189,71 +103,10 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({
             activeMonth={activeMonth}
             monthBuckets={monthBuckets}
             onMonthChange={setActiveMonth}
-            regionAggregates={provinceAggregates}
-            selectedRegionKey={selectedRegionKey}
-            onRegionClick={handleRegionClick}
-            isResolvingRegions={isResolvingRegions}
-            isLoadingBoundaries={isLoadingBoundaries}
-            mapLayerMode={mapLayerMode}
-            onMapLayerModeChange={setMapLayerMode}
-            mapTheme={mapTheme}
-            onMapThemeChange={setMapTheme}
-            showRoute={showRoute}
-            onToggleRoute={() => setShowRoute((prev) => !prev)}
-            canExportGpx={routePoints.length > 1}
-            onExportGpx={handleExportGpx}
+            visiblePointsCount={visiblePoints.length}
           />
         </div>
       </div>
-
-      <Dialog
-        open={isPosterPreviewOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            closePosterPreview();
-          }
-        }}
-      >
-        <DialogContent className="mx-4 w-full max-w-[1160px] border-white/10 bg-[#141414] p-4 sm:p-5">
-          <DialogHeader className="mb-3">
-            <DialogTitle className="text-base text-gray-200">
-              Travel Poster Preview
-            </DialogTitle>
-          </DialogHeader>
-          <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0A0A0A]">
-            {posterPreviewUrl ? (
-              <img
-                src={posterPreviewUrl}
-                alt="Travel poster preview"
-                className="h-auto w-full object-contain"
-              />
-            ) : (
-              <div className="flex h-[360px] items-center justify-center text-sm text-gray-500">
-                Preview unavailable
-              </div>
-            )}
-          </div>
-          <DialogFooter className="mt-4 gap-2">
-            <Button
-              variant="outline"
-              onClick={handleDownloadPoster}
-              disabled={!posterPreviewUrl || isPosterActionRunning}
-              className="border-white/10 bg-white/5 text-gray-300 hover:bg-white/10"
-            >
-              Download PNG
-            </Button>
-            <Button
-              variant="default"
-              onClick={() => {
-                void handleCopyPoster();
-              }}
-              disabled={!posterPreviewUrl || isPosterActionRunning}
-            >
-              {isPosterActionRunning ? "Copying..." : "Copy to Clipboard"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 };

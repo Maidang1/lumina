@@ -228,14 +228,13 @@ function ParameterBadge({
 function formatFocalLength(value?: string): string {
   const formatted = formatExifText(value);
   if (formatted === "--") return formatted;
-  if (/mm$/i.test(formatted)) {
-    return formatted;
-  }
-  const numeric = Number.parseFloat(formatted);
+  const normalized = formatted.replace(/mm$/i, "").trim();
+  const numeric = Number.parseFloat(normalized);
   if (Number.isFinite(numeric)) {
-    return `${numeric.toFixed(1)}mm`;
+    const rounded = Math.round(numeric * 100) / 100;
+    return `${Number.parseFloat(rounded.toFixed(2))}mm`;
   }
-  return `${formatted}mm`;
+  return /mm$/i.test(formatted) ? formatted : `${formatted}mm`;
 }
 
 function formatAperture(value?: string): string {
