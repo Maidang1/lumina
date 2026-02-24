@@ -82,19 +82,19 @@ const GalleryShell: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-white">
       <header className="sticky top-0 z-30 mx-auto w-full max-w-[1720px]">
-        <div className="mx-auto flex h-20 items-center justify-between border-b border-white/[0.08] bg-[#080808]/90 px-5 shadow-[0_22px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:px-8">
-          <div className="flex items-center gap-6">
-            <span className="font-serif text-3xl tracking-tight text-lumina-text">
+        <div className="mx-auto flex h-16 items-center justify-between border-b border-white/[0.08] bg-[#080808]/90 px-4 shadow-[0_22px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:h-20 sm:px-8">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <span className="font-serif text-2xl tracking-tight text-lumina-text sm:text-3xl">
               Lumina
             </span>
-            <div className="h-3 w-px bg-lumina-border" />
-            <span className="pt-0.5 font-mono text-xs tracking-wider text-lumina-muted uppercase">
+            <div className="hidden h-3 w-px bg-lumina-border sm:block" />
+            <span className="hidden pt-0.5 font-mono text-xs tracking-wider text-lumina-muted uppercase sm:inline">
               Portfolio
             </span>
           </div>
 
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-6 text-sm font-medium">
+          <div className="flex items-center gap-3 sm:gap-8">
+            <div className="flex items-center gap-4 text-sm font-medium sm:gap-6">
               <button
                 type="button"
                 className={`cursor-pointer transition-colors duration-200 ${viewMode === "gallery" ? "text-white" : "text-white/40 hover:text-white/75"}`}
@@ -126,7 +126,7 @@ const GalleryShell: React.FC = () => {
       <main
         className={
           viewMode === "map"
-            ? "mx-auto h-[calc(100svh-80px)] w-full max-w-[1720px] flex-grow overflow-hidden border-t border-white/[0.06] bg-black"
+            ? "mx-auto h-[calc(100svh-64px)] w-full max-w-[1720px] flex-grow overflow-hidden border-t border-white/[0.06] bg-black sm:h-[calc(100svh-80px)]"
             : "mx-auto w-full max-w-[1720px] flex-grow"
         }
       >

@@ -45,7 +45,7 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({
 
   return (
     <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#0a0a0a]">
-      <div className="absolute left-4 top-4 z-[400] flex flex-wrap items-center gap-3 rounded-2xl border border-white/[0.12] bg-[#141414]/88 px-4 py-2.5 shadow-[0_14px_38px_rgba(0,0,0,0.42)] backdrop-blur-lg transition-colors duration-200 hover:bg-[#161616]/95">
+      <div className="absolute left-3 top-3 z-[400] flex max-w-[calc(100vw-24px)] flex-wrap items-center gap-2 rounded-2xl border border-white/[0.12] bg-[#141414]/88 px-3 py-2 shadow-[0_14px_38px_rgba(0,0,0,0.42)] backdrop-blur-lg transition-colors duration-200 hover:bg-[#161616]/95 sm:left-4 sm:top-4 sm:gap-3 sm:px-4 sm:py-2.5">
         <div className="flex items-center gap-2 text-gray-200">
           <MapPin size={16} className="text-gray-400" />
           <h2 className="text-sm font-medium">Map Footprint</h2>
@@ -98,7 +98,7 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({
           </div>
         )}
 
-        <div className="absolute bottom-6 right-4 z-[400] w-64 max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#141414]/88 p-3 shadow-[0_14px_36px_rgba(0,0,0,0.42)] backdrop-blur-lg">
+        <div className="absolute bottom-3 left-3 right-3 z-[400] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#141414]/88 p-2.5 shadow-[0_14px_36px_rgba(0,0,0,0.42)] backdrop-blur-lg sm:bottom-6 sm:left-auto sm:right-4 sm:w-64 sm:max-w-[calc(100vw-32px)] sm:p-3">
           <MapSidePanel
             activeMonth={activeMonth}
             monthBuckets={monthBuckets}

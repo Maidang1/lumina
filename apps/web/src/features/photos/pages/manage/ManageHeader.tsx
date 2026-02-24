@@ -24,19 +24,20 @@ const ManageHeader: React.FC<ManageHeaderProps> = ({
         className="hidden"
         onChange={onUploadFileSelected}
       />
-      <div className="mx-auto flex h-20 items-center justify-between border-b border-white/[0.08] bg-[#080808]/90 px-5 shadow-[0_22px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:px-8">
-        <div className="flex items-center gap-6">
+      <div className="mx-auto flex h-16 items-center justify-between border-b border-white/[0.08] bg-[#080808]/90 px-4 shadow-[0_22px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:h-20 sm:px-8">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-6">
           <Link to="/" className="flex items-center text-white/40 transition-colors duration-200 hover:text-white/75">
             <ArrowLeft size={18} />
           </Link>
-          <div className="h-3 w-px bg-lumina-border" />
-          <span className="font-serif text-2xl tracking-tight text-lumina-text">Photo Library</span>
+          <div className="hidden h-3 w-px bg-lumina-border sm:block" />
+          <span className="truncate font-serif text-xl tracking-tight text-lumina-text sm:text-2xl">Photo Library</span>
         </div>
         <Button
           onClick={onOpenUpload}
-          className="h-9 rounded-md border border-white/[0.14] bg-white/[0.06] px-5 text-sm font-medium text-white transition-colors hover:bg-white/[0.12]"
+          className="h-8 rounded-md border border-white/[0.14] bg-white/[0.06] px-3 text-xs font-medium text-white transition-colors hover:bg-white/[0.12] sm:h-9 sm:px-5 sm:text-sm"
         >
-          Upload Files
+          <span className="sm:hidden">Upload</span>
+          <span className="hidden sm:inline">Upload Files</span>
         </Button>
       </div>
     </header>

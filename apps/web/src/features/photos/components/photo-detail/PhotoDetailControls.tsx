@@ -42,7 +42,7 @@ const PhotoDetailControls: React.FC<PhotoDetailControlsProps> = ({
       {canPrev && (
         <animated.button
           type="button"
-          className="fixed left-6 top-1/2 z-40 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/40 text-white/70 backdrop-blur-xl transition hover:border-white/[0.15] hover:text-white"
+          className="fixed left-4 top-1/2 z-40 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/40 text-white/70 backdrop-blur-xl transition hover:border-white/[0.15] hover:text-white sm:left-6 sm:h-12 sm:w-12"
           style={{ opacity: controlsOpacity, transform: controlsTransform }}
           onClick={onPrev}
           aria-label="Previous photo"
@@ -55,7 +55,7 @@ const PhotoDetailControls: React.FC<PhotoDetailControlsProps> = ({
       {canNext && (
         <animated.button
           type="button"
-          className="fixed right-[calc(340px+24px)] top-1/2 z-40 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/40 text-white/70 backdrop-blur-xl transition hover:border-white/[0.15] hover:text-white md:flex lg:right-[calc(360px+24px)] xl:right-[calc(420px+24px)]"
+          className="fixed right-4 top-1/2 z-40 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/40 text-white/70 backdrop-blur-xl transition hover:border-white/[0.15] hover:text-white sm:h-12 sm:w-12 md:right-[calc(360px+24px)] lg:right-[calc(420px+24px)]"
           style={{ opacity: controlsOpacity, transform: controlsTransform }}
           onClick={onNext}
           aria-label="Next photo"

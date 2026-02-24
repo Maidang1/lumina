@@ -105,7 +105,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           />
 
           <animated.div
-            className="h-full w-[340px] shrink-0 border-l border-white/10 bg-black/40 backdrop-blur-xl will-change-transform md:w-[360px] lg:w-[420px]"
+            className="absolute inset-x-0 bottom-0 h-[44svh] w-full shrink-0 border-t border-white/10 bg-black/70 backdrop-blur-xl will-change-transform md:static md:h-full md:w-[360px] md:border-l md:border-t-0 md:bg-black/40 lg:w-[420px]"
             style={{
               opacity: infoPanelSpring.opacity,
               transform: infoPanelSpring.transform,
