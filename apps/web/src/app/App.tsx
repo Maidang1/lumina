@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Link,
   Navigate,
   Route,
   Routes,
@@ -9,8 +8,6 @@ import {
 import PhotoGrid from "@/features/photos/components/PhotoGrid";
 import PhotoDetail from "@/features/photos/components/PhotoDetail";
 import PhotoMapView from "@/features/photos/components/PhotoMapView";
-import UploadPage from "@/features/photos/pages/UploadPage";
-import ManagePage from "@/features/photos/pages/ManagePage";
 import { usePhotosCollection } from "@/features/photos/hooks/usePhotosCollection";
 import { useLocalStorageState } from "@/shared/lib/useLocalStorageState";
 import { PhotoOpenTransition } from "@/features/photos/types";
@@ -110,15 +107,6 @@ const GalleryShell: React.FC = () => {
                 Map
               </button>
             </div>
-
-            <div className="h-4 w-px bg-lumina-border-subtle" />
-
-            <Link
-              to="/manage"
-              className="text-sm font-medium text-white/40 transition-colors duration-200 hover:text-white/75"
-            >
-              Manage
-            </Link>
           </div>
         </div>
       </header>
@@ -202,8 +190,6 @@ const App: React.FC = () => {
   return (
     <Routes>
       <Route path="/" element={<GalleryShell />} />
-      <Route path="/manage" element={<ManagePage />} />
-      <Route path="/upload" element={<UploadPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

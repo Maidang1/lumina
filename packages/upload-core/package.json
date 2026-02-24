@@ -11,18 +11,18 @@
   "exports": {
     ".": {
       "source": "./src/browser/index.ts",
-      "types": "./dist/browser/index.d.ts",
-      "default": "./dist/browser/index.js"
+      "types": "./dist/upload-core/src/browser/index.d.ts",
+      "default": "./dist/upload-core/src/browser/index.js"
     },
     "./browser": {
       "source": "./src/browser/index.ts",
-      "types": "./dist/browser/index.d.ts",
-      "default": "./dist/browser/index.js"
+      "types": "./dist/upload-core/src/browser/index.d.ts",
+      "default": "./dist/upload-core/src/browser/index.js"
     },
     "./node": {
       "source": "./src/node/index.ts",
-      "types": "./dist/node/index.d.ts",
-      "default": "./dist/node/index.js"
+      "types": "./dist/upload-core/src/node/index.d.ts",
+      "default": "./dist/upload-core/src/node/index.js"
     }
   },
   "dependencies": {
