@@ -1,4 +1,5 @@
 mod commands;
+mod github;
 
 use tauri::Manager;
 
@@ -16,6 +17,10 @@ pub fn run() {
             commands::fs::scan_directory,
             commands::system::show_notification,
             commands::system::open_in_finder,
+            commands::github::github_upload_image,
+            commands::github::github_delete_image,
+            commands::github::github_finalize_batch,
+            commands::github::github_list_images,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]

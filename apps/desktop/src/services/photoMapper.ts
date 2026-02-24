@@ -1,5 +1,15 @@
 import { ImageMetadata, Photo } from "@/types/photo";
 
+interface CdnRepoConfig {
+  owner?: string;
+  repo?: string;
+  branch?: string;
+}
+
+const DEFAULT_GH_OWNER = "Maidang1";
+const DEFAULT_GH_REPO = "photos";
+const DEFAULT_GH_BRANCH = "main";
+
 function guessExtension(mime: string): string {
   const mimeMap: Record<string, string> = {
     "image/jpeg": "jpg",
@@ -37,6 +47,37 @@ function getThumbPath(metadata: ImageMetadata): string {
   return `${objectPath}/thumb.webp`;
 }
 
+function buildFallbackApiAssetUrl(
+  imageId: string,
+  type: "original" | "thumb",
+  version: string,
+): string {
+  return `/api/v1/images/${encodeURIComponent(imageId)}/${type}?v=${version}`;
+}
+
+function buildJsDelivrUrl(
+  path: string | undefined,
+  cdnRepo: CdnRepoConfig,
+): string | undefined {
+  if (!path) {
+    return undefined;
+  }
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+
+  const owner = (cdnRepo.owner || DEFAULT_GH_OWNER).trim();
+  const repo = (cdnRepo.repo || DEFAULT_GH_REPO).trim();
+  const branch = (cdnRepo.branch || DEFAULT_GH_BRANCH).trim();
+  if (!owner || !repo || !branch) {
+    return undefined;
+  }
+
+  const normalizedPath = path.replace(/^\/+/, "");
+  const encodedPath = encodeURIComponent(normalizedPath).replace(/%2F/g, "/");
+  return `https://cdn.jsdelivr.net/gh/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}@${encodeURIComponent(branch)}/${encodedPath}`;
+}
+
 function formatShutter(exposureTime?: number): string {
   if (!exposureTime || exposureTime <= 0) {
     return "?s";
@@ -51,19 +92,29 @@ function formatShutter(exposureTime?: number): string {
 }
 
 function buildThumbSrcSet(
-  imageId: string,
+  metadata: ImageMetadata,
   version: string,
-  hasVariants: boolean,
+  cdnRepo: CdnRepoConfig,
 ): string | undefined {
-  if (!hasVariants) {
-    return undefined;
+  const directCandidates: Array<[string | undefined, number]> = [
+    [metadata.files.thumb_variants?.["400"]?.path, 400],
+    [metadata.files.thumb_variants?.["800"]?.path, 800],
+    [metadata.files.thumb_variants?.["1600"]?.path, 1600],
+  ];
+  const directEntries = directCandidates
+    .map(([path, width]) => {
+      const cdnUrl = buildJsDelivrUrl(path, cdnRepo);
+      if (!cdnUrl) {
+        return undefined;
+      }
+      return `${cdnUrl}?v=${version} ${width}w`;
+    })
+    .filter((item): item is string => Boolean(item));
+
+  if (directEntries.length > 0) {
+    return directEntries.join(", ");
   }
-  const encodedId = encodeURIComponent(imageId);
-  return [
-    `/api/v1/images/${encodedId}/thumb?size=400&v=${version} 400w`,
-    `/api/v1/images/${encodedId}/thumb?size=800&v=${version} 800w`,
-    `/api/v1/images/${encodedId}/thumb?size=1600&v=${version} 1600w`,
-  ].join(", ");
+  return undefined;
 }
 
 function extractPrimaryRegion(metadata: ImageMetadata): string {
@@ -84,26 +135,29 @@ function extractPrimaryRegion(metadata: ImageMetadata): string {
   return "";
 }
 
-export function metadataToPhoto(metadata: ImageMetadata): Photo {
+export function metadataToPhoto(
+  metadata: ImageMetadata,
+  cdnRepo: CdnRepoConfig = {},
+): Photo {
   const date = metadata.exif?.DateTimeOriginal
     ? metadata.exif.DateTimeOriginal.split("T")[0]
     : new Date(metadata.timestamps.created_at).toISOString().split("T")[0];
 
   const version = encodeURIComponent(metadata.timestamps.created_at);
-  const hasThumbVariants = Boolean(
-    metadata.files.thumb_variants?.["400"] ||
-    metadata.files.thumb_variants?.["800"] ||
-    metadata.files.thumb_variants?.["1600"],
-  );
+  const originalPath = getOriginalPath(metadata);
+  const thumbPath = getThumbPath(metadata);
+  const originalCdnUrl = buildJsDelivrUrl(originalPath, cdnRepo);
+  const thumbCdnUrl = buildJsDelivrUrl(thumbPath, cdnRepo);
+
   return {
     id: metadata.image_id,
-    url: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/original?v=${version}`,
-    thumbnail: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/thumb?v=${version}`,
-    thumbnailSrcSet: buildThumbSrcSet(
-      metadata.image_id,
-      version,
-      hasThumbVariants,
-    ),
+    url:
+      (originalCdnUrl && `${originalCdnUrl}?v=${version}`) ||
+      buildFallbackApiAssetUrl(metadata.image_id, "original", version),
+    thumbnail:
+      (thumbCdnUrl && `${thumbCdnUrl}?v=${version}`) ||
+      buildFallbackApiAssetUrl(metadata.image_id, "thumb", version),
+    thumbnailSrcSet: buildThumbSrcSet(metadata, version, cdnRepo),
     thumbnailSizes: "(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw",
     title: metadata.original_filename || metadata.exif?.Model || "Untitled",
     location: extractPrimaryRegion(metadata),

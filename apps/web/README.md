@@ -27,3 +27,9 @@ Required in `apps/web/.dev.vars`:
 - `GH_OWNER`
 - `GH_REPO`
 - `GH_BRANCH`
+
+Optional frontend vars in `.env.local` / `.env`:
+
+- `RSBUILD_GH_OWNER` (used for direct jsDelivr asset URLs)
+- `RSBUILD_GH_REPO`
+- `RSBUILD_GH_BRANCH`

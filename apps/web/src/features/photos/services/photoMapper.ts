@@ -1,5 +1,18 @@
 import { ImageMetadata, Photo } from "@/features/photos/types";
 
+const DEFAULT_GH_OWNER = "Maidang1";
+const DEFAULT_GH_REPO = "photos";
+const DEFAULT_GH_BRANCH = "main";
+
+interface RuntimeProcessLike {
+  env?: Record<string, string | undefined>;
+}
+
+function getRuntimeEnv(name: string): string | undefined {
+  const processLike = (globalThis as { process?: RuntimeProcessLike }).process;
+  return processLike?.env?.[name];
+}
+
 function guessExtension(mime: string): string {
   const mimeMap: Record<string, string> = {
     "image/jpeg": "jpg",
@@ -37,6 +50,37 @@ function getThumbPath(metadata: ImageMetadata): string {
   return `${objectPath}/thumb.webp`;
 }
 
+function buildFallbackApiAssetUrl(
+  imageId: string,
+  type: "original" | "thumb",
+  version: string,
+): string {
+  return `/api/v1/images/${encodeURIComponent(imageId)}/${type}?v=${version}`;
+}
+
+function buildJsDelivrUrl(path?: string): string | undefined {
+  if (!path) {
+    return undefined;
+  }
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+
+  const owner = (getRuntimeEnv("RSBUILD_GH_OWNER") || DEFAULT_GH_OWNER).trim();
+  const repo = (getRuntimeEnv("RSBUILD_GH_REPO") || DEFAULT_GH_REPO).trim();
+  const branch = (
+    getRuntimeEnv("RSBUILD_GH_BRANCH") || DEFAULT_GH_BRANCH
+  ).trim();
+
+  if (!owner || !repo || !branch) {
+    return undefined;
+  }
+
+  const normalizedPath = path.replace(/^\/+/, "");
+  const encodedPath = encodeURIComponent(normalizedPath).replace(/%2F/g, "/");
+  return `https://cdn.jsdelivr.net/gh/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}@${encodeURIComponent(branch)}/${encodedPath}`;
+}
+
 function formatShutter(exposureTime?: number): string {
   if (!exposureTime || exposureTime <= 0) {
     return "?s";
@@ -51,14 +95,37 @@ function formatShutter(exposureTime?: number): string {
 }
 
 function buildThumbSrcSet(
-  imageId: string,
+  metadata: ImageMetadata,
   version: string,
-  hasVariants: boolean,
 ): string | undefined {
+  const directCandidates: Array<[string | undefined, number]> = [
+    [metadata.files.thumb_variants?.["400"]?.path, 400],
+    [metadata.files.thumb_variants?.["800"]?.path, 800],
+    [metadata.files.thumb_variants?.["1600"]?.path, 1600],
+  ];
+  const directEntries = directCandidates
+    .map(([path, width]) => {
+      const cdnUrl = buildJsDelivrUrl(path);
+      if (!cdnUrl) {
+        return undefined;
+      }
+      return `${cdnUrl}?v=${version} ${width}w`;
+    })
+    .filter((item): item is string => Boolean(item));
+
+  if (directEntries.length > 0) {
+    return directEntries.join(", ");
+  }
+
+  const hasVariants = Boolean(
+    metadata.files.thumb_variants?.["400"] ||
+    metadata.files.thumb_variants?.["800"] ||
+    metadata.files.thumb_variants?.["1600"],
+  );
   if (!hasVariants) {
     return undefined;
   }
-  const encodedId = encodeURIComponent(imageId);
+  const encodedId = encodeURIComponent(metadata.image_id);
   return [
     `/api/v1/images/${encodedId}/thumb?size=400&v=${version} 400w`,
     `/api/v1/images/${encodedId}/thumb?size=800&v=${version} 800w`,
@@ -90,20 +157,19 @@ export function metadataToPhoto(metadata: ImageMetadata): Photo {
     : new Date(metadata.timestamps.created_at).toISOString().split("T")[0];
 
   const version = encodeURIComponent(metadata.timestamps.created_at);
-  const hasThumbVariants = Boolean(
-    metadata.files.thumb_variants?.["400"] ||
-    metadata.files.thumb_variants?.["800"] ||
-    metadata.files.thumb_variants?.["1600"],
-  );
+  const originalPath = getOriginalPath(metadata);
+  const thumbPath = getThumbPath(metadata);
+  const originalCdnUrl = buildJsDelivrUrl(originalPath);
+  const thumbCdnUrl = buildJsDelivrUrl(thumbPath);
   return {
     id: metadata.image_id,
-    url: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/original?v=${version}`,
-    thumbnail: `/api/v1/images/${encodeURIComponent(metadata.image_id)}/thumb?v=${version}`,
-    thumbnailSrcSet: buildThumbSrcSet(
-      metadata.image_id,
-      version,
-      hasThumbVariants,
-    ),
+    url:
+      (originalCdnUrl && `${originalCdnUrl}?v=${version}`) ||
+      buildFallbackApiAssetUrl(metadata.image_id, "original", version),
+    thumbnail:
+      (thumbCdnUrl && `${thumbCdnUrl}?v=${version}`) ||
+      buildFallbackApiAssetUrl(metadata.image_id, "thumb", version),
+    thumbnailSrcSet: buildThumbSrcSet(metadata, version),
     thumbnailSizes: "(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw",
     title: metadata.original_filename || metadata.exif?.Model || "Untitled",
     location: extractPrimaryRegion(metadata),

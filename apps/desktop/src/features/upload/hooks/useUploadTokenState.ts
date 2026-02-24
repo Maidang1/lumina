@@ -8,6 +8,7 @@ interface UseUploadTokenStateResult {
   clearTokenError: () => void;
   setTokenError: (message: string) => void;
   updateUploadToken: (next: string) => void;
+  reloadToken: () => Promise<void>;
 }
 
 export const useUploadTokenState = (): UseUploadTokenStateResult => {
@@ -15,12 +16,27 @@ export const useUploadTokenState = (): UseUploadTokenStateResult => {
   const [tokenError, setTokenErrorState] = useState<string>("");
   const [isTokenConfigured, setIsTokenConfigured] = useState(false);
 
-  useEffect(() => {
-    uploadService.getUploadToken().then((token) => {
-      setUploadToken(token);
-      setIsTokenConfigured(token.trim().length > 0);
-    });
+  const loadToken = useCallback(async () => {
+    const token = await uploadService.getUploadToken();
+    setUploadToken(token);
+    setIsTokenConfigured(token.trim().length > 0);
   }, []);
+
+  useEffect(() => {
+    void loadToken();
+  }, [loadToken]);
+
+  // 监听窗口焦点，当用户从设置页面返回时重新加载配置
+  useEffect(() => {
+    const handleFocus = () => {
+      void loadToken();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [loadToken]);
 
   const updateUploadToken = useCallback(async (next: string): Promise<void> => {
     setUploadToken(next);
@@ -37,6 +53,10 @@ export const useUploadTokenState = (): UseUploadTokenStateResult => {
     setTokenErrorState("");
   }, []);
 
+  const reloadToken = useCallback(async (): Promise<void> => {
+    await loadToken();
+  }, [loadToken]);
+
   return {
     uploadToken,
     tokenError,
@@ -44,5 +64,6 @@ export const useUploadTokenState = (): UseUploadTokenStateResult => {
     clearTokenError,
     setTokenError,
     updateUploadToken,
+    reloadToken,
   };
 };

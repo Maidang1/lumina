@@ -18,8 +18,8 @@ pub async fn read_file_as_bytes(path: String) -> Result<Vec<u8>, String> {
 
 #[tauri::command]
 pub async fn get_file_info(path: String) -> Result<FileInfo, String> {
-    let metadata = fs::metadata(&path)
-        .map_err(|e| format!("Failed to get file metadata: {}", e))?;
+    let metadata =
+        fs::metadata(&path).map_err(|e| format!("Failed to get file metadata: {}", e))?;
 
     let modified = metadata
         .modified()

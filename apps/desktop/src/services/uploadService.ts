@@ -6,6 +6,12 @@ import {
   UploadResult,
 } from "@/types/photo";
 import { tauriStorage } from "@/lib/tauri/storage";
+import {
+  uploadImageToGitHub,
+  deleteImageFromGitHub,
+  finalizeBatchToGitHub,
+  listImagesFromGitHub,
+} from "@/lib/tauri/github";
 
 export interface UploadOptions {
   apiUrl: string;
@@ -28,7 +34,7 @@ const DEFAULT_OPTIONS: UploadOptions = {
   timeout: 120000,
 };
 
-const UPLOAD_TOKEN_STORAGE_KEY = "lumina.upload_token";
+const UPLOAD_TOKEN_STORAGE_KEY = "lumina.github_token";
 
 class ApiRequestError extends Error {
   status: number;
@@ -37,6 +43,10 @@ class ApiRequestError extends Error {
     super(message);
     this.status = status;
   }
+}
+
+function isTauriEnvironment(): boolean {
+  return typeof window !== "undefined" && "__TAURI__" in window;
 }
 
 export class UploadService {
@@ -54,6 +64,15 @@ export class UploadService {
 
   private getImagePath(imageId: string): string {
     return `/v1/images/${encodeURIComponent(imageId)}`;
+  }
+
+  private buildImageApiUrls(imageId: string): UploadResult["urls"] {
+    const encoded = encodeURIComponent(imageId);
+    return {
+      meta: `/api/v1/images/${encoded}`,
+      thumb: `/api/v1/images/${encoded}/thumb`,
+      original: `/api/v1/images/${encoded}/original`,
+    };
   }
 
   async getUploadToken(): Promise<string> {
@@ -96,6 +115,129 @@ export class UploadService {
   }
 
   async uploadImage(
+    original: File,
+    thumb: Blob,
+    metadata: ImageMetadata,
+    thumbVariantBlobs?: Partial<Record<"400" | "800" | "1600", Blob>>,
+    onProgress?: (progress: number) => void,
+    options?: { deferFinalize?: boolean },
+  ): Promise<UploadResult> {
+    const isTauri = isTauriEnvironment();
+
+    if (isTauri) {
+      // 使用 Rust 后端直接上传到 GitHub
+      return this.uploadImageViaGitHub(
+        original,
+        thumb,
+        metadata,
+        thumbVariantBlobs,
+        onProgress,
+        options,
+      );
+    } else {
+      // 使用现有的 HTTP API（Web 端或开发模式）
+      return this.uploadImageViaHttp(
+        original,
+        thumb,
+        metadata,
+        thumbVariantBlobs,
+        onProgress,
+        options,
+      );
+    }
+  }
+
+  private async uploadImageViaGitHub(
+    original: File,
+    thumb: Blob,
+    metadata: ImageMetadata,
+    thumbVariantBlobs?: Partial<Record<"400" | "800" | "1600", Blob>>,
+    onProgress?: (progress: number) => void,
+    options?: { deferFinalize?: boolean },
+  ): Promise<UploadResult> {
+    console.log(
+      "[uploadService] Starting GitHub upload for image:",
+      metadata.image_id,
+    );
+    console.log(
+      "[uploadService] Original file:",
+      original.name,
+      original.size,
+      "bytes",
+    );
+    console.log("[uploadService] Thumb size:", thumb.size, "bytes");
+
+    try {
+      // 读取文件为 Uint8Array
+      console.log("[uploadService] Reading file buffers...");
+      const originalBuffer = new Uint8Array(await original.arrayBuffer());
+      const thumbBuffer = new Uint8Array(await thumb.arrayBuffer());
+
+      const thumbVariants: Record<string, Uint8Array> = {};
+      if (thumbVariantBlobs) {
+        for (const [size, blob] of Object.entries(thumbVariantBlobs)) {
+          if (blob) {
+            console.log(
+              `[uploadService] Reading thumb variant ${size}:`,
+              blob.size,
+              "bytes",
+            );
+            thumbVariants[size] = new Uint8Array(await blob.arrayBuffer());
+          }
+        }
+      }
+
+      // 模拟进度
+      if (onProgress) {
+        onProgress(10);
+      }
+
+      console.log("[uploadService] Calling uploadImageToGitHub...");
+      const result = await uploadImageToGitHub({
+        imageId: metadata.image_id,
+        original: originalBuffer,
+        originalMime: original.type,
+        thumb: thumbBuffer,
+        thumbVariants,
+        metadata: JSON.stringify(metadata),
+        deferFinalize: options?.deferFinalize ?? false,
+      });
+
+      console.log("[uploadService] Upload result:", result);
+
+      if (onProgress) {
+        onProgress(100);
+      }
+
+      if (!result.success) {
+        console.error("[uploadService] Upload failed:", result.message);
+        throw new ApiRequestError(result.message || "Upload failed", 500);
+      }
+
+      console.log("[uploadService] Upload successful, returning result");
+
+      return {
+        image_id: result.image_id,
+        stored: {
+          original_path: result.stored.original_path,
+          thumb_path: result.stored.thumb_path,
+          meta_path: result.stored.meta_path,
+        },
+        urls: this.buildImageApiUrls(result.image_id),
+      };
+    } catch (error) {
+      console.error("[uploadService] Upload error:", error);
+      if (error instanceof ApiRequestError) {
+        throw error;
+      }
+      throw new ApiRequestError(
+        error instanceof Error ? error.message : "Upload failed",
+        500,
+      );
+    }
+  }
+
+  private async uploadImageViaHttp(
     original: File,
     thumb: Blob,
     metadata: ImageMetadata,
@@ -195,17 +337,26 @@ export class UploadService {
     cursor?: string,
     limit: number = 20,
   ): Promise<ImageListResponse> {
-    const params = new URLSearchParams();
-    if (cursor) params.set("cursor", cursor);
-    params.set("limit", String(limit));
+    const isTauri = isTauriEnvironment();
 
-    const response = await fetch(
-      this.getEndpoint(`/v1/images?${params.toString()}`),
-    );
-    return this.parseJson<ImageListResponse>(
-      response,
-      `Failed to list images: ${response.status}`,
-    );
+    if (isTauri) {
+      // 使用 Rust 后端从 GitHub 读取
+      const result = await listImagesFromGitHub(cursor, limit);
+      return result;
+    } else {
+      // 使用现有的 HTTP API
+      const params = new URLSearchParams();
+      if (cursor) params.set("cursor", cursor);
+      params.set("limit", String(limit));
+
+      const response = await fetch(
+        this.getEndpoint(`/v1/images?${params.toString()}`),
+      );
+      return this.parseJson<ImageListResponse>(
+        response,
+        `Failed to list images: ${response.status}`,
+      );
+    }
   }
 
   async listAllImages(limitPerPage: number = 50): Promise<ImageMetadata[]> {
@@ -222,25 +373,43 @@ export class UploadService {
   }
 
   async deleteImage(imageId: string): Promise<DeleteImageResult> {
-    const uploadToken = await this.getUploadToken();
-    if (!uploadToken) {
-      throw new ApiRequestError(
-        "Missing UPLOAD_TOKEN. Please configure it before delete.",
-        401,
+    const isTauri = isTauriEnvironment();
+
+    if (isTauri) {
+      // 使用 Rust 后端从 GitHub 删除
+      const result = await deleteImageFromGitHub(imageId);
+      if (!result.success) {
+        throw new ApiRequestError(result.message || "Delete failed", 500);
+      }
+      return {
+        image_id: result.image_id,
+        deleted_paths: [],
+      };
+    } else {
+      // 使用现有的 HTTP API
+      const uploadToken = await this.getUploadToken();
+      if (!uploadToken) {
+        throw new ApiRequestError(
+          "Missing UPLOAD_TOKEN. Please configure it before delete.",
+          401,
+        );
+      }
+
+      const response = await fetch(
+        this.getEndpoint(this.getImagePath(imageId)),
+        {
+          method: "DELETE",
+          headers: {
+            "X-Upload-Token": uploadToken,
+          },
+        },
+      );
+
+      return this.parseJson<DeleteImageResult>(
+        response,
+        `Failed to delete image: ${response.status}`,
       );
     }
-
-    const response = await fetch(this.getEndpoint(this.getImagePath(imageId)), {
-      method: "DELETE",
-      headers: {
-        "X-Upload-Token": uploadToken,
-      },
-    });
-
-    return this.parseJson<DeleteImageResult>(
-      response,
-      `Failed to delete image: ${response.status}`,
-    );
   }
 
   async updateImageMetadata(
@@ -283,38 +452,54 @@ export class UploadService {
   async finalizeImageBatch(
     items: ImageMetadata[],
   ): Promise<BatchFinalizeResult> {
-    const uploadToken = await this.getUploadToken();
-    if (!uploadToken) {
-      throw new ApiRequestError(
-        "Missing UPLOAD_TOKEN. Please configure it before finalize.",
-        401,
+    const isTauri = isTauriEnvironment();
+
+    if (isTauri) {
+      // 使用 Rust 后端批量提交到 GitHub
+      if (items.length === 0) {
+        return {
+          success_count: 0,
+          mode: "batch_commit",
+        };
+      }
+
+      const metadatas = items.map((item) => JSON.stringify(item));
+      return finalizeBatchToGitHub(metadatas);
+    } else {
+      // 使用现有的 HTTP API
+      const uploadToken = await this.getUploadToken();
+      if (!uploadToken) {
+        throw new ApiRequestError(
+          "Missing UPLOAD_TOKEN. Please configure it before finalize.",
+          401,
+        );
+      }
+      if (items.length === 0) {
+        return {
+          success_count: 0,
+          mode: "batch_commit",
+        };
+      }
+
+      const response = await fetch(
+        this.getEndpoint("/v1/images/finalize-batch"),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Upload-Token": uploadToken,
+          },
+          body: JSON.stringify({
+            items: items.map((metadata) => ({ metadata })),
+          }),
+        },
+      );
+
+      return this.parseJson<BatchFinalizeResult>(
+        response,
+        `Failed to finalize batch: ${response.status}`,
       );
     }
-    if (items.length === 0) {
-      return {
-        success_count: 0,
-        mode: "batch_commit",
-      };
-    }
-
-    const response = await fetch(
-      this.getEndpoint("/v1/images/finalize-batch"),
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Upload-Token": uploadToken,
-        },
-        body: JSON.stringify({
-          items: items.map((metadata) => ({ metadata })),
-        }),
-      },
-    );
-
-    return this.parseJson<BatchFinalizeResult>(
-      response,
-      `Failed to finalize batch: ${response.status}`,
-    );
   }
 
   async createSignedShareUrl(

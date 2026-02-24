@@ -4,7 +4,7 @@ let store: Store | null = null;
 
 async function getStore(): Promise<Store> {
   if (!store) {
-    store = await Store.load('settings.json');
+    store = await Store.load('lumina.json');
   }
   return store;
 }

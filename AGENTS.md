@@ -109,6 +109,9 @@ Mutating APIs require header `x-upload-token`.
 ### Frontend (`apps/web/.env.local`)
 
 - `RSBUILD_API_URL` (optional, default same origin)
+- `RSBUILD_GH_OWNER` (optional, used to build direct jsDelivr asset URLs)
+- `RSBUILD_GH_REPO` (optional)
+- `RSBUILD_GH_BRANCH` (optional)
 
 ### Functions (`apps/web/.dev.vars` local / Cloudflare production)
 

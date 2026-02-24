@@ -12,6 +12,12 @@ import {
   validateSignedAssetAccess,
 } from "../../../../_utils";
 
+const LEGACY_VARIANT_NAME_MAP: Record<"400" | "800" | "1600", string[]> = {
+  "400": ["thumb-400.webp", "thumb_400.webp", "thumb_sm.webp"],
+  "800": ["thumb-800.webp", "thumb_800.webp", "thumb_md.webp"],
+  "1600": ["thumb-1600.webp", "thumb_1600.webp", "thumb_lg.webp"],
+};
+
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env, params } = context;
 
@@ -84,7 +90,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         type === "original"
           ? f.name.startsWith("original.")
           : isVariantSize
-            ? f.name === `thumb-${sizeParam}.webp`
+            ? LEGACY_VARIANT_NAME_MAP[sizeParam].includes(f.name)
             : f.name === "thumb.webp",
       )?.path;
 

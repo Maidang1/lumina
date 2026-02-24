@@ -54,17 +54,17 @@ export function SettingsPage(): React.ReactElement {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  Upload Token
+                  GitHub Personal Access Token
                 </label>
                 <input
                   type="password"
                   className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-600"
-                  placeholder="输入上传 token..."
+                  placeholder="ghp_xxxxxxxxxxxx"
                   value={uploadToken}
                   onChange={(e) => void updateUploadToken(e.target.value)}
                 />
                 <p className="text-xs text-zinc-500 mt-1">
-                  用于验证上传请求的 token
+                  用于访问 GitHub 仓库的 token（需要 repo 权限）
                 </p>
               </div>
               <div>

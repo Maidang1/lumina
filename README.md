@@ -44,6 +44,12 @@ Required values in `apps/web/.dev.vars`:
 - `GH_REPO`
 - `GH_BRANCH`
 
+Frontend optional vars in `.env.local` / `.env`:
+
+- `RSBUILD_GH_OWNER` (for direct jsDelivr asset URL generation)
+- `RSBUILD_GH_REPO`
+- `RSBUILD_GH_BRANCH`
+
 ## Scripts
 
 - `pnpm run build`: build all workspaces via turbo

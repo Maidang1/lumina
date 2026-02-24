@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { uploadService } from '@/services/uploadService';
 import { tauriStorage } from '@/lib/tauri/storage';
 
 interface SettingsState {
@@ -21,6 +20,7 @@ interface UseSettingsStoreResult extends SettingsState {
 }
 
 const STORAGE_KEYS = {
+  GITHUB_TOKEN: 'lumina.github_token', // 与 Rust 后端保持一致
   GITHUB_OWNER: 'lumina.github_owner',
   GITHUB_REPO: 'lumina.github_repo',
   GITHUB_BRANCH: 'lumina.github_branch',
@@ -39,7 +39,7 @@ export function useSettingsStore(): UseSettingsStoreResult {
     const loadSettings = async (): Promise<void> => {
       try {
         const [token, owner, repo, branch, concurrencyStr] = await Promise.all([
-          uploadService.getUploadToken(),
+          tauriStorage.getItem(STORAGE_KEYS.GITHUB_TOKEN),
           tauriStorage.getItem(STORAGE_KEYS.GITHUB_OWNER),
           tauriStorage.getItem(STORAGE_KEYS.GITHUB_REPO),
           tauriStorage.getItem(STORAGE_KEYS.GITHUB_BRANCH),
@@ -61,7 +61,7 @@ export function useSettingsStore(): UseSettingsStoreResult {
 
   const updateUploadToken = useCallback(async (token: string): Promise<void> => {
     setUploadToken(token);
-    await uploadService.setUploadToken(token);
+    await tauriStorage.setItem(STORAGE_KEYS.GITHUB_TOKEN, token);
   }, []);
 
   const updateGithubOwner = useCallback(async (owner: string): Promise<void> => {
@@ -86,7 +86,7 @@ export function useSettingsStore(): UseSettingsStoreResult {
 
   const saveAll = useCallback(async (): Promise<void> => {
     await Promise.all([
-      uploadService.setUploadToken(uploadToken),
+      tauriStorage.setItem(STORAGE_KEYS.GITHUB_TOKEN, uploadToken),
       tauriStorage.setItem(STORAGE_KEYS.GITHUB_OWNER, githubOwner),
       tauriStorage.setItem(STORAGE_KEYS.GITHUB_REPO, githubRepo),
       tauriStorage.setItem(STORAGE_KEYS.GITHUB_BRANCH, githubBranch),
