@@ -19,6 +19,7 @@ const makeQueueId = (): string =>
 interface UseUploadQueueStoreResult {
   queue: UploadQueueItem[];
   queueRef: MutableRefObject<UploadQueueItem[]>;
+  normalizedOriginalRef: MutableRefObject<Map<string, File>>;
   thumbBlobRef: MutableRefObject<Map<string, Blob>>;
   thumbVariantBlobRef: MutableRefObject<
     Map<string, Partial<Record<"400" | "800" | "1600", Blob>>>
@@ -29,7 +30,15 @@ interface UseUploadQueueStoreResult {
     stageId: string,
     updates: Partial<UploadQueueItem["stages"][number]>,
   ) => void;
-  enqueueStaticFiles: (files: FileList | File[]) => void;
+  enqueuePathFiles: (
+    files: Array<{
+      path: string;
+      name: string;
+      size: number;
+      modified: number;
+      mime?: string;
+    }>,
+  ) => void;
   removeItem: (id: string) => void;
   retryItem: (id: string) => void;
   applyDraftField: (
@@ -44,6 +53,7 @@ interface UseUploadQueueStoreResult {
 export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
   const [queue, setQueue] = useState<UploadQueueItem[]>([]);
   const queueRef = useRef<UploadQueueItem[]>([]);
+  const normalizedOriginalRef = useRef<Map<string, File>>(new Map());
   const thumbBlobRef = useRef<Map<string, Blob>>(new Map());
   const thumbVariantBlobRef = useRef<
     Map<string, Partial<Record<"400" | "800" | "1600", Blob>>>
@@ -83,23 +93,55 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
     [],
   );
 
-  const enqueueStaticFiles = useCallback((files: FileList | File[]) => {
-    const fileArray = Array.from(files).filter(
-      (file) =>
-        file.type.startsWith("image/") &&
-        file.size <= DEFAULT_UPLOAD_CONFIG.maxFileSize,
-    );
+  const enqueuePathFiles = useCallback(
+    (
+      files: Array<{
+        path: string;
+        name: string;
+        size: number;
+        modified: number;
+        mime?: string;
+      }>,
+    ) => {
+      const allowedExts = new Set([
+        "jpg",
+        "jpeg",
+        "png",
+        "webp",
+        "gif",
+        "avif",
+        "heic",
+        "heif",
+        "bmp",
+        "tif",
+        "tiff",
+      ]);
 
-    const newItems: UploadQueueItem[] = fileArray.map((file) => ({
-      id: makeQueueId(),
-      file,
-      status: "queued_parse",
-      progress: 0,
-      stages: createInitialStages(),
-    }));
+      const accepted = files.filter((file) => {
+        const ext = file.name.split(".").pop()?.toLowerCase() || "";
+        const hasAllowedExt = allowedExts.has(ext);
+        return hasAllowedExt && file.size <= DEFAULT_UPLOAD_CONFIG.maxFileSize;
+      });
 
-    setQueue((prev) => [...prev, ...newItems]);
-  }, []);
+      const newItems: UploadQueueItem[] = accepted.map((file) => ({
+        id: makeQueueId(),
+        file: new File([], file.name, {
+          type: file.mime || "application/octet-stream",
+          lastModified: file.modified * 1000,
+        }),
+        sourcePath: file.path,
+        sourceName: file.name,
+        sourceSize: file.size,
+        sourceMime: file.mime,
+        status: "queued_parse",
+        progress: 0,
+        stages: createInitialStages(),
+      }));
+
+      setQueue((prev) => [...prev, ...newItems]);
+    },
+    [],
+  );
 
   const removeItem = useCallback((id: string) => {
     setQueue((prev) => {
@@ -107,6 +149,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
       if (item?.thumbnail) {
         URL.revokeObjectURL(item.thumbnail);
       }
+      normalizedOriginalRef.current.delete(id);
       thumbBlobRef.current.delete(id);
       thumbVariantBlobRef.current.delete(id);
       return prev.filter((entry) => entry.id !== id);
@@ -146,6 +189,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
         };
       }),
     );
+    normalizedOriginalRef.current.delete(id);
     thumbBlobRef.current.delete(id);
     thumbVariantBlobRef.current.delete(id);
   }, []);
@@ -167,6 +211,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
               original_filename:
                 item.editDraft?.original_filename ??
                 item.metadata?.original_filename ??
+                item.sourceName ??
                 item.file.name,
               category:
                 item.editDraft?.category ?? item.metadata?.category ?? "",
@@ -185,6 +230,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
         URL.revokeObjectURL(item.thumbnail);
       }
     });
+    normalizedOriginalRef.current.clear();
     thumbBlobRef.current.clear();
     thumbVariantBlobRef.current.clear();
   }, []);
@@ -215,7 +261,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
       (item) => item.status === "upload_failed",
     ).length;
     const totalBytes = queue.reduce(
-      (sum, item) => sum + item.file.size,
+      (sum, item) => sum + (item.sourceSize ?? item.file.size),
       0,
     );
     const isParseDone =
@@ -239,11 +285,12 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
   return {
     queue,
     queueRef,
+    normalizedOriginalRef,
     thumbBlobRef,
     thumbVariantBlobRef,
     updateItemById,
     updateStageById,
-    enqueueStaticFiles,
+    enqueuePathFiles,
     removeItem,
     retryItem,
     applyDraftField,

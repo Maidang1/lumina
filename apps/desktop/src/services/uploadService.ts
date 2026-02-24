@@ -115,7 +115,7 @@ export class UploadService {
   }
 
   async uploadImage(
-    original: File,
+    original: File | Blob,
     thumb: Blob,
     metadata: ImageMetadata,
     thumbVariantBlobs?: Partial<Record<"400" | "800" | "1600", Blob>>,
@@ -148,7 +148,7 @@ export class UploadService {
   }
 
   private async uploadImageViaGitHub(
-    original: File,
+    original: File | Blob,
     thumb: Blob,
     metadata: ImageMetadata,
     thumbVariantBlobs?: Partial<Record<"400" | "800" | "1600", Blob>>,
@@ -159,12 +159,9 @@ export class UploadService {
       "[uploadService] Starting GitHub upload for image:",
       metadata.image_id,
     );
-    console.log(
-      "[uploadService] Original file:",
-      original.name,
-      original.size,
-      "bytes",
-    );
+    const originalName =
+      original instanceof File ? original.name : `${metadata.image_id}-original`;
+    console.log("[uploadService] Original file:", originalName, original.size, "bytes");
     console.log("[uploadService] Thumb size:", thumb.size, "bytes");
 
     try {
@@ -238,7 +235,7 @@ export class UploadService {
   }
 
   private async uploadImageViaHttp(
-    original: File,
+    original: File | Blob,
     thumb: Blob,
     metadata: ImageMetadata,
     thumbVariantBlobs?: Partial<Record<"400" | "800" | "1600", Blob>>,
@@ -254,7 +251,11 @@ export class UploadService {
     }
 
     const formData = new FormData();
-    formData.append("original", original);
+    formData.append(
+      "original",
+      original,
+      original instanceof File ? original.name : `${metadata.image_id}.bin`,
+    );
     formData.append("thumb", thumb, "thumb.webp");
     if (thumbVariantBlobs) {
       for (const size of ["400", "800", "1600"] as const) {

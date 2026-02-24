@@ -1,24 +1,14 @@
 import {
   DEFAULT_UPLOAD_CONFIG,
-  ExifSummary,
-  GeoRegion,
   ImageMetadata,
   ProcessingStage,
+  ProcessingSummary,
   ProcessingTaskMetric,
   UploadQueueItem,
   UploadResult,
-} from "@/types/photo";
-import {
-  createThumbnail,
-  computeSHA256,
-  detectBlur,
-  extractDominantColor,
-  extractExif,
-  performOcr,
-  computePHash,
-} from "@luminafe/upload-core/browser";
-import { uploadService } from "@/services/uploadService";
-import { parseUploadItemInBrowser } from "@luminafe/upload-core/browser";
+} from '@/types/photo';
+import { uploadService } from '@/services/uploadService';
+import { parseImageForUploadFromPath } from '@/lib/tauri/image';
 
 interface ParseUploadItemOptions {
   item: UploadQueueItem;
@@ -26,20 +16,11 @@ interface ParseUploadItemOptions {
   updateStage: (stageId: string, updates: Partial<ProcessingStage>) => void;
 }
 
-interface ProcessUploadItemOptions extends ParseUploadItemOptions {
-  requestDescription: (params: {
-    originalFilename: string;
-    initialDescription?: string;
-    initialCategory?: string;
-  }) => Promise<{ description?: string; category?: string }>;
-  onUploadComplete?: (metadata: ImageMetadata) => void;
-}
-
 interface SubmitUploadItemOptions {
-  item: UploadQueueItem;
+  original: File;
   metadata: ImageMetadata;
   thumbBlob: Blob;
-  thumbVariantBlobs?: Partial<Record<"400" | "800" | "1600", Blob>>;
+  thumbVariantBlobs?: Partial<Record<'400' | '800' | '1600', Blob>>;
   deferFinalize?: boolean;
   onProgress?: (progress: number) => void;
 }
@@ -47,25 +28,24 @@ interface SubmitUploadItemOptions {
 interface ParsedUploadItemResult {
   metadata: ImageMetadata;
   thumbBlob: Blob;
-  thumbVariantBlobs?: Partial<Record<"400" | "800" | "1600", Blob>>;
+  thumbVariantBlobs?: Partial<Record<'400' | '800' | '1600', Blob>>;
   thumbnailUrl: string;
-  processingSummary?: any;
+  processingSummary?: ProcessingSummary;
   taskMetrics: ProcessingTaskMetric[];
+  normalizedOriginalFile: File;
 }
 
-const resolveRegion = async (
-  exif: ExifSummary | null,
-): Promise<GeoRegion | undefined> => {
-  if (!exif) return undefined;
-  if (
-    typeof exif.GPSLatitude !== "number" ||
-    typeof exif.GPSLongitude !== "number"
-  ) {
-    return undefined;
-  }
-
-  // TODO: Implement reverse geocoding or remove this feature
-  return undefined;
+const mapStageFromMetric = (
+  updateStage: (stageId: string, updates: Partial<ProcessingStage>) => void,
+  metric: ProcessingTaskMetric,
+): void => {
+  updateStage(metric.task_id, {
+    status: metric.status === 'failed' ? 'failed' : 'completed',
+    progress: 100,
+    duration_ms: Math.max(0, Math.round(metric.duration_ms)),
+    completed_at: Date.now(),
+    ...(metric.status === 'failed' ? { error: 'Processing failed' } : {}),
+  });
 };
 
 export const parseUploadItem = async ({
@@ -73,31 +53,99 @@ export const parseUploadItem = async ({
   updateItem,
   updateStage,
 }: ParseUploadItemOptions): Promise<ParsedUploadItemResult> => {
-  return parseUploadItemInBrowser({
-    item,
-    updateItem,
-    updateStage,
-    config: {
-      maxThumbSize: DEFAULT_UPLOAD_CONFIG.maxThumbSize,
-      thumbQuality: DEFAULT_UPLOAD_CONFIG.thumbQuality,
-      ocrLang: DEFAULT_UPLOAD_CONFIG.ocrLang,
-      blurThreshold: DEFAULT_UPLOAD_CONFIG.blurThreshold,
-    },
-    deps: {
-      computeSHA256,
-      createThumbnail,
-      extractExif,
-      performOcr,
-      computePHash,
-      extractDominantColor,
-      detectBlur,
-      resolveRegion,
-    },
+  const fileWithPath = item.file as File & { path?: string };
+  const parsePath = item.sourcePath || fileWithPath.path;
+  if (!parsePath) {
+    throw new Error('Missing local file path for Rust parser');
+  }
+  const config = {
+    maxThumbSize: DEFAULT_UPLOAD_CONFIG.maxThumbSize,
+    thumbQuality: DEFAULT_UPLOAD_CONFIG.thumbQuality,
+    blurThreshold: DEFAULT_UPLOAD_CONFIG.blurThreshold,
+  };
+
+  const rustParsed = await parseImageForUploadFromPath({
+    path: parsePath,
+    declaredMime: item.sourceMime || item.file.type || 'application/octet-stream',
+    config,
   });
+
+  rustParsed.stageMetrics.forEach((metric) => mapStageFromMetric(updateStage, metric));
+
+  const normalizedOriginalFile = new File(
+    [new Uint8Array(rustParsed.normalizedOriginalBytes)],
+    rustParsed.normalizedOriginalFilename,
+    {
+      type: rustParsed.normalizedOriginalMime,
+      lastModified: item.file.lastModified || Date.now(),
+    },
+  );
+
+  const thumbBlob = new Blob([new Uint8Array(rustParsed.thumbBytes)], {
+    type: 'image/webp',
+  });
+
+  const thumbVariantBlobs: Partial<Record<'400' | '800' | '1600', Blob>> = {};
+  (['400', '800', '1600'] as const).forEach((size) => {
+    const data = rustParsed.thumbVariants[size];
+    if (!data) {
+      return;
+    }
+    thumbVariantBlobs[size] = new Blob([new Uint8Array(data)], {
+      type: 'image/webp',
+    });
+  });
+
+  const thumbUrl = URL.createObjectURL(thumbBlob);
+  const metadata = rustParsed.metadata;
+
+  metadata.derived.ocr = {
+    status: 'skipped',
+    lang: DEFAULT_UPLOAD_CONFIG.ocrLang,
+    summary: '',
+  };
+
+  updateStage('ocr', {
+    status: 'completed',
+    progress: 100,
+    duration_ms: 0,
+    completed_at: Date.now(),
+    error: undefined,
+  });
+
+  const ocrMetric: ProcessingTaskMetric = {
+    task_id: 'ocr',
+    status: 'skipped',
+    duration_ms: 0,
+    degraded: false,
+  };
+  const taskMetrics = [...rustParsed.stageMetrics, ocrMetric];
+
+  updateItem({
+    metadata,
+    thumbnail: thumbUrl,
+    editDraft: {
+      description: metadata.description || '',
+      original_filename: metadata.original_filename || normalizedOriginalFile.name,
+      category: metadata.category || '',
+    },
+    processingSummary: metadata.processing?.summary,
+    taskMetrics,
+  });
+
+  return {
+    metadata,
+    thumbBlob,
+    thumbVariantBlobs,
+    thumbnailUrl: thumbUrl,
+    processingSummary: metadata.processing?.summary,
+    taskMetrics,
+    normalizedOriginalFile,
+  };
 };
 
 export const submitUploadItem = async ({
-  item,
+  original,
   metadata,
   thumbBlob,
   thumbVariantBlobs,
@@ -105,51 +153,11 @@ export const submitUploadItem = async ({
   onProgress,
 }: SubmitUploadItemOptions): Promise<UploadResult> => {
   return uploadService.uploadImage(
-    item.file,
+    original,
     thumbBlob,
     metadata,
     thumbVariantBlobs,
     onProgress,
     { deferFinalize },
   );
-};
-
-const processUploadItem = async ({
-  item,
-  requestDescription,
-  updateItem,
-  updateStage,
-  onUploadComplete,
-}: ProcessUploadItemOptions): Promise<void> => {
-  const parsed = await parseUploadItem({ item, updateItem, updateStage });
-  const descriptionResult = await requestDescription({
-    originalFilename: item.file.name,
-    initialDescription: parsed.metadata.description || "",
-    initialCategory: parsed.metadata.category || "",
-  });
-
-  const nextMetadata: ImageMetadata = {
-    ...parsed.metadata,
-    schema_version: "1.3",
-    ...(descriptionResult.description !== undefined
-      ? { description: descriptionResult.description }
-      : {}),
-    ...(descriptionResult.category !== undefined &&
-    descriptionResult.category.trim() !== ""
-      ? { category: descriptionResult.category.trim() }
-      : {}),
-  };
-
-  updateItem({ metadata: nextMetadata, status: "uploading", progress: 0 });
-
-  const result = await submitUploadItem({
-    item,
-    metadata: nextMetadata,
-    thumbBlob: parsed.thumbBlob,
-    thumbVariantBlobs: parsed.thumbVariantBlobs,
-    onProgress: (progress) => updateItem({ progress }),
-  });
-
-  updateItem({ status: "completed", result });
-  onUploadComplete?.(nextMetadata);
 };

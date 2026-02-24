@@ -17,6 +17,7 @@ interface UseParseSchedulerParams {
     stageId: string,
     updates: Partial<UploadQueueItem["stages"][number]>,
   ) => void;
+  normalizedOriginalRef: MutableRefObject<Map<string, File>>;
   thumbBlobRef: MutableRefObject<Map<string, Blob>>;
   thumbVariantBlobRef: MutableRefObject<
     Map<string, Partial<Record<"400" | "800" | "1600", Blob>>>
@@ -32,6 +33,7 @@ export const useParseScheduler = ({
   isTokenConfigured,
   updateItemById,
   updateStageById,
+  normalizedOriginalRef,
   thumbBlobRef,
   thumbVariantBlobRef,
 }: UseParseSchedulerParams): UseParseSchedulerResult => {
@@ -68,6 +70,7 @@ export const useParseScheduler = ({
             updateStageById(item.id, stageId, updates),
         });
 
+        normalizedOriginalRef.current.set(item.id, parsed.normalizedOriginalFile);
         thumbBlobRef.current.set(item.id, parsed.thumbBlob);
         thumbVariantBlobRef.current.set(
           item.id,
@@ -88,7 +91,13 @@ export const useParseScheduler = ({
         inFlightParseRef.current.delete(item.id);
       }
     },
-    [thumbBlobRef, thumbVariantBlobRef, updateItemById, updateStageById],
+    [
+      normalizedOriginalRef,
+      thumbBlobRef,
+      thumbVariantBlobRef,
+      updateItemById,
+      updateStageById,
+    ],
   );
 
   useEffect(() => {

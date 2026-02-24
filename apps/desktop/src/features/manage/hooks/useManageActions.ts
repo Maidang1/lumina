@@ -1,11 +1,8 @@
 import {
-  ChangeEvent,
   Dispatch,
-  RefObject,
   SetStateAction,
   useCallback,
   useEffect,
-  useRef,
   useState,
 } from "react";
 import { uploadService } from "@/services/uploadService";
@@ -19,17 +16,13 @@ interface UseManageActionsParams {
 interface UseManageActionsResult {
   viewMode: "grid" | "list";
   setViewMode: (mode: "grid" | "list") => void;
-  uploadFileInputRef: RefObject<HTMLInputElement | null>;
   isUploadModalOpen: boolean;
   setIsUploadModalOpen: (open: boolean) => void;
-  pendingUploadFiles: File[];
-  setPendingUploadFiles: (files: File[]) => void;
   photoTags: Record<string, string[]>;
   setPhotoTags: Dispatch<SetStateAction<Record<string, string[]>>>;
   isDeleteTokenConfigured: boolean;
   deletingPhotoId: string | null;
   handleOpenUpload: () => void;
-  handleUploadFileSelected: (event: ChangeEvent<HTMLInputElement>) => void;
   handleDeletePhoto: (photoId: string) => Promise<boolean>;
   markDeleteTokenMissing: () => void;
 }
@@ -39,8 +32,6 @@ export const useManageActions = ({
 }: UseManageActionsParams): UseManageActionsResult => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([]);
-  const uploadFileInputRef = useRef<HTMLInputElement>(null);
   const [photoTags, setPhotoTags] = useState<Record<string, string[]>>({});
   const [isDeleteTokenConfigured, setIsDeleteTokenConfigured] = useState(false);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
@@ -59,23 +50,8 @@ export const useManageActions = ({
   }, []);
 
   const handleOpenUpload = useCallback((): void => {
-    uploadFileInputRef.current?.click();
+    setIsUploadModalOpen(true);
   }, []);
-
-  const handleUploadFileSelected = useCallback(
-    (event: ChangeEvent<HTMLInputElement>): void => {
-      const files = event.target.files ? Array.from(event.target.files) : [];
-      event.target.value = "";
-
-      if (files.length === 0) {
-        return;
-      }
-
-      setPendingUploadFiles(files);
-      setIsUploadModalOpen(true);
-    },
-    [],
-  );
 
   const handleDeletePhoto = useCallback(
     async (photoId: string): Promise<boolean> => {
@@ -115,17 +91,13 @@ export const useManageActions = ({
   return {
     viewMode,
     setViewMode,
-    uploadFileInputRef,
     isUploadModalOpen,
     setIsUploadModalOpen,
-    pendingUploadFiles,
-    setPendingUploadFiles,
     photoTags,
     setPhotoTags,
     isDeleteTokenConfigured,
     deletingPhotoId,
     handleOpenUpload,
-    handleUploadFileSelected,
     handleDeletePhoto,
     markDeleteTokenMissing,
   };

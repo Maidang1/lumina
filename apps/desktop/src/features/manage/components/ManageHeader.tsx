@@ -3,26 +3,12 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ManageHeaderProps {
-  uploadFileInputRef: React.RefObject<HTMLInputElement | null>;
-  onUploadFileSelected: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onOpenUpload: () => void;
 }
 
-const ManageHeader: React.FC<ManageHeaderProps> = ({
-  uploadFileInputRef,
-  onUploadFileSelected,
-  onOpenUpload,
-}) => {
+const ManageHeader: React.FC<ManageHeaderProps> = ({ onOpenUpload }) => {
   return (
     <header className="sticky top-0 z-30 mx-auto w-full max-w-[1720px]">
-      <input
-        ref={uploadFileInputRef}
-        type="file"
-        multiple
-        accept="image/*"
-        className="hidden"
-        onChange={onUploadFileSelected}
-      />
       <div className="mx-auto flex h-16 items-center justify-between border-b border-white/[0.08] bg-[#080808]/90 px-4 shadow-[0_22px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:h-20 sm:px-8">
         <div className="flex min-w-0 items-center gap-3 sm:gap-6">
           <button

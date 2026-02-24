@@ -8,6 +8,7 @@ const SUBMIT_WORKERS = 3;
 interface UseSubmitSchedulerParams {
   queue: UploadQueueItem[];
   updateItemById: (id: string, updates: Partial<UploadQueueItem>) => void;
+  normalizedOriginalRef: MutableRefObject<Map<string, File>>;
   thumbBlobRef: MutableRefObject<Map<string, Blob>>;
   thumbVariantBlobRef: MutableRefObject<
     Map<string, Partial<Record<"400" | "800" | "1600", Blob>>>
@@ -25,6 +26,7 @@ interface UseSubmitSchedulerResult {
 export const useSubmitScheduler = ({
   queue,
   updateItemById,
+  normalizedOriginalRef,
   thumbBlobRef,
   thumbVariantBlobRef,
   onUploadCompleted,
@@ -40,10 +42,11 @@ export const useSubmitScheduler = ({
     > => {
       const thumbBlob = thumbBlobRef.current.get(item.id);
       const thumbVariantBlobs = thumbVariantBlobRef.current.get(item.id);
-      if (!item.metadata || !thumbBlob) {
+      const normalizedOriginal = normalizedOriginalRef.current.get(item.id);
+      if (!item.metadata || !thumbBlob || !normalizedOriginal) {
         updateItemById(item.id, {
           status: "upload_failed",
-          uploadError: "Missing parsed result",
+          uploadError: "Missing parsed result (normalized original/thumb)",
         });
         return { ok: false };
       }
@@ -72,7 +75,7 @@ export const useSubmitScheduler = ({
 
       try {
         const result = await submitUploadItem({
-          item,
+          original: normalizedOriginal,
           metadata: finalMetadata,
           thumbBlob,
           thumbVariantBlobs,
@@ -98,7 +101,7 @@ export const useSubmitScheduler = ({
         return { ok: false };
       }
     },
-    [thumbBlobRef, thumbVariantBlobRef, updateItemById],
+    [normalizedOriginalRef, thumbBlobRef, thumbVariantBlobRef, updateItemById],
   );
 
   const handleSubmitAll = useCallback(async (): Promise<void> => {

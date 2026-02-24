@@ -128,6 +128,10 @@ export interface ProcessingTaskMetric {
 export interface UploadQueueItem {
   id: string;
   file: File;
+  sourcePath?: string;
+  sourceName?: string;
+  sourceSize?: number;
+  sourceMime?: string;
   status:
     | "queued"
     | "processing"

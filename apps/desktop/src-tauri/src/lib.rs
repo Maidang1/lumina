@@ -21,6 +21,7 @@ pub fn run() {
             commands::github::github_delete_image,
             commands::github::github_finalize_batch,
             commands::github::github_list_images,
+            commands::image::parse_image_for_upload_from_path,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]

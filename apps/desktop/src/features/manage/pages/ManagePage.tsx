@@ -14,16 +14,12 @@ const ManagePage: React.FC = () => {
   const {
     viewMode,
     setViewMode,
-    uploadFileInputRef,
     isUploadModalOpen,
     setIsUploadModalOpen,
-    pendingUploadFiles,
-    setPendingUploadFiles,
     photoTags,
     setPhotoTags,
     isDeleteTokenConfigured,
     handleOpenUpload,
-    handleUploadFileSelected,
     handleDeletePhoto,
     markDeleteTokenMissing,
   } = useManageActions({ removePhotoById });
@@ -51,8 +47,6 @@ const ManagePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-white">
       <ManageHeader
-        uploadFileInputRef={uploadFileInputRef}
-        onUploadFileSelected={handleUploadFileSelected}
         onOpenUpload={handleOpenUpload}
       />
 
@@ -66,13 +60,11 @@ const ManagePage: React.FC = () => {
 
         <ManageUploadDialog
           isOpen={isUploadModalOpen}
-          initialFiles={pendingUploadFiles}
           onClose={() => setIsUploadModalOpen(false)}
           onUploadCompleted={() => {
             void refresh();
             setIsUploadModalOpen(false);
           }}
-          onInitialFilesConsumed={() => setPendingUploadFiles([])}
         />
 
         <div className="flex flex-col gap-6">

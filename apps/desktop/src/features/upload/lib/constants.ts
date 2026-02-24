@@ -1,6 +1,9 @@
 import { ProcessingStage } from "@/types/photo";
 
 export const createInitialStages = (): ProcessingStage[] => [
+  { id: "format_validate", name: "Validating Format", status: "pending", progress: 0 },
+  { id: "decode", name: "Decoding Image", status: "pending", progress: 0 },
+  { id: "normalize_original", name: "Normalizing Original", status: "pending", progress: 0 },
   { id: "hash", name: "Computing Hash", status: "pending", progress: 0 },
   { id: "thumbnail", name: "Generating Thumbnail", status: "pending", progress: 0 },
   { id: "exif", name: "Extracting EXIF", status: "pending", progress: 0 },

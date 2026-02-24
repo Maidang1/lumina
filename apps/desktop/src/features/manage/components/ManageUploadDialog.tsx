@@ -30,18 +30,14 @@ const DialogTitle: React.FC<{ className?: string; children: React.ReactNode }> =
 
 interface ManageUploadDialogProps {
   isOpen: boolean;
-  initialFiles: File[];
   onClose: () => void;
   onUploadCompleted: () => void;
-  onInitialFilesConsumed: () => void;
 }
 
 const ManageUploadDialog: React.FC<ManageUploadDialogProps> = ({
   isOpen,
-  initialFiles,
   onClose,
   onUploadCompleted,
-  onInitialFilesConsumed,
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -54,11 +50,7 @@ const ManageUploadDialog: React.FC<ManageUploadDialogProps> = ({
           </DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-          <UploadWorkspace
-            onUploadCompleted={onUploadCompleted}
-            initialFiles={initialFiles}
-            onInitialFilesConsumed={onInitialFilesConsumed}
-          />
+          <UploadWorkspace onUploadCompleted={onUploadCompleted} />
         </div>
       </DialogContent>
     </Dialog>

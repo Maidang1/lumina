@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { uploadService } from "@/services/uploadService";
 import UploadDropzone from "@/features/upload/components/UploadDropzone";
@@ -7,21 +7,17 @@ import UploadConfirmHeader from "@/features/upload/components/UploadConfirmHeade
 import { useUploadQueueStore } from "@/features/upload/hooks/useUploadQueueStore";
 import { useParseScheduler } from "@/features/upload/hooks/useParseScheduler";
 import { useSubmitScheduler } from "@/features/upload/hooks/useSubmitScheduler";
+import { selectFiles } from "@/lib/tauri/dialog";
+import { getFileInfo } from "@/lib/tauri/fs";
 
 interface UploadWorkspaceProps {
   onUploadCompleted?: (successCount: number) => void;
-  initialFiles?: File[];
-  onInitialFilesConsumed?: () => void;
 }
 
 const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
   onUploadCompleted,
-  initialFiles,
-  onInitialFilesConsumed,
 }) => {
-  const [isDragging, setIsDragging] = useState(false);
   const [isTokenConfigured, setIsTokenConfigured] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     uploadService.hasUploadToken().then(setIsTokenConfigured);
@@ -29,9 +25,10 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
 
   const {
     queue,
+    normalizedOriginalRef,
     thumbBlobRef,
     thumbVariantBlobRef,
-    enqueueStaticFiles,
+    enqueuePathFiles,
     updateItemById,
     updateStageById,
     applyDraftField,
@@ -45,36 +42,45 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
     isTokenConfigured,
     updateItemById,
     updateStageById,
+    normalizedOriginalRef,
     thumbBlobRef,
     thumbVariantBlobRef,
   });
 
   const { isSubmitting, canSubmit, submitWorkers, handleSubmitAll } =
     useSubmitScheduler({
-      queue,
-      updateItemById,
-      thumbBlobRef,
-      thumbVariantBlobRef,
+    queue,
+    updateItemById,
+    normalizedOriginalRef,
+    thumbBlobRef,
+    thumbVariantBlobRef,
       onUploadCompleted,
     });
 
-  const handleFiles = useCallback(
-    (files: FileList | File[]) => {
-      if (!isTokenConfigured) {
-        return;
-      }
-      enqueueStaticFiles(files);
-    },
-    [enqueueStaticFiles, isTokenConfigured],
-  );
-
-  useEffect(() => {
-    if (!initialFiles || initialFiles.length === 0) {
+  const handleSelectFilesFromDialog = useCallback(async () => {
+    if (!isTokenConfigured) {
       return;
     }
-    handleFiles(initialFiles);
-    onInitialFilesConsumed?.();
-  }, [handleFiles, initialFiles, onInitialFilesConsumed]);
+
+    const selections = await selectFiles();
+    if (!selections || selections.length === 0) {
+      return;
+    }
+
+    const enriched = await Promise.all(
+      selections.map(async (selection) => {
+        const info = await getFileInfo(selection.path);
+        return {
+          path: selection.path,
+          name: selection.name,
+          size: Number(info.size || 0),
+          modified: Number(info.modified || Math.floor(Date.now() / 1000)),
+        };
+      }),
+    );
+
+    enqueuePathFiles(enriched);
+  }, [enqueuePathFiles, isTokenConfigured]);
 
   const handleSubmit = useCallback(() => {
     if (!isTokenConfigured) {
@@ -153,29 +159,9 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
         </div>
       ) : (
         <UploadDropzone
-          isDragging={isDragging}
-          uploadMode="static"
           isTokenConfigured={isTokenConfigured}
-          fileInputRef={fileInputRef}
-          onChangeMode={() => {}}
-          onDrop={(event) => {
-            event.preventDefault();
-            setIsDragging(false);
-            handleFiles(event.dataTransfer.files);
-          }}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setIsDragging(true);
-          }}
-          onDragLeave={(event) => {
-            event.preventDefault();
-            setIsDragging(false);
-          }}
-          onFileSelect={(event) => {
-            if (event.target.files) {
-              handleFiles(event.target.files);
-            }
-            event.target.value = "";
+          onSelectFilesFromDialog={() => {
+            void handleSelectFilesFromDialog();
           }}
         />
       )}

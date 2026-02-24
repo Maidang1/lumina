@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Gauge, Image as ImageIcon, X } from "lucide-react";
+import { AlertTriangle, Eye, Gauge, Image as ImageIcon, X } from "lucide-react";
 import { UploadQueueItem } from "@/types/photo";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,22 @@ function formatEta(etaSeconds?: number): string {
 }
 
 function getItemBytes(item: UploadQueueItem): number {
-  return item.file.size;
+  return item.sourceSize ?? item.file.size;
+}
+
+function getItemName(item: UploadQueueItem): string {
+  return item.sourceName ?? item.file.name;
+}
+
+function canPreviewItem(item: UploadQueueItem): boolean {
+  return Boolean(
+    item.metadata &&
+    (item.status === "parsed" ||
+      item.status === "ready_to_upload" ||
+      item.status === "uploading" ||
+      item.status === "upload_completed" ||
+      item.status === "completed"),
+  );
 }
 
 const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
@@ -74,6 +89,7 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   );
   const [metrics, setMetrics] = useState<Record<string, UploadRuntimeMetric>>({});
   const [overall, setOverall] = useState<UploadRuntimeMetric>({ speedBps: 0 });
+  const [previewItemId, setPreviewItemId] = useState<string | null>(null);
 
   useEffect(() => {
     const now = Date.now();
@@ -156,6 +172,26 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
       .sort((a, b) => b.count - a.count);
   }, [queue]);
 
+  useEffect(() => {
+    if (previewItemId) {
+      const exists = queue.some((item) => item.id === previewItemId && canPreviewItem(item));
+      if (!exists) {
+        setPreviewItemId(null);
+      }
+      return;
+    }
+
+    const firstParsed = queue.find((item) => canPreviewItem(item));
+    if (firstParsed) {
+      setPreviewItemId(firstParsed.id);
+    }
+  }, [previewItemId, queue]);
+
+  const previewItem = useMemo(
+    () => queue.find((item) => item.id === previewItemId && canPreviewItem(item)),
+    [previewItemId, queue],
+  );
+
   if (queue.length === 0) {
     return null;
   }
@@ -196,6 +232,60 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                 <span className="shrink-0 text-rose-300">x{entry.count}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {previewItem?.metadata && (
+        <div className="border-b border-white/5 bg-white/[0.02] px-4 py-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-white">解析预览</p>
+              <p className="text-xs text-zinc-400" title={getItemName(previewItem)}>
+                {getItemName(previewItem)}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-zinc-300 hover:bg-white/10"
+              onClick={() => setPreviewItemId(null)}
+            >
+              关闭
+            </Button>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-[120px_1fr]">
+            <div className="h-[90px] w-[120px] overflow-hidden rounded-md border border-white/10 bg-white/5">
+              {previewItem.thumbnail ? (
+                <img src={previewItem.thumbnail} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-zinc-500">
+                  <ImageIcon size={16} />
+                </div>
+              )}
+            </div>
+
+            <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2 lg:grid-cols-3">
+              <span>尺寸: {previewItem.metadata.derived?.dimensions?.width} x {previewItem.metadata.derived?.dimensions?.height}</span>
+              <span>MIME: {previewItem.metadata.files?.original?.mime || "unknown"}</span>
+              <span>主色: {previewItem.metadata.derived?.dominant_color?.hex || "-"}</span>
+              <span>
+                模糊分:{" "}
+                {typeof previewItem.metadata.derived?.blur?.score === "number"
+                  ? previewItem.metadata.derived.blur.score.toFixed(2)
+                  : "-"}
+              </span>
+              <span>是否模糊: {previewItem.metadata.derived?.blur?.is_blurry ? "是" : "否"}</span>
+              <span>pHash: {previewItem.metadata.derived?.phash?.value || "-"}</span>
+              <span>相机: {previewItem.metadata.exif?.Model || "-"}</span>
+              <span>镜头: {previewItem.metadata.exif?.LensModel || "-"}</span>
+              <span>ISO: {previewItem.metadata.exif?.ISO || "-"}</span>
+              <span>拍摄时间: {previewItem.metadata.exif?.DateTimeOriginal || "-"}</span>
+              <span>OCR: {previewItem.metadata.derived?.ocr?.status || "-"}</span>
+              <span>总耗时: {previewItem.metadata.processing?.summary?.total_ms ?? 0} ms</span>
+            </div>
           </div>
         </div>
       )}
@@ -249,9 +339,9 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                 <div className="min-w-0 flex-1">
                   <p
                     className="truncate text-sm font-medium text-white"
-                    title={item.file.name}
+                    title={getItemName(item)}
                   >
-                    {item.file.name}
+                    {getItemName(item)}
                   </p>
                   <p className="text-xs text-zinc-500">
                     {(getItemBytes(item) / 1024 / 1024).toFixed(1)} MB
@@ -338,15 +428,35 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                   )}
                 </div>
 
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => onRemoveItem(item.id)}
-                  className="h-6 w-6 rounded-full p-1 text-zinc-600 opacity-0 transition-all hover:bg-white/10 hover:text-zinc-300 group-hover:opacity-100"
-                >
-                  <X size={16} />
-                </Button>
+                <div className="flex items-center gap-1">
+                  {canPreviewItem(item) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        setPreviewItemId((prev) => (prev === item.id ? null : item.id))
+                      }
+                      className={cn(
+                        "h-7 px-2 text-[11px] text-zinc-400 hover:bg-white/10 hover:text-zinc-200",
+                        previewItemId === item.id && "text-sky-300",
+                      )}
+                    >
+                      <Eye size={13} className="mr-1" />
+                      解析预览
+                    </Button>
+                  )}
+
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => onRemoveItem(item.id)}
+                    className="h-6 w-6 rounded-full p-1 text-zinc-600 opacity-0 transition-all hover:bg-white/10 hover:text-zinc-300 group-hover:opacity-100"
+                  >
+                    <X size={16} />
+                  </Button>
+                </div>
               </div>
             </div>
           );
