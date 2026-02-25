@@ -24,5 +24,8 @@
     }
   },
   "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "references": [
+    { "path": "../../packages/contracts" },
+    { "path": "./tsconfig.node.json" }
+  ]
 }
