@@ -177,7 +177,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   return (
     <animated.div
       ref={cardRef}
-      className={`group relative mb-0 break-inside-avoid overflow-hidden bg-[#060606] transition-colors duration-200 ${canActivate ? "cursor-pointer" : "cursor-default"}`}
+      className={`group relative mb-0 w-full break-inside-avoid overflow-hidden bg-[#060606] transition-colors duration-200 ${canActivate ? "cursor-pointer" : "cursor-default"}`}
       role={canActivate ? "button" : undefined}
       tabIndex={canActivate ? 0 : -1}
       aria-label={
