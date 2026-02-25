@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { uploadService } from "@/services/uploadService";
 import UploadDropzone from "@/features/upload/components/UploadDropzone";
 import UploadQueuePanel from "@/features/upload/components/UploadQueuePanel";
@@ -8,8 +7,9 @@ import { useUploadQueueStore } from "@/features/upload/hooks/useUploadQueueStore
 import { useParseScheduler } from "@/features/upload/hooks/useParseScheduler";
 import { useSubmitScheduler } from "@/features/upload/hooks/useSubmitScheduler";
 import { useEventDrivenSubmitScheduler } from "@/features/upload/hooks/useEventDrivenSubmitScheduler";
-import { selectFiles } from "@/lib/tauri/dialog";
+import { selectDirectory, selectFiles } from "@/lib/tauri/dialog";
 import { getFileInfo } from "@/lib/tauri/fs";
+import { tauriStorage } from "@/lib/tauri/storage";
 
 // 功能标志：启用事件驱动上传（性能优化）
 const USE_EVENT_DRIVEN_UPLOAD = true;
@@ -21,10 +21,25 @@ interface UploadWorkspaceProps {
 const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
   onUploadCompleted,
 }) => {
-  const [isTokenConfigured, setIsTokenConfigured] = useState(false);
+  const [isRepoConfigured, setIsRepoConfigured] = useState(false);
+  const [repoHint, setRepoHint] = useState("");
 
   useEffect(() => {
-    uploadService.hasUploadToken().then(setIsTokenConfigured);
+    const refreshRepoState = async (): Promise<void> => {
+      const configured = await uploadService.hasUploadToken();
+      setIsRepoConfigured(configured);
+      if (configured) {
+        try {
+          const status = await uploadService.getRepoStatus();
+          setRepoHint(`${status.owner}/${status.repo}@${status.branch}`);
+        } catch {
+          setRepoHint("");
+        }
+      } else {
+        setRepoHint("");
+      }
+    };
+    void refreshRepoState();
   }, []);
 
   const {
@@ -41,7 +56,7 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
 
   const { parseWorkerCount } = useParseScheduler({
     queue,
-    isTokenConfigured,
+    isTokenConfigured: isRepoConfigured,
     updateItemById,
     updateStageById,
     parsedPathsRef,
@@ -61,7 +76,7 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
     });
 
   const handleSelectFilesFromDialog = useCallback(async () => {
-    if (!isTokenConfigured) {
+    if (!isRepoConfigured) {
       return;
     }
 
@@ -83,23 +98,48 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
     );
 
     enqueuePathFiles(enriched);
-  }, [enqueuePathFiles, isTokenConfigured]);
+  }, [enqueuePathFiles, isRepoConfigured]);
 
   const handleSubmit = useCallback(() => {
-    if (!isTokenConfigured) {
+    if (!isRepoConfigured) {
       return;
     }
     void handleSubmitAll();
-  }, [handleSubmitAll, isTokenConfigured]);
+  }, [handleSubmitAll, isRepoConfigured]);
 
-  if (!isTokenConfigured) {
+  if (!isRepoConfigured) {
+    const handleChooseRepo = async (): Promise<void> => {
+      const selected = await selectDirectory();
+      if (!selected) {
+        return;
+      }
+      await tauriStorage.setItem("lumina.git_repo_path", selected);
+      const ready = await uploadService.hasUploadToken();
+      setIsRepoConfigured(ready);
+      if (ready) {
+        try {
+          const status = await uploadService.getRepoStatus();
+          setRepoHint(`${status.owner}/${status.repo}@${status.branch}`);
+        } catch {
+          setRepoHint("");
+        }
+      }
+    };
+
     return (
       <div className="flex flex-col items-center justify-center h-96 text-center">
         <div className="bg-zinc-900 rounded-lg p-8 border border-zinc-800 max-w-md">
-          <h3 className="text-xl font-semibold mb-2">未配置上传 Token</h3>
+          <h3 className="text-xl font-semibold mb-2">未配置仓库</h3>
           <p className="text-zinc-400 mb-4">
-            请先在设置页面配置 Upload Token 后再使用上传功能
+            先选择一个本地 Git 仓库。上传操作会把文件写入该仓库的 `objects/` 目录。
           </p>
+          <button
+            type="button"
+            onClick={() => void handleChooseRepo()}
+            className="px-4 py-2 rounded-md bg-sky-600 text-white text-sm hover:bg-sky-500 transition-colors"
+          >
+            立即选择仓库
+          </button>
         </div>
       </div>
     );
@@ -107,6 +147,11 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
 
   return (
     <div className="space-y-6">
+      {repoHint && (
+        <div className="rounded-lg border border-emerald-700/40 bg-emerald-950/20 px-4 py-3 text-sm text-emerald-200">
+          当前仓库: <span className="font-medium">{repoHint}</span>。上传后请点击左侧 `Commit & Push` 完成同步。
+        </div>
+      )}
       {queue.length > 0 ? (
         <div className="space-y-4">
           <UploadConfirmHeader
@@ -162,17 +207,16 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
         </div>
       ) : (
         <UploadDropzone
-          isTokenConfigured={isTokenConfigured}
+          isRepoConfigured={isRepoConfigured}
           onSelectFilesFromDialog={() => {
             void handleSelectFilesFromDialog();
           }}
         />
       )}
 
-      {queue.length === 0 && isTokenConfigured && (
-        <div className="flex h-40 flex-col items-center justify-center text-zinc-500">
-          <Loader2 className="mb-2 animate-spin" />
-          <p>Waiting for file selection...</p>
+      {queue.length === 0 && isRepoConfigured && (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 text-sm text-zinc-400">
+          建议流程: 1) 选择照片并写入仓库 2) 在管理页确认结果 3) 点击左侧 `Commit & Push` 推送远端。
         </div>
       )}
     </div>

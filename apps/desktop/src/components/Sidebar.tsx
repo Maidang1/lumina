@@ -7,6 +7,12 @@ export type View = 'upload' | 'manage' | 'settings';
 interface SidebarProps {
   currentView: View;
   onViewChange: (view: View) => void;
+  onCommitPush: () => void;
+  onSyncRepo: () => void;
+  commitDisabled?: boolean;
+  commitLoading?: boolean;
+  syncDisabled?: boolean;
+  syncLoading?: boolean;
 }
 
 interface NavItemProps {
@@ -35,7 +41,16 @@ function NavItem({ icon, label, isActive, onClick }: NavItemProps): React.ReactE
   );
 }
 
-export function Sidebar({ currentView, onViewChange }: SidebarProps): React.ReactElement {
+export function Sidebar({
+  currentView,
+  onViewChange,
+  onCommitPush,
+  onSyncRepo,
+  commitDisabled = false,
+  commitLoading = false,
+  syncDisabled = false,
+  syncLoading = false,
+}: SidebarProps): React.ReactElement {
   return (
     <aside className="w-48 bg-zinc-950 border-r border-zinc-800 flex flex-col">
       <div className="p-4 border-b border-zinc-800">
@@ -65,6 +80,34 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps): React.Reac
           onClick={() => onViewChange('settings')}
         />
       </nav>
+      <div className="p-3 border-t border-zinc-800">
+        <button
+          type="button"
+          onClick={onSyncRepo}
+          disabled={syncDisabled || syncLoading}
+          className={cn(
+            "mb-2 w-full rounded-md px-3 py-2 text-sm transition-colors",
+            syncDisabled || syncLoading
+              ? "bg-zinc-800 text-zinc-500"
+              : "bg-zinc-700 text-white hover:bg-zinc-600"
+          )}
+        >
+          {syncLoading ? "Syncing..." : "Sync Remote"}
+        </button>
+        <button
+          type="button"
+          onClick={onCommitPush}
+          disabled={commitDisabled || commitLoading}
+          className={cn(
+            "w-full rounded-md px-3 py-2 text-sm transition-colors",
+            commitDisabled || commitLoading
+              ? "bg-zinc-800 text-zinc-500"
+              : "bg-sky-600 text-white hover:bg-sky-500"
+          )}
+        >
+          {commitLoading ? "Committing..." : "Commit & Push"}
+        </button>
+      </div>
     </aside>
   );
 }

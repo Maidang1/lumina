@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import type { Photo } from "@/types/photo";
 import { metadataToPhoto } from "@/services/photoMapper";
 import { uploadService } from "@/services/uploadService";
-import { tauriStorage } from "@/lib/tauri/storage";
 
 interface UsePhotosCollectionResult {
   photos: Photo[];
@@ -17,18 +16,14 @@ export const usePhotosCollection = (): UsePhotosCollectionResult => {
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
-      const [githubOwner, githubRepo, githubBranch] = await Promise.all([
-        tauriStorage.getItem("lumina.github_owner"),
-        tauriStorage.getItem("lumina.github_repo"),
-        tauriStorage.getItem("lumina.github_branch"),
-      ]);
+      const repoStatus = await uploadService.getRepoStatus();
       const images = await uploadService.listAllImages(50);
       setPhotos(
         images.map((image) =>
           metadataToPhoto(image, {
-            owner: githubOwner || undefined,
-            repo: githubRepo || undefined,
-            branch: githubBranch || undefined,
+            owner: repoStatus.owner || undefined,
+            repo: repoStatus.repo || undefined,
+            branch: repoStatus.branch || undefined,
           }),
         ),
       );

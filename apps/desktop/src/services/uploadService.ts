@@ -11,6 +11,10 @@ import {
   deleteImageFromGitHub,
   finalizeBatchToGitHub,
   listImagesFromGitHub,
+  updateImageMetadataInRepo,
+  getRepoStatus,
+  commitAndPushRepo,
+  syncRepo as syncRepoInTauri,
 } from "@/lib/tauri/github";
 
 interface UploadOptions {
@@ -34,7 +38,7 @@ const DEFAULT_OPTIONS: UploadOptions = {
   timeout: 120000,
 };
 
-const UPLOAD_TOKEN_STORAGE_KEY = "lumina.github_token";
+const REPO_PATH_STORAGE_KEY = "lumina.git_repo_path";
 
 class ApiRequestError extends Error {
   status: number;
@@ -76,21 +80,41 @@ class UploadService {
   }
 
   async getUploadToken(): Promise<string> {
-    return (await tauriStorage.getItem(UPLOAD_TOKEN_STORAGE_KEY)) || "";
+    return (await tauriStorage.getItem(REPO_PATH_STORAGE_KEY)) || "";
   }
 
   async hasUploadToken(): Promise<boolean> {
-    const token = await this.getUploadToken();
-    return token.trim().length > 0;
+    if (!isTauriEnvironment()) {
+      const token = await this.getUploadToken();
+      return token.trim().length > 0;
+    }
+    try {
+      await getRepoStatus();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async setUploadToken(token: string): Promise<void> {
     const normalized = token.trim();
     if (!normalized) {
-      await tauriStorage.removeItem(UPLOAD_TOKEN_STORAGE_KEY);
+      await tauriStorage.removeItem(REPO_PATH_STORAGE_KEY);
       return;
     }
-    await tauriStorage.setItem(UPLOAD_TOKEN_STORAGE_KEY, normalized);
+    await tauriStorage.setItem(REPO_PATH_STORAGE_KEY, normalized);
+  }
+
+  async getRepoStatus() {
+    return getRepoStatus();
+  }
+
+  async commitAndPush(message?: string): Promise<string> {
+    return commitAndPushRepo(message);
+  }
+
+  async syncRepo(): Promise<string> {
+    return syncRepoInTauri();
   }
 
   private async parseJson<T>(
@@ -517,6 +541,11 @@ class UploadService {
       >
     >,
   ): Promise<ImageMetadata> {
+    const isTauri = isTauriEnvironment();
+    if (isTauri) {
+      return updateImageMetadataInRepo(imageId, updates);
+    }
+
     const uploadToken = await this.getUploadToken();
     if (!uploadToken) {
       throw new ApiRequestError(

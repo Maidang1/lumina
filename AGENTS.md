@@ -42,6 +42,14 @@ pnpm run cli:pack
 pnpm run cli:publish
 ```
 
+## Desktop Release (GitHub Actions)
+
+- Workflow: `.github/workflows/release-desktop.yml`
+- Trigger: push tag `desktop-vX.Y.Z` (for example `desktop-v0.1.0`)
+- Current platform target: macOS
+- Signing/notarization: currently disabled
+- Version rule: tag version must match `apps/desktop/src-tauri/tauri.conf.json` `version`
+
 ## Local Development
 
 1. Create local function env file:

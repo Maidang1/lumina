@@ -62,6 +62,25 @@ Frontend optional vars in `.env.local` / `.env`:
 - `pnpm run cli:pack`: dry-run npm package contents for CLI
 - `pnpm run cli:publish`: publish CLI package to npm (public)
 
+## Desktop Release
+
+Desktop release is automated by GitHub Actions on tag push.
+
+- Workflow file: `.github/workflows/release-desktop.yml`
+- Trigger tag format: `desktop-vX.Y.Z` (example: `desktop-v0.1.0`)
+- Current target: macOS (`dmg` / `app`)
+- Signing/notarization: not enabled yet
+
+Before pushing a release tag, ensure `apps/desktop/src-tauri/tauri.conf.json` `version`
+matches the tag version.
+
+Example release commands:
+
+```bash
+git tag desktop-v0.1.0
+git push origin desktop-v0.1.0
+```
+
 ## API Endpoints
 
 ```txt

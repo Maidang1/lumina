@@ -1,55 +1,65 @@
 import { useCallback, useEffect, useState } from 'react';
 import { tauriStorage } from '@/lib/tauri/storage';
+import { getRepoStatus } from '@/lib/tauri/github';
 
 interface SettingsState {
-  uploadToken: string;
-  githubOwner: string;
-  githubRepo: string;
-  githubBranch: string;
+  repoPath: string;
   concurrency: number;
 }
 
 interface UseSettingsStoreResult extends SettingsState {
   isLoading: boolean;
-  updateUploadToken: (token: string) => Promise<void>;
-  updateGithubOwner: (owner: string) => Promise<void>;
-  updateGithubRepo: (repo: string) => Promise<void>;
-  updateGithubBranch: (branch: string) => Promise<void>;
+  repoStatusMessage: string;
+  isRepoReady: boolean;
+  updateRepoPath: (repoPath: string) => Promise<void>;
   updateConcurrency: (concurrency: number) => Promise<void>;
+  refreshRepoStatus: (pathOverride?: string) => Promise<void>;
   saveAll: () => Promise<void>;
 }
 
 const STORAGE_KEYS = {
-  GITHUB_TOKEN: 'lumina.github_token', // 与 Rust 后端保持一致
-  GITHUB_OWNER: 'lumina.github_owner',
-  GITHUB_REPO: 'lumina.github_repo',
-  GITHUB_BRANCH: 'lumina.github_branch',
+  REPO_PATH: 'lumina.git_repo_path',
   CONCURRENCY: 'lumina.concurrency',
 };
 
 export function useSettingsStore(): UseSettingsStoreResult {
   const [isLoading, setIsLoading] = useState(true);
-  const [uploadToken, setUploadToken] = useState('');
-  const [githubOwner, setGithubOwner] = useState('');
-  const [githubRepo, setGithubRepo] = useState('');
-  const [githubBranch, setGithubBranch] = useState('main');
+  const [repoPath, setRepoPath] = useState('');
   const [concurrency, setConcurrency] = useState(3);
+  const [repoStatusMessage, setRepoStatusMessage] = useState('未选择仓库');
+  const [isRepoReady, setIsRepoReady] = useState(false);
+
+  const refreshRepoStatus = useCallback(async (pathOverride?: string): Promise<void> => {
+    const targetPath = (pathOverride ?? repoPath).trim();
+    if (!targetPath) {
+      setIsRepoReady(false);
+      setRepoStatusMessage('未选择仓库');
+      return;
+    }
+
+    try {
+      const status = await getRepoStatus();
+      setIsRepoReady(true);
+      setRepoStatusMessage(
+        `已连接: ${status.owner}/${status.repo}@${status.branch}，未提交变更 ${status.dirty_files} 项`
+      );
+    } catch (error) {
+      setIsRepoReady(false);
+      setRepoStatusMessage(
+        error instanceof Error ? error.message : '仓库校验失败'
+      );
+    }
+  }, [repoPath]);
 
   useEffect(() => {
     const loadSettings = async (): Promise<void> => {
       try {
-        const [token, owner, repo, branch, concurrencyStr] = await Promise.all([
-          tauriStorage.getItem(STORAGE_KEYS.GITHUB_TOKEN),
-          tauriStorage.getItem(STORAGE_KEYS.GITHUB_OWNER),
-          tauriStorage.getItem(STORAGE_KEYS.GITHUB_REPO),
-          tauriStorage.getItem(STORAGE_KEYS.GITHUB_BRANCH),
+        const [savedRepoPath, concurrencyStr] = await Promise.all([
+          tauriStorage.getItem(STORAGE_KEYS.REPO_PATH),
           tauriStorage.getItem(STORAGE_KEYS.CONCURRENCY),
         ]);
 
-        setUploadToken(token || '');
-        setGithubOwner(owner || '');
-        setGithubRepo(repo || '');
-        setGithubBranch(branch || 'main');
+        setRepoPath(savedRepoPath || '');
         setConcurrency(concurrencyStr ? parseInt(concurrencyStr, 10) : 3);
       } finally {
         setIsLoading(false);
@@ -59,53 +69,37 @@ export function useSettingsStore(): UseSettingsStoreResult {
     void loadSettings();
   }, []);
 
-  const updateUploadToken = useCallback(async (token: string): Promise<void> => {
-    setUploadToken(token);
-    await tauriStorage.setItem(STORAGE_KEYS.GITHUB_TOKEN, token);
-  }, []);
+  useEffect(() => {
+    void refreshRepoStatus();
+  }, [refreshRepoStatus]);
 
-  const updateGithubOwner = useCallback(async (owner: string): Promise<void> => {
-    setGithubOwner(owner);
-    await tauriStorage.setItem(STORAGE_KEYS.GITHUB_OWNER, owner);
-  }, []);
-
-  const updateGithubRepo = useCallback(async (repo: string): Promise<void> => {
-    setGithubRepo(repo);
-    await tauriStorage.setItem(STORAGE_KEYS.GITHUB_REPO, repo);
-  }, []);
-
-  const updateGithubBranch = useCallback(async (branch: string): Promise<void> => {
-    setGithubBranch(branch);
-    await tauriStorage.setItem(STORAGE_KEYS.GITHUB_BRANCH, branch);
+  const updateRepoPath = useCallback(async (path: string): Promise<void> => {
+    setRepoPath(path);
+    await tauriStorage.setItem(STORAGE_KEYS.REPO_PATH, path);
   }, []);
 
   const updateConcurrency = useCallback(async (value: number): Promise<void> => {
-    setConcurrency(value);
-    await tauriStorage.setItem(STORAGE_KEYS.CONCURRENCY, String(value));
+    const normalized = Number.isFinite(value) ? Math.max(1, Math.min(10, value)) : 1;
+    setConcurrency(normalized);
+    await tauriStorage.setItem(STORAGE_KEYS.CONCURRENCY, String(normalized));
   }, []);
 
   const saveAll = useCallback(async (): Promise<void> => {
     await Promise.all([
-      tauriStorage.setItem(STORAGE_KEYS.GITHUB_TOKEN, uploadToken),
-      tauriStorage.setItem(STORAGE_KEYS.GITHUB_OWNER, githubOwner),
-      tauriStorage.setItem(STORAGE_KEYS.GITHUB_REPO, githubRepo),
-      tauriStorage.setItem(STORAGE_KEYS.GITHUB_BRANCH, githubBranch),
+      tauriStorage.setItem(STORAGE_KEYS.REPO_PATH, repoPath),
       tauriStorage.setItem(STORAGE_KEYS.CONCURRENCY, String(concurrency)),
     ]);
-  }, [uploadToken, githubOwner, githubRepo, githubBranch, concurrency]);
+  }, [repoPath, concurrency]);
 
   return {
     isLoading,
-    uploadToken,
-    githubOwner,
-    githubRepo,
-    githubBranch,
+    repoPath,
     concurrency,
-    updateUploadToken,
-    updateGithubOwner,
-    updateGithubRepo,
-    updateGithubBranch,
+    repoStatusMessage,
+    isRepoReady,
+    updateRepoPath,
     updateConcurrency,
+    refreshRepoStatus,
     saveAll,
   };
 }

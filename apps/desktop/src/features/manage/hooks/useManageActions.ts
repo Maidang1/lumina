@@ -16,13 +16,10 @@ interface UseManageActionsParams {
 interface UseManageActionsResult {
   viewMode: "grid" | "list";
   setViewMode: (mode: "grid" | "list") => void;
-  isUploadModalOpen: boolean;
-  setIsUploadModalOpen: (open: boolean) => void;
   photoTags: Record<string, string[]>;
   setPhotoTags: Dispatch<SetStateAction<Record<string, string[]>>>;
   isDeleteTokenConfigured: boolean;
   deletingPhotoId: string | null;
-  handleOpenUpload: () => void;
   handleDeletePhoto: (photoId: string) => Promise<boolean>;
   markDeleteTokenMissing: () => void;
 }
@@ -31,7 +28,6 @@ export const useManageActions = ({
   removePhotoById,
 }: UseManageActionsParams): UseManageActionsResult => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [photoTags, setPhotoTags] = useState<Record<string, string[]>>({});
   const [isDeleteTokenConfigured, setIsDeleteTokenConfigured] = useState(false);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
@@ -47,10 +43,6 @@ export const useManageActions = ({
     return () => {
       window.removeEventListener("focus", () => void refreshDeleteTokenState());
     };
-  }, []);
-
-  const handleOpenUpload = useCallback((): void => {
-    setIsUploadModalOpen(true);
   }, []);
 
   const handleDeletePhoto = useCallback(
@@ -91,13 +83,10 @@ export const useManageActions = ({
   return {
     viewMode,
     setViewMode,
-    isUploadModalOpen,
-    setIsUploadModalOpen,
     photoTags,
     setPhotoTags,
     isDeleteTokenConfigured,
     deletingPhotoId,
-    handleOpenUpload,
     handleDeletePhoto,
     markDeleteTokenMissing,
   };

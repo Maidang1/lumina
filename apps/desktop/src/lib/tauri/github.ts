@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { BatchFinalizeResult, ImageListResponse } from '@/types/photo';
+import type { BatchFinalizeResult, ImageListResponse, ImageMetadata } from '@/types/photo';
 
 interface GitHubUploadOptions {
   imageId: string;
@@ -41,6 +41,16 @@ interface GitHubDeleteResultRaw {
   success: boolean;
   image_id: string;
   message?: string;
+}
+
+export interface RepoStatus {
+  configured: boolean;
+  repo_path: string;
+  branch: string;
+  origin_url: string;
+  owner: string;
+  repo: string;
+  dirty_files: number;
 }
 
 export async function uploadImageToGitHub(
@@ -99,4 +109,31 @@ export async function listImagesFromGitHub(
     cursor,
     limit,
   });
+}
+
+export async function updateImageMetadataInRepo(
+  imageId: string,
+  updates: Partial<
+    Pick<
+      ImageMetadata,
+      'description' | 'original_filename' | 'category' | 'privacy' | 'geo' | 'processing'
+    >
+  >
+): Promise<ImageMetadata> {
+  return invoke<ImageMetadata>('github_update_image_metadata', {
+    imageId,
+    updates,
+  });
+}
+
+export async function getRepoStatus(): Promise<RepoStatus> {
+  return invoke<RepoStatus>('github_get_repo_status');
+}
+
+export async function commitAndPushRepo(message?: string): Promise<string> {
+  return invoke<string>('github_commit_and_push', { message });
+}
+
+export async function syncRepo(): Promise<string> {
+  return invoke<string>('github_sync_repo');
 }

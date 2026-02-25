@@ -1,0 +1,68 @@
+name: Release Desktop
+
+on:
+  push:
+    tags:
+      - "desktop-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-desktop:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate desktop tag and app version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF_NAME#desktop-v}"
+          CONFIG_VERSION="$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")"
+
+          if [[ "${GITHUB_REF_NAME}" != desktop-v* ]]; then
+            echo "Tag must match desktop-vX.Y.Z, got: ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
+          if [[ "${TAG_VERSION}" != "${CONFIG_VERSION}" ]]; then
+            echo "Tag version (${TAG_VERSION}) does not match apps/desktop/src-tauri/tauri.conf.json version (${CONFIG_VERSION})."
+            exit 1
+          fi
+
+      - name: Build and publish Tauri release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: Lumina Desktop ${{ github.ref_name }}
+          releaseBody: |
+            Automated release for Lumina Desktop.
+          includeUpdaterJson: false

@@ -4,12 +4,12 @@ import { DEFAULT_UPLOAD_CONFIG } from "@/types/photo";
 import { Button } from "@/components/ui/button";
 
 interface UploadDropzoneProps {
-  isTokenConfigured: boolean;
+  isRepoConfigured: boolean;
   onSelectFilesFromDialog: () => void;
 }
 
 const UploadDropzone: React.FC<UploadDropzoneProps> = ({
-  isTokenConfigured,
+  isRepoConfigured,
   onSelectFilesFromDialog,
 }) => {
   return (
@@ -20,17 +20,18 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
         </div>
 
         <div className="space-y-4">
-          <p className="text-sm text-gray-300">Select local files for Rust-side parsing</p>
+          <p className="text-sm text-gray-300">选择照片并写入本地 Git 仓库工作区</p>
           <Button
             onClick={onSelectFilesFromDialog}
-            disabled={!isTokenConfigured}
+            disabled={!isRepoConfigured}
             variant="outline"
             className="h-10 rounded-lg border-white/20 bg-white/5 px-8 text-sm text-white hover:bg-white/10 disabled:opacity-50"
           >
-            Select Files
+            选择照片
           </Button>
-          <p className="text-xs text-gray-500">
-            Supports JPG, PNG, WebP, HEIC (Max {DEFAULT_UPLOAD_CONFIG.maxFileSize / 1024 / 1024}MB)
+          <p className="text-xs text-gray-500 max-w-md leading-relaxed">
+            支持 JPG、PNG、WebP、HEIC（单文件最大 {DEFAULT_UPLOAD_CONFIG.maxFileSize / 1024 / 1024}MB）。
+            上传只写入本地仓库，完成后请使用左侧 `Commit & Push` 同步远端。
           </p>
         </div>
       </div>

@@ -42,6 +42,17 @@ pub struct ImageListResponse {
     pub total: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepoStatus {
+    pub configured: bool,
+    pub repo_path: String,
+    pub branch: String,
+    pub origin_url: String,
+    pub owner: String,
+    pub repo: String,
+    pub dirty_files: usize,
+}
+
 // GitHub API 响应类型
 #[derive(Debug, Deserialize)]
 pub struct GitHubFileResponse {

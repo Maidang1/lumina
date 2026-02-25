@@ -1,10 +1,11 @@
 use anyhow::{Context, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
-use super::client::GitHubClient;
+use super::config::GitHubConfig;
 use super::types::*;
 
 struct PreparedMetadata {
@@ -15,15 +16,15 @@ struct PreparedMetadata {
 }
 
 pub struct UploadManager {
-    github: Arc<GitHubClient>,
+    config: Arc<GitHubConfig>,
     semaphore: Arc<Semaphore>,
 }
 
 impl UploadManager {
-    pub fn new(github: GitHubClient, concurrency: usize) -> Self {
+    pub fn new(config: GitHubConfig, concurrency: usize) -> Self {
         Self {
-            github: Arc::new(github),
-            semaphore: Arc::new(Semaphore::new(concurrency)),
+            config: Arc::new(config),
+            semaphore: Arc::new(Semaphore::new(concurrency.max(1))),
         }
     }
 
@@ -76,34 +77,19 @@ impl UploadManager {
         let original_path = format!("{}/original.{}", base_path, original_ext);
         let thumb_path = format!("{}/thumb.webp", base_path);
 
-        self.put_file_optimistic(
-            &original_path,
-            &original,
-            &format!("Upload {} - original", image_id),
-        )
-            .await
-            .context("Failed to upload original image")?;
-
-        self.put_file_optimistic(&thumb_path, &thumb, &format!("Upload {} - thumb", image_id))
-            .await
-            .context("Failed to upload thumbnail")?;
+        self.write_repo_file(&original_path, &original)?;
+        self.write_repo_file(&thumb_path, &thumb)?;
 
         for (variant_name, variant_data) in thumb_variants {
             let Some(size) = Self::normalize_variant_name(&variant_name) else {
                 continue;
             };
             let variant_path = format!("{}/thumb-{}.webp", base_path, size);
-            self.put_file_optimistic(
-                &variant_path,
-                &variant_data,
-                &format!("Upload {} - thumb {}", image_id, size),
-            )
-                .await
-                .with_context(|| format!("Failed to upload thumbnail variant {}", size))?;
+            self.write_repo_file(&variant_path, &variant_data)?;
         }
 
         if !defer_finalize {
-            self.upsert_metadata_with_index(&prepared).await?;
+            self.upsert_metadata_with_index(&prepared)?;
         }
 
         Ok(UploadResult {
@@ -127,77 +113,40 @@ impl UploadManager {
             });
         }
 
-        let prepared = metadatas
-            .iter()
-            .map(|raw| Self::prepare_metadata(raw))
-            .collect::<Result<Vec<_>>>()?;
+        let mut failed_items = Vec::new();
+        let mut success_count = 0usize;
 
-        let mut files: Vec<(String, Vec<u8>)> = prepared
-            .iter()
-            .map(|item| (item.meta_path.clone(), item.raw.as_bytes().to_vec()))
-            .collect();
-
-        let mut index = self.github.get_image_index().await?;
-        for item in &prepared {
-            index.add_item(ImageIndexItem {
-                image_id: item.image_id.clone(),
-                created_at: item.created_at.clone(),
-                meta_path: item.meta_path.clone(),
-            });
-        }
-        files.push((
-            "objects/_index/images.json".to_string(),
-            serde_json::to_vec_pretty(&index).context("Failed to serialize index")?,
-        ));
-
-        match self
-            .github
-            .commit_files_batch(
-                files,
-                &format!("Finalize {} image metadata entries", prepared.len()),
-            )
-            .await
-        {
-            Ok(_) => Ok(BatchFinalizeResult {
-                success_count: prepared.len(),
-                failed_items: None,
-                mode: "batch_commit".to_string(),
-            }),
-            Err(error) => {
-                eprintln!(
-                    "[UploadManager] Batch finalize failed, falling back to per item: {}",
-                    error
-                );
-
-                let mut failed_items = Vec::new();
-                let mut success_count = 0usize;
-
-                for item in &prepared {
-                    match self.upsert_metadata_with_index(item).await {
-                        Ok(_) => success_count += 1,
-                        Err(err) => failed_items.push(BatchFinalizeFailure {
-                            image_id: item.image_id.clone(),
-                            reason: err.to_string(),
-                        }),
-                    }
+        for raw in metadatas {
+            match Self::prepare_metadata(&raw)
+                .and_then(|prepared| self.upsert_metadata_with_index(&prepared).map(|_| prepared))
+            {
+                Ok(_) => success_count += 1,
+                Err(err) => {
+                    let image_id = serde_json::from_str::<serde_json::Value>(&raw)
+                        .ok()
+                        .and_then(|v| v.get("image_id").and_then(|v| v.as_str()).map(str::to_string))
+                        .unwrap_or_else(|| "unknown".to_string());
+                    failed_items.push(BatchFinalizeFailure {
+                        image_id,
+                        reason: err.to_string(),
+                    });
                 }
-
-                Ok(BatchFinalizeResult {
-                    success_count,
-                    failed_items: if failed_items.is_empty() {
-                        None
-                    } else {
-                        Some(failed_items)
-                    },
-                    mode: "fallback_per_item".to_string(),
-                })
             }
         }
+
+        Ok(BatchFinalizeResult {
+            success_count,
+            failed_items: if failed_items.is_empty() {
+                None
+            } else {
+                Some(failed_items)
+            },
+            mode: "fallback_per_item".to_string(),
+        })
     }
 
     pub async fn delete_image(&self, image_id: String) -> Result<DeleteResult> {
         let base_path = Self::image_base_path(&image_id)?;
-
         let mut paths_to_delete = vec![
             format!("{}/meta.json", base_path),
             format!("{}/thumb.webp", base_path),
@@ -218,21 +167,20 @@ impl UploadManager {
             format!("{}/original.avif", base_path),
             format!("{}/original.mp4", base_path),
             format!("{}/original.mov", base_path),
+            format!("{}/original.bin", base_path),
         ];
 
         paths_to_delete.sort();
         paths_to_delete.dedup();
 
         for path in paths_to_delete {
-            if let Some(file) = self.github.get_file(&path).await? {
-                let _ = self
-                    .github
-                    .delete_file(&path, &file.sha, &format!("Delete {}", path))
-                    .await;
+            let abs = self.repo_path_for(&path);
+            if abs.exists() {
+                let _ = fs::remove_file(abs);
             }
         }
 
-        self.github.remove_from_index(&image_id).await?;
+        self.remove_from_index(&image_id)?;
 
         Ok(DeleteResult {
             success: true,
@@ -246,7 +194,7 @@ impl UploadManager {
         cursor: Option<String>,
         limit: usize,
     ) -> Result<ImageListResponse> {
-        let index = self.github.get_image_index().await?;
+        let index = self.get_image_index()?;
 
         let start_idx = cursor
             .as_deref()
@@ -258,29 +206,17 @@ impl UploadManager {
 
         let mut images = Vec::new();
         for entry in &index.items[start_idx..end_idx] {
-            let Some(file) = self.github.get_file(&entry.meta_path).await? else {
+            let path = self.repo_path_for(&entry.meta_path);
+            if !path.exists() {
                 continue;
+            }
+            let raw = match fs::read(path) {
+                Ok(v) => v,
+                Err(_) => continue,
             };
-
-            let decoded = match BASE64.decode(file.content.replace('\n', "")) {
-                Ok(value) => value,
-                Err(error) => {
-                    eprintln!(
-                        "[UploadManager] Failed to decode {}: {}",
-                        entry.meta_path, error
-                    );
-                    continue;
-                }
-            };
-
-            match serde_json::from_slice::<serde_json::Value>(&decoded) {
+            match serde_json::from_slice::<serde_json::Value>(&raw) {
                 Ok(meta) => images.push(meta),
-                Err(error) => {
-                    eprintln!(
-                        "[UploadManager] Failed to parse {}: {}",
-                        entry.meta_path, error
-                    );
-                }
+                Err(_) => continue,
             }
         }
 
@@ -297,47 +233,94 @@ impl UploadManager {
         })
     }
 
-    async fn upsert_metadata_with_index(&self, item: &PreparedMetadata) -> Result<()> {
-        self.put_file_optimistic(
-            &item.meta_path,
-            item.raw.as_bytes(),
-            &format!("Upload metadata {}", item.image_id),
-        )
-            .await
-            .with_context(|| format!("Failed to upload metadata {}", item.image_id))?;
+    pub async fn update_image_metadata(
+        &self,
+        image_id: String,
+        updates: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        let base_path = Self::image_base_path(&image_id)?;
+        let meta_path = format!("{}/meta.json", base_path);
+        let abs_path = self.repo_path_for(&meta_path);
 
-        let mut index = self.github.get_image_index().await?;
+        let raw = fs::read(&abs_path).with_context(|| format!("Metadata not found: {}", meta_path))?;
+        let mut metadata: serde_json::Value =
+            serde_json::from_slice(&raw).context("Failed to parse metadata")?;
+
+        let allowed = [
+            "description",
+            "original_filename",
+            "category",
+            "privacy",
+            "geo",
+            "processing",
+        ];
+
+        for key in allowed {
+            if let Some(value) = updates.get(key) {
+                metadata[key] = value.clone();
+            }
+        }
+
+        let content = serde_json::to_vec_pretty(&metadata).context("Failed to serialize metadata")?;
+        self.write_repo_file(&meta_path, &content)?;
+
+        Ok(metadata)
+    }
+
+    fn upsert_metadata_with_index(&self, item: &PreparedMetadata) -> Result<()> {
+        self.write_repo_file(&item.meta_path, item.raw.as_bytes())?;
+
+        let mut index = self.get_image_index()?;
         index.add_item(ImageIndexItem {
             image_id: item.image_id.clone(),
             created_at: item.created_at.clone(),
             meta_path: item.meta_path.clone(),
         });
-        self.github.update_image_index(index).await?;
+        self.update_image_index(index)?;
 
         Ok(())
     }
 
-    async fn put_file_optimistic(&self, path: &str, content: &[u8], message: &str) -> Result<()> {
-        match self.github.put_file(path, content, message, None).await {
-            Ok(_) => Ok(()),
-            Err(error) => {
-                let error_text = error.to_string();
-                // Existing files need sha for update. Fallback only for conflict-like errors.
-                let should_retry_with_sha = error_text.contains("409")
-                    || error_text.contains("422")
-                    || error_text.to_lowercase().contains("sha");
-                if !should_retry_with_sha {
-                    return Err(error);
-                }
-
-                let sha = self.github.get_file(path).await?.map(|file| file.sha);
-                self.github
-                    .put_file(path, content, message, sha)
-                    .await
-                    .with_context(|| format!("Failed to upsert {} after optimistic put", path))?;
-                Ok(())
-            }
+    fn get_image_index(&self) -> Result<ImageIndexFile> {
+        let path = self.repo_path_for("objects/_index/images.json");
+        if !path.exists() {
+            return Ok(ImageIndexFile::new());
         }
+        let content = fs::read(path).context("Failed to read image index")?;
+        let index = serde_json::from_slice::<ImageIndexFile>(&content)
+            .context("Failed to parse image index")?;
+        Ok(index)
+    }
+
+    fn update_image_index(&self, mut index: ImageIndexFile) -> Result<()> {
+        index.sort_items();
+        index.updated_at = chrono::Utc::now().to_rfc3339();
+        let content = serde_json::to_vec_pretty(&index).context("Failed to serialize index")?;
+        self.write_repo_file("objects/_index/images.json", &content)
+    }
+
+    fn remove_from_index(&self, image_id: &str) -> Result<bool> {
+        let mut index = self.get_image_index()?;
+        let removed = index.remove_item(image_id);
+        if removed {
+            self.update_image_index(index)?;
+        }
+        Ok(removed)
+    }
+
+    fn write_repo_file(&self, relative_path: &str, content: &[u8]) -> Result<()> {
+        let abs = self.repo_path_for(relative_path);
+        let parent = abs
+            .parent()
+            .context("Invalid output path")?;
+        fs::create_dir_all(parent).context("Failed to create parent directories")?;
+        fs::write(abs, content).context("Failed to write file")?;
+        Ok(())
+    }
+
+    fn repo_path_for(&self, relative_path: &str) -> PathBuf {
+        let normalized = relative_path.trim_start_matches('/');
+        self.config.repo_path.join(Path::new(normalized))
     }
 
     fn prepare_metadata(raw: &str) -> Result<PreparedMetadata> {

@@ -73,7 +73,7 @@ export const useBatchPhotoActions = ({
     if (selectedIds.size === 0) return;
     if (!isDeleteTokenConfigured) {
       onDeleteTokenMissing();
-      window.alert("Missing upload_token. Batch delete is unavailable.");
+      window.alert("Missing repository configuration. Batch delete is unavailable.");
       return;
     }
     const confirmed = window.confirm(

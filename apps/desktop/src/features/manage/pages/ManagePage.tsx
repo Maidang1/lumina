@@ -6,20 +6,16 @@ import { usePhotosCollection } from "@/hooks/usePhotosCollection";
 import ManageBatchActions from "@/features/manage/components/ManageBatchActions";
 import ManageHeader from "@/features/manage/components/ManageHeader";
 import ManageToolbar from "@/features/manage/components/ManageToolbar";
-import ManageUploadDialog from "@/features/manage/components/ManageUploadDialog";
 import { useManageActions } from "@/features/manage/hooks/useManageActions";
 
 const ManagePage: React.FC = () => {
-  const { photos, isLoading, refresh, removePhotoById } = usePhotosCollection();
+  const { photos, isLoading, removePhotoById } = usePhotosCollection();
   const {
     viewMode,
     setViewMode,
-    isUploadModalOpen,
-    setIsUploadModalOpen,
     photoTags,
     setPhotoTags,
     isDeleteTokenConfigured,
-    handleOpenUpload,
     handleDeletePhoto,
     markDeleteTokenMissing,
   } = useManageActions({ removePhotoById });
@@ -46,9 +42,7 @@ const ManagePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <ManageHeader
-        onOpenUpload={handleOpenUpload}
-      />
+      <ManageHeader />
 
       <main className="mx-auto w-full max-w-[1720px] space-y-6 px-5 sm:px-8">
         <ManageToolbar
@@ -56,15 +50,6 @@ const ManagePage: React.FC = () => {
           selectedCount={selectedIds.size}
           onSelectAllVisible={handleSelectAllVisible}
           onChangeViewMode={setViewMode}
-        />
-
-        <ManageUploadDialog
-          isOpen={isUploadModalOpen}
-          onClose={() => setIsUploadModalOpen(false)}
-          onUploadCompleted={() => {
-            void refresh();
-            setIsUploadModalOpen(false);
-          }}
         />
 
         <div className="flex flex-col gap-6">

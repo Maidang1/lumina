@@ -1,20 +1,18 @@
 import React, { useState } from 'react';
 import { useSettingsStore } from '@/features/settings/hooks/useSettingsStore';
-import { Loader2 } from 'lucide-react';
+import { Loader2, FolderOpen } from 'lucide-react';
+import { selectDirectory } from '@/lib/tauri/dialog';
 
 export function SettingsPage(): React.ReactElement {
   const {
     isLoading,
-    uploadToken,
-    githubOwner,
-    githubRepo,
-    githubBranch,
+    repoPath,
     concurrency,
-    updateUploadToken,
-    updateGithubOwner,
-    updateGithubRepo,
-    updateGithubBranch,
+    repoStatusMessage,
+    isRepoReady,
+    updateRepoPath,
     updateConcurrency,
+    refreshRepoStatus,
   } = useSettingsStore();
 
   const [isSaving, setIsSaving] = useState(false);
@@ -24,12 +22,21 @@ export function SettingsPage(): React.ReactElement {
     setIsSaving(true);
     setSaveMessage('');
     try {
-      // Settings are saved automatically on change, just show feedback
+      await refreshRepoStatus();
       setSaveMessage('设置已保存');
       setTimeout(() => setSaveMessage(''), 2000);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSelectRepo = async (): Promise<void> => {
+    const selected = await selectDirectory();
+    if (!selected) {
+      return;
+    }
+    await updateRepoPath(selected);
+    await refreshRepoStatus(selected);
   };
 
   if (isLoading) {
@@ -50,58 +57,31 @@ export function SettingsPage(): React.ReactElement {
 
         <main className="space-y-6">
           <section className="bg-zinc-900 rounded-lg p-6 border border-zinc-800">
-            <h2 className="text-xl font-semibold mb-4">上传配置</h2>
+            <h2 className="text-xl font-semibold mb-4">仓库配置</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  GitHub Personal Access Token
-                </label>
-                <input
-                  type="password"
-                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-600"
-                  placeholder="ghp_xxxxxxxxxxxx"
-                  value={uploadToken}
-                  onChange={(e) => void updateUploadToken(e.target.value)}
-                />
-                <p className="text-xs text-zinc-500 mt-1">
-                  用于访问 GitHub 仓库的 token（需要 repo 权限）
-                </p>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">本地 Git 仓库</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-600"
+                    placeholder="/path/to/your/repository"
+                    value={repoPath}
+                    onChange={(e) => void updateRepoPath(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleSelectRepo()}
+                    className="px-3 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-md text-sm transition-colors flex items-center gap-2"
+                  >
+                    <FolderOpen size={16} />
+                    选择
+                  </button>
+                </div>
+                <p className="text-xs text-zinc-500 mt-1">选择图片对象仓库根目录（必须包含 .git）</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  GitHub Owner
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-600"
-                  placeholder="your-username"
-                  value={githubOwner}
-                  onChange={(e) => void updateGithubOwner(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  GitHub Repository
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-600"
-                  placeholder="your-repo"
-                  value={githubRepo}
-                  onChange={(e) => void updateGithubRepo(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  Branch
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-600"
-                  placeholder="main"
-                  value={githubBranch}
-                  onChange={(e) => void updateGithubBranch(e.target.value)}
-                />
+              <div className={`text-sm ${isRepoReady ? 'text-green-400' : 'text-amber-400'}`}>
+                {repoStatusMessage}
               </div>
             </div>
           </section>
@@ -127,9 +107,7 @@ export function SettingsPage(): React.ReactElement {
           </section>
 
           <div className="flex items-center justify-end gap-3">
-            {saveMessage && (
-              <span className="text-sm text-green-400">{saveMessage}</span>
-            )}
+            {saveMessage && <span className="text-sm text-green-400">{saveMessage}</span>}
             <button
               onClick={() => void handleSave()}
               disabled={isSaving}

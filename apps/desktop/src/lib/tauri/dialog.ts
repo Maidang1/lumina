@@ -25,7 +25,7 @@ export async function selectFiles(): Promise<FileSelection[] | null> {
   }));
 }
 
-async function selectDirectory(): Promise<string | null> {
+export async function selectDirectory(): Promise<string | null> {
   const selected = await open({
     directory: true,
   });

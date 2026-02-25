@@ -20,9 +20,9 @@ const UploadConfirmHeader: React.FC<UploadConfirmHeaderProps> = ({
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h2 className="text-lg font-medium text-white">Confirm upload?</h2>
+        <h2 className="text-lg font-medium text-white">准备写入仓库</h2>
         <p className="text-sm text-zinc-400">
-          Selected {queueLength} items, estimated size {(totalBytes / 1024 / 1024).toFixed(1)} MB.
+          本次将写入 {queueLength} 个文件，预计 {(totalBytes / 1024 / 1024).toFixed(1)} MB。
         </p>
       </div>
       <Button
@@ -33,10 +33,10 @@ const UploadConfirmHeader: React.FC<UploadConfirmHeaderProps> = ({
         {isSubmitting ? (
           <>
             <Loader2 size={14} className="mr-2 animate-spin motion-reduce:animate-none" />
-            Uploading...
+            写入中...
           </>
         ) : (
-          "Start Upload"
+          "开始写入"
         )}
       </Button>
     </div>
