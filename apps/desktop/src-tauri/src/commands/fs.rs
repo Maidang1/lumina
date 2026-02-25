@@ -23,13 +23,13 @@ pub async fn get_file_info(path: String) -> Result<FileInfo, String> {
 
     let modified = metadata
         .modified()
-        .map_err(|e| format!("Failed to get modified time: {}", e))?
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| format!("Invalid modified time: {}", e))?
-        .as_secs();
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .ok_or("Invalid modified time".to_string())?;
 
     Ok(FileInfo {
-        path: path.clone(),
+        path,
         size: metadata.len(),
         modified,
         is_file: metadata.is_file(),
@@ -47,28 +47,26 @@ pub async fn scan_directory(
         return Err(format!("Path does not exist: {}", path));
     }
 
-    let mut files = Vec::new();
     let max_depth = if recursive { usize::MAX } else { 1 };
+    let extensions_lower: Vec<String> = extensions.iter().map(|e| e.to_lowercase()).collect();
+    let filter_extensions = !extensions_lower.is_empty();
 
-    for entry in WalkDir::new(path_obj)
+    let files = WalkDir::new(path_obj)
         .max_depth(max_depth)
         .into_iter()
         .filter_map(|e| e.ok())
-    {
-        if !entry.file_type().is_file() {
-            continue;
-        }
-
-        let file_path = entry.path();
-        if let Some(ext) = file_path.extension() {
-            let ext_str = ext.to_string_lossy().to_lowercase();
-            if extensions.is_empty() || extensions.contains(&ext_str) {
-                if let Some(path_str) = file_path.to_str() {
-                    files.push(path_str.to_string());
-                }
+        .filter(|e| e.file_type().is_file())
+        .filter_map(|e| {
+            let file_path = e.path();
+            let ext = file_path.extension()?.to_string_lossy().to_lowercase();
+            
+            if filter_extensions && !extensions_lower.contains(&ext) {
+                return None;
             }
-        }
-    }
+            
+            file_path.to_str().map(|s| s.to_string())
+        })
+        .collect();
 
     Ok(files)
 }

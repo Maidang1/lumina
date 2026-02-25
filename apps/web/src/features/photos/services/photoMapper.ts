@@ -54,8 +54,9 @@ function buildFallbackApiAssetUrl(
   imageId: string,
   type: "original" | "thumb",
   version: string,
+  cacheBust: string,
 ): string {
-  return `/api/v1/images/${encodeURIComponent(imageId)}/${type}?v=${version}`;
+  return `/api/v1/images/${encodeURIComponent(imageId)}/${type}?v=${version}&cb=${cacheBust}`;
 }
 
 function buildJsDelivrUrl(path?: string): string | undefined {
@@ -97,6 +98,7 @@ function formatShutter(exposureTime?: number): string {
 function buildThumbSrcSet(
   metadata: ImageMetadata,
   version: string,
+  cacheBust: string,
 ): string | undefined {
   const directCandidates: Array<[string | undefined, number]> = [
     [metadata.files.thumb_variants?.["400"]?.path, 400],
@@ -109,7 +111,7 @@ function buildThumbSrcSet(
       if (!cdnUrl) {
         return undefined;
       }
-      return `${cdnUrl}?v=${version} ${width}w`;
+      return `${cdnUrl}?v=${version}&cb=${cacheBust} ${width}w`;
     })
     .filter((item): item is string => Boolean(item));
 
@@ -127,9 +129,9 @@ function buildThumbSrcSet(
   }
   const encodedId = encodeURIComponent(metadata.image_id);
   return [
-    `/api/v1/images/${encodedId}/thumb?size=400&v=${version} 400w`,
-    `/api/v1/images/${encodedId}/thumb?size=800&v=${version} 800w`,
-    `/api/v1/images/${encodedId}/thumb?size=1600&v=${version} 1600w`,
+    `/api/v1/images/${encodedId}/thumb?size=400&v=${version}&cb=${cacheBust} 400w`,
+    `/api/v1/images/${encodedId}/thumb?size=800&v=${version}&cb=${cacheBust} 800w`,
+    `/api/v1/images/${encodedId}/thumb?size=1600&v=${version}&cb=${cacheBust} 1600w`,
   ].join(", ");
 }
 
@@ -157,6 +159,9 @@ export function metadataToPhoto(metadata: ImageMetadata): Photo {
     : new Date(metadata.timestamps.created_at).toISOString().split("T")[0];
 
   const version = encodeURIComponent(metadata.timestamps.created_at);
+  const cacheBust = encodeURIComponent(
+    `${metadata.image_id.slice(7, 19)}-${metadata.timestamps.created_at}`,
+  );
   const originalPath = getOriginalPath(metadata);
   const thumbPath = getThumbPath(metadata);
   const originalCdnUrl = buildJsDelivrUrl(originalPath);
@@ -164,12 +169,12 @@ export function metadataToPhoto(metadata: ImageMetadata): Photo {
   return {
     id: metadata.image_id,
     url:
-      (originalCdnUrl && `${originalCdnUrl}?v=${version}`) ||
-      buildFallbackApiAssetUrl(metadata.image_id, "original", version),
+      (originalCdnUrl && `${originalCdnUrl}?v=${version}&cb=${cacheBust}`) ||
+      buildFallbackApiAssetUrl(metadata.image_id, "original", version, cacheBust),
     thumbnail:
-      (thumbCdnUrl && `${thumbCdnUrl}?v=${version}`) ||
-      buildFallbackApiAssetUrl(metadata.image_id, "thumb", version),
-    thumbnailSrcSet: buildThumbSrcSet(metadata, version),
+      (thumbCdnUrl && `${thumbCdnUrl}?v=${version}&cb=${cacheBust}`) ||
+      buildFallbackApiAssetUrl(metadata.image_id, "thumb", version, cacheBust),
+    thumbnailSrcSet: buildThumbSrcSet(metadata, version, cacheBust),
     thumbnailSizes: "(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw",
     title: metadata.original_filename || metadata.exif?.Model || "Untitled",
     location: extractPrimaryRegion(metadata),

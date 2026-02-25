@@ -282,6 +282,7 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
               <span>相机: {previewItem.metadata.exif?.Model || "-"}</span>
               <span>镜头: {previewItem.metadata.exif?.LensModel || "-"}</span>
               <span>ISO: {previewItem.metadata.exif?.ISO || "-"}</span>
+              <span>省份: {previewItem.metadata.geo?.region?.province || "-"}</span>
               <span>拍摄时间: {previewItem.metadata.exif?.DateTimeOriginal || "-"}</span>
               <span>OCR: {previewItem.metadata.derived?.ocr?.status || "-"}</span>
               <span>总耗时: {previewItem.metadata.processing?.summary?.total_ms ?? 0} ms</span>

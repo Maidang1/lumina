@@ -8,6 +8,12 @@ import {
 import { UploadQueueItem } from "@/types/photo";
 import { parseUploadItem } from "@/features/upload/lib/processUploadItem";
 
+interface ParsedPaths {
+  originalPath: string;
+  thumbPath: string;
+  thumbVariantPaths?: Partial<Record<"400" | "800" | "1600", string>>;
+}
+
 interface UseParseSchedulerParams {
   queue: UploadQueueItem[];
   isTokenConfigured: boolean;
@@ -17,11 +23,7 @@ interface UseParseSchedulerParams {
     stageId: string,
     updates: Partial<UploadQueueItem["stages"][number]>,
   ) => void;
-  normalizedOriginalRef: MutableRefObject<Map<string, File>>;
-  thumbBlobRef: MutableRefObject<Map<string, Blob>>;
-  thumbVariantBlobRef: MutableRefObject<
-    Map<string, Partial<Record<"400" | "800" | "1600", Blob>>>
-  >;
+  parsedPathsRef: MutableRefObject<Map<string, ParsedPaths>>;
 }
 
 interface UseParseSchedulerResult {
@@ -33,9 +35,7 @@ export const useParseScheduler = ({
   isTokenConfigured,
   updateItemById,
   updateStageById,
-  normalizedOriginalRef,
-  thumbBlobRef,
-  thumbVariantBlobRef,
+  parsedPathsRef,
 }: UseParseSchedulerParams): UseParseSchedulerResult => {
   const inFlightParseRef = useRef<Set<string>>(new Set());
 
@@ -70,12 +70,11 @@ export const useParseScheduler = ({
             updateStageById(item.id, stageId, updates),
         });
 
-        normalizedOriginalRef.current.set(item.id, parsed.normalizedOriginalFile);
-        thumbBlobRef.current.set(item.id, parsed.thumbBlob);
-        thumbVariantBlobRef.current.set(
-          item.id,
-          parsed.thumbVariantBlobs || {},
-        );
+        parsedPathsRef.current.set(item.id, {
+          originalPath: parsed.originalPath,
+          thumbPath: parsed.thumbPath,
+          thumbVariantPaths: parsed.thumbVariantPaths,
+        });
         updateItemById(item.id, {
           status: "parsed",
           progress: 100,
@@ -92,9 +91,7 @@ export const useParseScheduler = ({
       }
     },
     [
-      normalizedOriginalRef,
-      thumbBlobRef,
-      thumbVariantBlobRef,
+      parsedPathsRef,
       updateItemById,
       updateStageById,
     ],

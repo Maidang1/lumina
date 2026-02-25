@@ -37,7 +37,9 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return errorResponse(env, "Invalid image_id encoding", 400);
   }
   const type = params.type as string;
-  const sizeParam = new URL(request.url).searchParams.get("size");
+  const requestUrl = new URL(request.url);
+  const sizeParam = requestUrl.searchParams.get("size");
+  const versionParam = requestUrl.searchParams.get("v");
 
   if (!isValidImageId(imageId)) {
     return errorResponse(env, "Invalid image_id", 400);
@@ -105,12 +107,18 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       return errorResponse(env, "Image not found", 404);
     }
 
+    const locationUrl = new URL(buildJsDelivrUrl(env, targetPath));
+    if (versionParam) {
+      locationUrl.searchParams.set("v", versionParam);
+    }
+
     return new Response(null, {
       status: 302,
       headers: {
         ...corsHeaders(env),
-        Location: buildJsDelivrUrl(env, targetPath),
-        "Cache-Control": "public, max-age=31536000, immutable",
+        Location: locationUrl.toString(),
+        // Keep redirect cache short so updated assets are revalidated quickly.
+        "Cache-Control": "public, max-age=300, must-revalidate",
       },
     });
   } catch (error) {

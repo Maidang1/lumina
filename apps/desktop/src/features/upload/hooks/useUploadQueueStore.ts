@@ -16,14 +16,16 @@ import { UploadQueueStats } from "@/features/upload/types";
 const makeQueueId = (): string =>
   `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+interface ParsedPaths {
+  originalPath: string;
+  thumbPath: string;
+  thumbVariantPaths?: Partial<Record<"400" | "800" | "1600", string>>;
+}
+
 interface UseUploadQueueStoreResult {
   queue: UploadQueueItem[];
   queueRef: MutableRefObject<UploadQueueItem[]>;
-  normalizedOriginalRef: MutableRefObject<Map<string, File>>;
-  thumbBlobRef: MutableRefObject<Map<string, Blob>>;
-  thumbVariantBlobRef: MutableRefObject<
-    Map<string, Partial<Record<"400" | "800" | "1600", Blob>>>
-  >;
+  parsedPathsRef: MutableRefObject<Map<string, ParsedPaths>>;
   updateItemById: (id: string, updates: Partial<UploadQueueItem>) => void;
   updateStageById: (
     id: string,
@@ -53,11 +55,7 @@ interface UseUploadQueueStoreResult {
 export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
   const [queue, setQueue] = useState<UploadQueueItem[]>([]);
   const queueRef = useRef<UploadQueueItem[]>([]);
-  const normalizedOriginalRef = useRef<Map<string, File>>(new Map());
-  const thumbBlobRef = useRef<Map<string, Blob>>(new Map());
-  const thumbVariantBlobRef = useRef<
-    Map<string, Partial<Record<"400" | "800" | "1600", Blob>>>
-  >(new Map());
+  const parsedPathsRef = useRef<Map<string, ParsedPaths>>(new Map());
 
   useEffect(() => {
     queueRef.current = queue;
@@ -149,9 +147,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
       if (item?.thumbnail) {
         URL.revokeObjectURL(item.thumbnail);
       }
-      normalizedOriginalRef.current.delete(id);
-      thumbBlobRef.current.delete(id);
-      thumbVariantBlobRef.current.delete(id);
+      parsedPathsRef.current.delete(id);
       return prev.filter((entry) => entry.id !== id);
     });
   }, []);
@@ -189,9 +185,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
         };
       }),
     );
-    normalizedOriginalRef.current.delete(id);
-    thumbBlobRef.current.delete(id);
-    thumbVariantBlobRef.current.delete(id);
+    parsedPathsRef.current.delete(id);
   }, []);
 
   const applyDraftField = useCallback(
@@ -230,9 +224,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
         URL.revokeObjectURL(item.thumbnail);
       }
     });
-    normalizedOriginalRef.current.clear();
-    thumbBlobRef.current.clear();
-    thumbVariantBlobRef.current.clear();
+    parsedPathsRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -285,9 +277,7 @@ export const useUploadQueueStore = (): UseUploadQueueStoreResult => {
   return {
     queue,
     queueRef,
-    normalizedOriginalRef,
-    thumbBlobRef,
-    thumbVariantBlobRef,
+    parsedPathsRef,
     updateItemById,
     updateStageById,
     enqueuePathFiles,

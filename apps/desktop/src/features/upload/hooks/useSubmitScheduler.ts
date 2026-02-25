@@ -2,17 +2,20 @@ import { MutableRefObject, useCallback, useMemo, useState } from "react";
 import { UploadQueueItem } from "@/types/photo";
 import { submitUploadItem } from "@/features/upload/lib/processUploadItem";
 import { uploadService } from "@/services/uploadService";
+import { mergeAndValidateMetadata } from "@/lib/tauri/image";
 
 const SUBMIT_WORKERS = 3;
+
+interface ParsedPaths {
+  originalPath: string;
+  thumbPath: string;
+  thumbVariantPaths?: Partial<Record<"400" | "800" | "1600", string>>;
+}
 
 interface UseSubmitSchedulerParams {
   queue: UploadQueueItem[];
   updateItemById: (id: string, updates: Partial<UploadQueueItem>) => void;
-  normalizedOriginalRef: MutableRefObject<Map<string, File>>;
-  thumbBlobRef: MutableRefObject<Map<string, Blob>>;
-  thumbVariantBlobRef: MutableRefObject<
-    Map<string, Partial<Record<"400" | "800" | "1600", Blob>>>
-  >;
+  parsedPathsRef: MutableRefObject<Map<string, ParsedPaths>>;
   onUploadCompleted?: (successCount: number) => void;
 }
 
@@ -26,9 +29,7 @@ interface UseSubmitSchedulerResult {
 export const useSubmitScheduler = ({
   queue,
   updateItemById,
-  normalizedOriginalRef,
-  thumbBlobRef,
-  thumbVariantBlobRef,
+  parsedPathsRef,
   onUploadCompleted,
 }: UseSubmitSchedulerParams): UseSubmitSchedulerResult => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,30 +41,44 @@ export const useSubmitScheduler = ({
       | { ok: true; queueId: string; metadata: UploadQueueItem["metadata"] }
       | { ok: false }
     > => {
-      const thumbBlob = thumbBlobRef.current.get(item.id);
-      const thumbVariantBlobs = thumbVariantBlobRef.current.get(item.id);
-      const normalizedOriginal = normalizedOriginalRef.current.get(item.id);
-      if (!item.metadata || !thumbBlob || !normalizedOriginal) {
+      const parsedPaths = parsedPathsRef.current.get(item.id);
+      if (!item.metadata || !parsedPaths) {
         updateItemById(item.id, {
           status: "upload_failed",
-          uploadError: "Missing parsed result (normalized original/thumb)",
+          uploadError: "Missing parsed result (paths not found)",
         });
         return { ok: false };
       }
 
-      const draft = item.editDraft;
-      const description = draft?.description?.trim();
-      const filenameDraft = draft?.original_filename?.trim();
-      const categoryDraft = draft?.category?.trim();
+      // 使用 Rust 进行元数据合并和验证
+      let finalMetadata: UploadQueueItem["metadata"];
+      try {
+        const mergeResult = await mergeAndValidateMetadata({
+          metadata: item.metadata,
+          edit_draft: {
+            description: item.editDraft?.description,
+            original_filename: item.editDraft?.original_filename,
+            category: item.editDraft?.category,
+          },
+        });
 
-      const finalMetadata = {
-        ...item.metadata,
-        ...(description !== undefined ? { description } : { description: "" }),
-        ...(filenameDraft ? { original_filename: filenameDraft } : {}),
-        ...(categoryDraft !== undefined
-          ? { category: categoryDraft }
-          : { category: "" }),
-      };
+        finalMetadata = mergeResult.metadata;
+
+        // 如果有验证警告，记录到控制台
+        if (mergeResult.validation_warnings.length > 0) {
+          console.warn(
+            `[Metadata Validation] Image ${item.id}:`,
+            mergeResult.validation_warnings
+          );
+        }
+      } catch (error) {
+        updateItemById(item.id, {
+          status: "upload_failed",
+          uploadError: error instanceof Error ? error.message : "Metadata validation failed",
+          error: error instanceof Error ? error.message : "Metadata validation failed",
+        });
+        return { ok: false };
+      }
 
       updateItemById(item.id, {
         metadata: finalMetadata,
@@ -75,10 +90,12 @@ export const useSubmitScheduler = ({
 
       try {
         const result = await submitUploadItem({
-          original: normalizedOriginal,
+          imageId: finalMetadata.image_id,
+          originalPath: parsedPaths.originalPath,
+          originalMime: finalMetadata.files.original.mime,
+          thumbPath: parsedPaths.thumbPath,
           metadata: finalMetadata,
-          thumbBlob,
-          thumbVariantBlobs,
+          thumbVariantPaths: parsedPaths.thumbVariantPaths,
           deferFinalize: true,
           onProgress: (progress) => updateItemById(item.id, { progress }),
         });
@@ -101,7 +118,7 @@ export const useSubmitScheduler = ({
         return { ok: false };
       }
     },
-    [normalizedOriginalRef, thumbBlobRef, thumbVariantBlobRef, updateItemById],
+    [parsedPathsRef, updateItemById],
   );
 
   const handleSubmitAll = useCallback(async (): Promise<void> => {

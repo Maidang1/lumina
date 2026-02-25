@@ -97,17 +97,6 @@ pub struct GitTree {
 }
 
 #[derive(Debug, Serialize)]
-pub struct CreateBlobRequest {
-    pub content: String,
-    pub encoding: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CreateBlobResponse {
-    pub sha: String,
-}
-
-#[derive(Debug, Serialize)]
 pub struct CreateTreeRequest {
     pub base_tree: String,
     pub tree: Vec<TreeEntry>,
@@ -118,7 +107,10 @@ pub struct TreeEntry {
     pub path: String,
     pub mode: String,
     pub r#type: String,
-    pub sha: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sha: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -147,6 +147,96 @@ export class UploadService {
     }
   }
 
+  async uploadImageFromCache(options: {
+    imageId: string;
+    originalPath: string;
+    originalMime: string;
+    thumbPath: string;
+    metadata: ImageMetadata;
+    thumbVariantPaths?: Partial<Record<"400" | "800" | "1600", string>>;
+    deferFinalize?: boolean;
+    onProgress?: (progress: number) => void;
+  }): Promise<UploadResult> {
+    const isTauri = isTauriEnvironment();
+
+    if (isTauri) {
+      // 使用优化版本：直接从缓存路径上传
+      return this.uploadImageFromCacheViaRust(options);
+    } else {
+      throw new ApiRequestError(
+        "Optimized upload only available in Tauri environment",
+        400,
+      );
+    }
+  }
+
+  private async uploadImageFromCacheViaRust(options: {
+    imageId: string;
+    originalPath: string;
+    originalMime: string;
+    thumbPath: string;
+    metadata: ImageMetadata;
+    thumbVariantPaths?: Partial<Record<"400" | "800" | "1600", string>>;
+    deferFinalize?: boolean;
+    onProgress?: (progress: number) => void;
+  }): Promise<UploadResult> {
+    try {
+      const { uploadFromCacheToGithub } = await import("@/lib/tauri/image");
+
+      if (options.onProgress) {
+        options.onProgress(10);
+      }
+
+      console.log(
+        "[uploadService] Starting optimized GitHub upload for image:",
+        options.imageId,
+      );
+
+      const cacheUploadRequest = {
+        imageId: options.imageId,
+        originalPath: options.originalPath,
+        originalMime: options.originalMime,
+        thumbPath: options.thumbPath,
+        thumbVariants: options.thumbVariantPaths || {},
+        metadata: JSON.stringify(options.metadata),
+        deferFinalize: options.deferFinalize ?? false,
+      };
+
+      const results = await uploadFromCacheToGithub([cacheUploadRequest]);
+      const result = results[0];
+
+      if (options.onProgress) {
+        options.onProgress(100);
+      }
+
+      if (!result.success) {
+        console.error("[uploadService] Upload failed:", result.message);
+        throw new ApiRequestError(result.message || "Upload failed", 500);
+      }
+
+      console.log("[uploadService] Optimized upload successful");
+
+      return {
+        image_id: result.imageId,
+        stored: {
+          original_path: "",
+          thumb_path: "",
+          meta_path: "",
+        },
+        urls: this.buildImageApiUrls(result.imageId),
+      };
+    } catch (error) {
+      console.error("[uploadService] Optimized upload error:", error);
+      if (error instanceof ApiRequestError) {
+        throw error;
+      }
+      throw new ApiRequestError(
+        error instanceof Error ? error.message : "Upload failed",
+        500,
+      );
+    }
+  }
+
   private async uploadImageViaGitHub(
     original: File | Blob,
     thumb: Blob,

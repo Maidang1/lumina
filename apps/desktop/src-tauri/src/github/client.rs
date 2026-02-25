@@ -428,36 +428,19 @@ impl GitHubClient {
 
         let base_tree_sha = commit.tree.sha;
 
-        // 3. 为每个文件创建 blob
+        // 3. 直接把文本内容放进 tree，避免为每个文件额外创建 blob 请求
         let mut tree_entries = Vec::new();
 
         for (path, content) in files {
-            let blob_url = format!(
-                "https://api.github.com/repos/{}/{}/git/blobs",
-                self.config.owner, self.config.repo
-            );
-
-            let blob_request = CreateBlobRequest {
-                content: BASE64.encode(content),
-                encoding: "base64".to_string(),
-            };
-
-            let blob_response: CreateBlobResponse = self
-                .fetch_with_retry(|| async {
-                    self.client
-                        .post(&blob_url)
-                        .json(&blob_request)
-                        .send()
-                        .await
-                        .context("Failed to create blob")
-                })
-                .await?;
+            let content_text = String::from_utf8(content.clone())
+                .context(format!("Batch file {} is not valid UTF-8", path))?;
 
             tree_entries.push(TreeEntry {
                 path: path.clone(),
                 mode: "100644".to_string(),
                 r#type: "blob".to_string(),
-                sha: blob_response.sha,
+                sha: None,
+                content: Some(content_text),
             });
         }
 

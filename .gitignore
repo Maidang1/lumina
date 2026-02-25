@@ -28,3 +28,4 @@ _worker.bundle
 .trae
 .turbo
 .lumina-upload-manifest.json
+apps/desktop/src-tauri/target

@@ -22,6 +22,11 @@ pub fn run() {
             commands::github::github_finalize_batch,
             commands::github::github_list_images,
             commands::image::parse_image_for_upload_from_path,
+            commands::image::parse_image_for_upload_from_path_optimized,
+            commands::image::upload_from_cache_to_github,
+            commands::metadata::merge_and_validate_metadata,
+            commands::metadata::batch_merge_and_validate_metadata,
+            commands::events::start_batch_upload_with_events,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]

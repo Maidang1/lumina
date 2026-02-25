@@ -76,33 +76,15 @@ impl UploadManager {
         let original_path = format!("{}/original.{}", base_path, original_ext);
         let thumb_path = format!("{}/thumb.webp", base_path);
 
-        let original_sha = self
-            .github
-            .get_file(&original_path)
-            .await?
-            .map(|file| file.sha);
-        self.github
-            .put_file(
-                &original_path,
-                &original,
-                &format!("Upload {} - original", image_id),
-                original_sha,
-            )
+        self.put_file_optimistic(
+            &original_path,
+            &original,
+            &format!("Upload {} - original", image_id),
+        )
             .await
             .context("Failed to upload original image")?;
 
-        let thumb_sha = self
-            .github
-            .get_file(&thumb_path)
-            .await?
-            .map(|file| file.sha);
-        self.github
-            .put_file(
-                &thumb_path,
-                &thumb,
-                &format!("Upload {} - thumb", image_id),
-                thumb_sha,
-            )
+        self.put_file_optimistic(&thumb_path, &thumb, &format!("Upload {} - thumb", image_id))
             .await
             .context("Failed to upload thumbnail")?;
 
@@ -111,18 +93,11 @@ impl UploadManager {
                 continue;
             };
             let variant_path = format!("{}/thumb-{}.webp", base_path, size);
-            let variant_sha = self
-                .github
-                .get_file(&variant_path)
-                .await?
-                .map(|file| file.sha);
-            self.github
-                .put_file(
-                    &variant_path,
-                    &variant_data,
-                    &format!("Upload {} - thumb {}", image_id, size),
-                    variant_sha,
-                )
+            self.put_file_optimistic(
+                &variant_path,
+                &variant_data,
+                &format!("Upload {} - thumb {}", image_id, size),
+            )
                 .await
                 .with_context(|| format!("Failed to upload thumbnail variant {}", size))?;
         }
@@ -323,19 +298,11 @@ impl UploadManager {
     }
 
     async fn upsert_metadata_with_index(&self, item: &PreparedMetadata) -> Result<()> {
-        let meta_sha = self
-            .github
-            .get_file(&item.meta_path)
-            .await?
-            .map(|file| file.sha);
-
-        self.github
-            .put_file(
-                &item.meta_path,
-                item.raw.as_bytes(),
-                &format!("Upload metadata {}", item.image_id),
-                meta_sha,
-            )
+        self.put_file_optimistic(
+            &item.meta_path,
+            item.raw.as_bytes(),
+            &format!("Upload metadata {}", item.image_id),
+        )
             .await
             .with_context(|| format!("Failed to upload metadata {}", item.image_id))?;
 
@@ -348,6 +315,29 @@ impl UploadManager {
         self.github.update_image_index(index).await?;
 
         Ok(())
+    }
+
+    async fn put_file_optimistic(&self, path: &str, content: &[u8], message: &str) -> Result<()> {
+        match self.github.put_file(path, content, message, None).await {
+            Ok(_) => Ok(()),
+            Err(error) => {
+                let error_text = error.to_string();
+                // Existing files need sha for update. Fallback only for conflict-like errors.
+                let should_retry_with_sha = error_text.contains("409")
+                    || error_text.contains("422")
+                    || error_text.to_lowercase().contains("sha");
+                if !should_retry_with_sha {
+                    return Err(error);
+                }
+
+                let sha = self.github.get_file(path).await?.map(|file| file.sha);
+                self.github
+                    .put_file(path, content, message, sha)
+                    .await
+                    .with_context(|| format!("Failed to upsert {} after optimistic put", path))?;
+                Ok(())
+            }
+        }
     }
 
     fn prepare_metadata(raw: &str) -> Result<PreparedMetadata> {

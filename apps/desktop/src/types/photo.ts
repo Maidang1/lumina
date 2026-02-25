@@ -170,14 +170,18 @@ export interface UploadConfig {
   thumbQuality: number;
   ocrLang: string;
   blurThreshold: number;
+  enableRegionResolve: boolean;
+  generateThumbVariants: boolean;
 }
 
 export const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
   maxFileSize: 25 * 1024 * 1024,
   maxThumbSize: 1024,
-  thumbQuality: 0.85,
+  thumbQuality: 0.78, // 降低质量以提高性能，WebP 在 75-80% 质量仍然很好
   ocrLang: "eng+chi_sim",
   blurThreshold: 100,
+  enableRegionResolve: true, // 默认开启地理位置解析
+  generateThumbVariants: true, // 仍然生成缩略图变体，但可配置
 };
 
 export type { ExifSummary, GeoRegion };

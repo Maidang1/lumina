@@ -1,4 +1,3 @@
-use tauri::Manager;
 use tauri_plugin_notification::NotificationExt;
 
 #[tauri::command]
@@ -19,30 +18,32 @@ pub async fn show_notification(
 #[tauri::command]
 pub async fn open_in_finder(path: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open")
-            .arg("-R")
-            .arg(&path)
-            .spawn()
-            .map_err(|e| format!("Failed to open in Finder: {}", e))?;
-    }
+    open_in_file_manager(&path, |p| ("open", vec!["-R", p]))?;
 
     #[cfg(target_os = "windows")]
-    {
-        std::process::Command::new("explorer")
-            .arg("/select,")
-            .arg(&path)
-            .spawn()
-            .map_err(|e| format!("Failed to open in Explorer: {}", e))?;
-    }
+    open_in_file_manager(&path, |p| ("explorer", vec!["/select,", p]))?;
 
     #[cfg(target_os = "linux")]
     {
-        std::process::Command::new("xdg-open")
-            .arg(std::path::Path::new(&path).parent().unwrap_or(std::path::Path::new("/")))
-            .spawn()
-            .map_err(|e| format!("Failed to open file manager: {}", e))?;
+        let parent = std::path::Path::new(&path)
+            .parent()
+            .and_then(|p| p.to_str())
+            .unwrap_or("/");
+        open_in_file_manager(parent, |p| ("xdg-open", vec![p]))?;
     }
 
+    Ok(())
+}
+
+#[inline]
+fn open_in_file_manager(
+    path: &str,
+    cmd_builder: impl Fn(&str) -> (&str, Vec<&str>),
+) -> Result<(), String> {
+    let (cmd, args) = cmd_builder(path);
+    std::process::Command::new(cmd)
+        .args(&args)
+        .spawn()
+        .map_err(|e| format!("Failed to open in file manager: {}", e))?;
     Ok(())
 }

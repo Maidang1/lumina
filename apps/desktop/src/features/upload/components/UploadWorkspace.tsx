@@ -7,8 +7,12 @@ import UploadConfirmHeader from "@/features/upload/components/UploadConfirmHeade
 import { useUploadQueueStore } from "@/features/upload/hooks/useUploadQueueStore";
 import { useParseScheduler } from "@/features/upload/hooks/useParseScheduler";
 import { useSubmitScheduler } from "@/features/upload/hooks/useSubmitScheduler";
+import { useEventDrivenSubmitScheduler } from "@/features/upload/hooks/useEventDrivenSubmitScheduler";
 import { selectFiles } from "@/lib/tauri/dialog";
 import { getFileInfo } from "@/lib/tauri/fs";
+
+// 功能标志：启用事件驱动上传（性能优化）
+const USE_EVENT_DRIVEN_UPLOAD = true;
 
 interface UploadWorkspaceProps {
   onUploadCompleted?: (successCount: number) => void;
@@ -25,9 +29,7 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
 
   const {
     queue,
-    normalizedOriginalRef,
-    thumbBlobRef,
-    thumbVariantBlobRef,
+    parsedPathsRef,
     enqueuePathFiles,
     updateItemById,
     updateStageById,
@@ -42,18 +44,19 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
     isTokenConfigured,
     updateItemById,
     updateStageById,
-    normalizedOriginalRef,
-    thumbBlobRef,
-    thumbVariantBlobRef,
+    parsedPathsRef,
   });
 
+  // 使用事件驱动的提交调度器（性能优化）
+  const schedulerHook = USE_EVENT_DRIVEN_UPLOAD
+    ? useEventDrivenSubmitScheduler
+    : useSubmitScheduler;
+
   const { isSubmitting, canSubmit, submitWorkers, handleSubmitAll } =
-    useSubmitScheduler({
-    queue,
-    updateItemById,
-    normalizedOriginalRef,
-    thumbBlobRef,
-    thumbVariantBlobRef,
+    schedulerHook({
+      queue,
+      updateItemById,
+      parsedPathsRef,
       onUploadCompleted,
     });
 

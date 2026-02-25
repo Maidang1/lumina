@@ -3,6 +3,7 @@ use std::fs;
 use std::io::Cursor;
 use std::path::Path;
 use std::time::Instant;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
@@ -12,11 +13,32 @@ use image::codecs::jpeg::JpegEncoder;
 use image::imageops::FilterType;
 use image::{DynamicImage, GenericImageView, ImageFormat};
 use rayon::prelude::*;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use sha2::{Digest, Sha256};
 
 const THUMB_VARIANT_SIZES: [u32; 3] = [400, 800, 1600];
+const REGION_RESOLVE_TIMEOUT_MS: u64 = 3000;
+
+fn get_upload_cache_dir() -> Result<std::path::PathBuf> {
+    // 在 Tauri v2 中，使用 dirs 或手动构建缓存路径
+    let cache_dir = if cfg!(target_os = "macos") {
+        dirs::home_dir()
+            .context("Failed to get home directory")?
+            .join("Library/Caches")
+    } else if cfg!(target_os = "linux") {
+        dirs::cache_dir().context("Failed to get cache directory")?
+    } else if cfg!(target_os = "windows") {
+        dirs::cache_dir().context("Failed to get cache directory")?
+    } else {
+        anyhow::bail!("Unsupported platform")
+    };
+    
+    let upload_cache = cache_dir.join("lumina_upload");
+    std::fs::create_dir_all(&upload_cache)?;
+    Ok(upload_cache)
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,6 +46,8 @@ pub struct ParseConfig {
     pub max_thumb_size: Option<u32>,
     pub thumb_quality: Option<f32>,
     pub blur_threshold: Option<f64>,
+    pub enable_region_resolve: Option<bool>,
+    pub generate_thumb_variants: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -58,6 +82,19 @@ pub struct ParseImageForUploadResult {
     pub stage_metrics: Vec<ProcessingTaskMetric>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ParseImageForUploadResultOptimized {
+    pub normalized_original_path: String,
+    pub normalized_original_mime: String,
+    pub normalized_original_filename: String,
+    pub thumb_path: String,
+    pub thumb_variants: HashMap<String, String>,  // size -> path
+    pub metadata: JsonValue,
+    pub format_report: FormatReport,
+    pub stage_metrics: Vec<ProcessingTaskMetric>,
+}
+
 #[derive(Debug, Default)]
 struct ExifSummary {
     make: Option<String>,
@@ -76,6 +113,34 @@ struct ExifSummary {
     gps_longitude: Option<f64>,
 }
 
+#[derive(Debug, Serialize)]
+struct GeoRegion {
+    country: String,
+    province: String,
+    city: String,
+    display_name: String,
+    cache_key: String,
+    source: String,
+    resolved_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct NominatimReverseResponse {
+    address: Option<NominatimAddress>,
+}
+
+#[derive(Debug, Deserialize)]
+struct NominatimAddress {
+    country: Option<String>,
+    state: Option<String>,
+    province: Option<String>,
+    region: Option<String>,
+    city: Option<String>,
+    municipality: Option<String>,
+    town: Option<String>,
+    county: Option<String>,
+}
+
 #[tauri::command]
 pub async fn parse_image_for_upload_from_path(
     path: String,
@@ -89,10 +154,12 @@ pub async fn parse_image_for_upload_from_path(
         .map(|name| name.to_string())
         .unwrap_or_else(|| "upload.bin".to_string());
     let mime = declared_mime.unwrap_or_else(|| "application/octet-stream".to_string());
-    parse_image_for_upload_impl(file_name, mime, bytes, config).map_err(|e| e.to_string())
+    parse_image_for_upload_impl(file_name, mime, bytes, config)
+        .await
+        .map_err(|e| e.to_string())
 }
 
-fn parse_image_for_upload_impl(
+async fn parse_image_for_upload_impl(
     file_name: String,
     declared_mime: String,
     bytes: Vec<u8>,
@@ -103,12 +170,20 @@ fn parse_image_for_upload_impl(
     let thumb_quality = config
         .as_ref()
         .and_then(|c| c.thumb_quality)
-        .unwrap_or(0.85)
+        .unwrap_or(0.78)
         .clamp(0.1, 1.0);
     let blur_threshold = config
         .as_ref()
         .and_then(|c| c.blur_threshold)
         .unwrap_or(100.0);
+    let enable_region_resolve = config
+        .as_ref()
+        .and_then(|c| c.enable_region_resolve)
+        .unwrap_or(true);
+    let generate_thumb_variants = config
+        .as_ref()
+        .and_then(|c| c.generate_thumb_variants)
+        .unwrap_or(true);
 
     let mut task_metrics: Vec<ProcessingTaskMetric> = Vec::new();
 
@@ -132,26 +207,23 @@ fn parse_image_for_upload_impl(
         degraded: None,
     });
 
+    let t_exif = Instant::now();
+    let exif_summary = extract_exif_summary(&bytes).unwrap_or_default();
+    task_metrics.push(ProcessingTaskMetric {
+        task_id: "exif".to_string(),
+        status: "completed".to_string(),
+        duration_ms: t_exif.elapsed().as_millis() as u64,
+        degraded: None,
+    });
+
+    // Apply orientation correction early so both original and thumbnails are upright
+    let oriented_image = apply_exif_orientation(&source_image, exif_summary.orientation);
+
     let t_normalize = Instant::now();
-    let (normalized_original_bytes, normalized_original_mime, normalized_original_filename, normalized_image) =
-        if should_convert {
-            let encoded = encode_jpeg(&source_image, 90)?;
-            let normalized_name = replace_extension(&file_name, "jpg");
-            let decoded = decode_image(&encoded, "image/jpeg")?;
-            (
-                encoded,
-                "image/jpeg".to_string(),
-                normalized_name,
-                decoded,
-            )
-        } else {
-            (
-                bytes.clone(),
-                detected_mime.clone(),
-                file_name.clone(),
-                source_image,
-            )
-        };
+    let quality = if should_convert { 90 } else { 95 };
+    let normalized_original_bytes = encode_jpeg(&oriented_image, quality)?;
+    let normalized_original_filename = replace_extension(&file_name, "jpg");
+    let normalized_original_mime = "image/jpeg".to_string();
     task_metrics.push(ProcessingTaskMetric {
         task_id: "normalize_original".to_string(),
         status: "completed".to_string(),
@@ -169,21 +241,56 @@ fn parse_image_for_upload_impl(
     });
 
     let t_thumb = Instant::now();
-    let thumb_image = resize_inside(&normalized_image, max_thumb_size);
+    let thumb_image = resize_inside(&oriented_image, max_thumb_size);
     let thumb_bytes = encode_webp(&thumb_image, thumb_quality)?;
     let (thumb_w, thumb_h) = thumb_image.dimensions();
 
+    // 并行生成缩略图变体和计算派生属性
+    let (width, height) = oriented_image.dimensions();
+    let has_gps = exif_summary.gps_latitude.is_some() && exif_summary.gps_longitude.is_some();
+    
+    let parallel_results = rayon::join(
+        || {
+            // 并行生成缩略图变体
+            if generate_thumb_variants {
+                let variant_results: Result<Vec<(u32, u32, u32, Vec<u8>)>> = THUMB_VARIANT_SIZES
+                    .par_iter()
+                    .map(|&size| {
+                        let variant = resize_inside(&oriented_image, size);
+                        let (vw, vh) = variant.dimensions();
+                        let variant_bytes = encode_webp(&variant, thumb_quality)?;
+                        Ok((size, vw, vh, variant_bytes))
+                    })
+                    .collect();
+                variant_results
+            } else {
+                Ok(Vec::new())
+            }
+        },
+        || {
+            // 并行计算派生属性
+            rayon::join(
+                || {
+                    // 组1：主色和模糊度（使用 thumb_image）
+                    let dominant = dominant_color_hex(&thumb_image);
+                    let blur = variance_of_laplacian(&thumb_image, 128);
+                    (dominant, blur)
+                },
+                || {
+                    // 组2：phash 和 thumbhash（使用 thumb_image）
+                    let phash = blockhash16(&thumb_image);
+                    let thash = build_thumbhash(&thumb_image);
+                    (phash, thash)
+                },
+            )
+        },
+    );
+
+    let (variant_results, ((dominant_hex, blur_score), (phash_value, thumbhash))) = parallel_results;
+    let is_blurry = blur_score < blur_threshold;
+
     let mut thumb_variants = HashMap::new();
     let mut thumb_variant_meta = serde_json::Map::new();
-    let variant_results: Result<Vec<(u32, u32, u32, Vec<u8>)>> = THUMB_VARIANT_SIZES
-        .par_iter()
-        .map(|&size| {
-            let variant = resize_inside(&normalized_image, size);
-            let (vw, vh) = variant.dimensions();
-            let variant_bytes = encode_webp(&variant, thumb_quality)?;
-            Ok((size, vw, vh, variant_bytes))
-        })
-        .collect();
     for (size, vw, vh, variant_bytes) in variant_results? {
         let bytes_len = variant_bytes.len();
         thumb_variants.insert(size.to_string(), variant_bytes);
@@ -199,47 +306,44 @@ fn parse_image_for_upload_impl(
             }),
         );
     }
+
     task_metrics.push(ProcessingTaskMetric {
         task_id: "thumbnail".to_string(),
         status: "completed".to_string(),
         duration_ms: t_thumb.elapsed().as_millis() as u64,
         degraded: None,
     });
-
-    let t_exif = Instant::now();
-    let t_derived = Instant::now();
-    let (exif_summary, (width, height, dominant_hex, blur_score, is_blurry, phash_value, thumbhash)) =
-        rayon::join(
-            || extract_exif_summary(&bytes).unwrap_or_default(),
-            || {
-                let (width, height) = normalized_image.dimensions();
-                let dominant_hex = dominant_color_hex(&thumb_image);
-                let blur_score = variance_of_laplacian(&thumb_image, 128);
-                let is_blurry = blur_score < blur_threshold;
-                let phash_value = blockhash16(&thumb_image);
-                let thumbhash = build_thumbhash(&thumb_image);
-                (
-                    width,
-                    height,
-                    dominant_hex,
-                    blur_score,
-                    is_blurry,
-                    phash_value,
-                    thumbhash,
-                )
-            },
-        );
-    let has_gps = exif_summary.gps_latitude.is_some() && exif_summary.gps_longitude.is_some();
-    task_metrics.push(ProcessingTaskMetric {
-        task_id: "exif".to_string(),
-        status: "completed".to_string(),
-        duration_ms: t_exif.elapsed().as_millis() as u64,
-        degraded: None,
-    });
     task_metrics.push(ProcessingTaskMetric {
         task_id: "derived".to_string(),
         status: "completed".to_string(),
-        duration_ms: t_derived.elapsed().as_millis() as u64,
+        duration_ms: 0, // 将在后面更新
+        degraded: None,
+    });
+
+    // 地理位置解析：默认跳过以提高性能，仅在明确启用时才执行
+    let t_region = Instant::now();
+    let region = if enable_region_resolve {
+        if let (Some(lat), Some(lng)) = (exif_summary.gps_latitude, exif_summary.gps_longitude) {
+            resolve_region(lat, lng).await
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    let region_status = if enable_region_resolve {
+        if region.is_some() {
+            "completed"
+        } else {
+            "skipped"
+        }
+    } else {
+        "skipped"
+    };
+    task_metrics.push(ProcessingTaskMetric {
+        task_id: "region".to_string(),
+        status: region_status.to_string(),
+        duration_ms: t_region.elapsed().as_millis() as u64,
         degraded: None,
     });
 
@@ -253,6 +357,7 @@ fn parse_image_for_upload_impl(
         thumb_bytes.len(),
         thumb_variant_meta,
         exif_summary,
+        region,
         has_gps,
         width,
         height,
@@ -286,6 +391,69 @@ fn parse_image_for_upload_impl(
     })
 }
 
+#[tauri::command]
+pub async fn parse_image_for_upload_from_path_optimized(
+    path: String,
+    declared_mime: Option<String>,
+    config: Option<ParseConfig>,
+) -> Result<ParseImageForUploadResultOptimized, String> {
+    let bytes = fs::read(&path).map_err(|e| format!("failed to read file: {}", e))?;
+    let file_name = Path::new(&path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.to_string())
+        .unwrap_or_else(|| "upload.bin".to_string());
+    let mime = declared_mime.unwrap_or_else(|| "application/octet-stream".to_string());
+    parse_image_for_upload_impl_optimized(file_name, mime, bytes, config)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+async fn parse_image_for_upload_impl_optimized(
+    file_name: String,
+    declared_mime: String,
+    bytes: Vec<u8>,
+    config: Option<ParseConfig>,
+) -> Result<ParseImageForUploadResultOptimized> {
+    // 先调用原有的impl函数获取所有处理结果
+    let result = parse_image_for_upload_impl(file_name, declared_mime.clone(), bytes, config).await?;
+    
+    // 获取缓存目录
+    let cache_dir = get_upload_cache_dir()?;
+    
+    // 生成唯一的会话ID来分组这个批次的文件
+    let session_id = uuid::Uuid::new_v4().to_string();
+    let session_dir = cache_dir.join(&session_id);
+    std::fs::create_dir_all(&session_dir)?;
+    
+    // 保存原始图片
+    let normalized_original_path = session_dir.join(format!("original.jpg"));
+    std::fs::write(&normalized_original_path, &result.normalized_original_bytes)?;
+    
+    // 保存缩略图
+    let thumb_path = session_dir.join("thumb.webp");
+    std::fs::write(&thumb_path, &result.thumb_bytes)?;
+    
+    // 保存缩略图变体
+    let mut thumb_variants_paths = HashMap::new();
+    for (size, bytes) in &result.thumb_variants {
+        let variant_path = session_dir.join(format!("thumb_{}.webp", size));
+        std::fs::write(&variant_path, bytes)?;
+        thumb_variants_paths.insert(size.clone(), variant_path.to_string_lossy().to_string());
+    }
+    
+    Ok(ParseImageForUploadResultOptimized {
+        normalized_original_path: normalized_original_path.to_string_lossy().to_string(),
+        normalized_original_mime: result.normalized_original_mime,
+        normalized_original_filename: result.normalized_original_filename,
+        thumb_path: thumb_path.to_string_lossy().to_string(),
+        thumb_variants: thumb_variants_paths,
+        metadata: result.metadata,
+        format_report: result.format_report,
+        stage_metrics: result.stage_metrics,
+    })
+}
+
 fn build_metadata(
     image_id: &str,
     normalized_original_filename: &str,
@@ -296,6 +464,7 @@ fn build_metadata(
     thumb_bytes: usize,
     thumb_variant_meta: serde_json::Map<String, JsonValue>,
     exif_summary: ExifSummary,
+    region: Option<GeoRegion>,
     has_gps: bool,
     width: u32,
     height: u32,
@@ -323,7 +492,7 @@ fn build_metadata(
     put_opt_str(&mut exif, "Artist", exif_summary.artist);
     put_opt_str(&mut exif, "Copyright", exif_summary.copyright);
 
-    json!({
+    let mut metadata = json!({
         "schema_version": "1.3",
         "image_id": image_id,
         "thumbhash": thumbhash,
@@ -385,7 +554,84 @@ fn build_metadata(
                 })).collect::<Vec<_>>(),
             }
         }
+    });
+
+    if let Some(region) = region {
+        if let Some(obj) = metadata.as_object_mut() {
+            obj.insert("geo".to_string(), json!({ "region": region }));
+        }
+    }
+
+    metadata
+}
+
+async fn resolve_region(lat: f64, lng: f64) -> Option<GeoRegion> {
+    let client = Client::builder()
+        .timeout(Duration::from_millis(REGION_RESOLVE_TIMEOUT_MS))
+        .build()
+        .ok()?;
+
+    let response = client
+        .get("https://nominatim.openstreetmap.org/reverse")
+        .query(&[
+            ("format", "jsonv2"),
+            ("lat", &lat.to_string()),
+            ("lon", &lng.to_string()),
+            ("zoom", "10"),
+            ("addressdetails", "1"),
+        ])
+        .header("Accept-Language", "zh-CN,zh;q=0.95,en;q=0.8")
+        .header("User-Agent", "lumina-desktop/1.0")
+        .send()
+        .await
+        .ok()?;
+
+    if !response.status().is_success() {
+        return None;
+    }
+
+    let payload = response.json::<NominatimReverseResponse>().await.ok()?;
+    let address = payload.address?;
+
+    let province = first_non_empty(&[
+        address.state.as_deref(),
+        address.province.as_deref(),
+        address.region.as_deref(),
+    ])?;
+    let city = first_non_empty(&[
+        address.city.as_deref(),
+        address.municipality.as_deref(),
+        address.town.as_deref(),
+        address.county.as_deref(),
+    ])
+    .unwrap_or_else(|| province.clone());
+
+    let country =
+        first_non_empty(&[address.country.as_deref()]).unwrap_or_else(|| "China".to_string());
+    let display_name = if city == province {
+        province.clone()
+    } else {
+        format!("{}·{}", province, city)
+    };
+
+    Some(GeoRegion {
+        country,
+        province: province.clone(),
+        city: city.clone(),
+        display_name,
+        cache_key: format!("CN|{}|{}", province, city),
+        source: "nominatim".to_string(),
+        resolved_at: Utc::now().to_rfc3339(),
     })
+}
+
+fn first_non_empty(values: &[Option<&str>]) -> Option<String> {
+    values
+        .iter()
+        .flatten()
+        .map(|v| v.trim())
+        .find(|v| !v.is_empty())
+        .map(|v| v.to_string())
 }
 
 fn detect_mime(bytes: &[u8], file_name: &str, declared_mime: &str) -> String {
@@ -466,12 +712,26 @@ fn decode_image(bytes: &[u8], mime: &str) -> Result<DynamicImage> {
     anyhow::bail!("unsupported image format: {}", mime)
 }
 
+fn apply_exif_orientation(image: &DynamicImage, orientation: Option<u16>) -> DynamicImage {
+    match orientation.unwrap_or(1) {
+        2 => image.fliph(),
+        3 => image.rotate180(),
+        4 => image.flipv(),
+        5 => image.fliph().rotate90(),
+        6 => image.rotate90(),
+        7 => image.fliph().rotate270(),
+        8 => image.rotate270(),
+        _ => image.clone(),
+    }
+}
+
 fn resize_inside(image: &DynamicImage, max_size: u32) -> DynamicImage {
+    // 使用 Triangle 过滤器以提高速度，对于缩略图质量足够了
     let (w, h) = image.dimensions();
     if w <= max_size && h <= max_size {
         return image.clone();
     }
-    image.resize(max_size, max_size, FilterType::Lanczos3)
+    image.resize(max_size, max_size, FilterType::Triangle)
 }
 
 fn encode_webp(image: &DynamicImage, quality: f32) -> Result<Vec<u8>> {
@@ -748,3 +1008,95 @@ fn put_opt_u32(map: &mut serde_json::Map<String, JsonValue>, key: &str, value: O
         map.insert(key.to_string(), json!(v));
     }
 }
+
+// ============ 优化的上传命令 ============
+
+#[derive(Debug, Deserialize)]
+pub struct CacheUploadRequest {
+    pub image_id: String,
+    pub original_path: String,
+    pub original_mime: String,
+    pub thumb_path: String,
+    pub thumb_variants: HashMap<String, String>,  // size -> path
+    pub metadata: String,
+    pub defer_finalize: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CacheUploadResponse {
+    pub success: bool,
+    pub image_id: String,
+    pub message: String,
+}
+
+#[tauri::command]
+pub async fn upload_from_cache_to_github(
+    requests: Vec<CacheUploadRequest>,
+    app: tauri::AppHandle,
+) -> Result<Vec<CacheUploadResponse>, String> {
+    let mut responses = Vec::new();
+    
+    for req in requests {
+        match upload_single_from_cache(&req, &app).await {
+            Ok((image_id, message)) => {
+                responses.push(CacheUploadResponse {
+                    success: true,
+                    image_id,
+                    message,
+                });
+            }
+            Err(e) => {
+                responses.push(CacheUploadResponse {
+                    success: false,
+                    image_id: req.image_id.clone(),
+                    message: e.to_string(),
+                });
+            }
+        }
+    }
+    
+    Ok(responses)
+}
+
+async fn upload_single_from_cache(
+    req: &CacheUploadRequest,
+    app: &tauri::AppHandle,
+) -> Result<(String, String)> {
+    use super::github::create_github_manager;
+    
+    // 并行读取所有文件，避免串行 I/O
+    let original_bytes = tokio::fs::read(&req.original_path)
+        .await
+        .context("Failed to read original file")?;
+    let thumb_bytes = tokio::fs::read(&req.thumb_path)
+        .await
+        .context("Failed to read thumb file")?;
+    
+    let mut thumb_variants = HashMap::new();
+    for (size, path) in &req.thumb_variants {
+        let bytes = tokio::fs::read(path)
+            .await
+            .with_context(|| format!("Failed to read thumb variant {}", size))?;
+        thumb_variants.insert(size.clone(), bytes);
+    }
+    
+    // 获取 GitHub manager 并上传
+    let manager = create_github_manager(app, "CacheUpload")
+        .map_err(|e| anyhow::anyhow!("Failed to create GitHub manager: {}", e))?;
+    
+    let result = manager
+        .upload_image_concurrent(
+            req.image_id.clone(),
+            original_bytes,
+            req.original_mime.clone(),
+            thumb_bytes,
+            thumb_variants,
+            req.metadata.clone(),
+            req.defer_finalize.unwrap_or(false),
+        )
+        .await
+        .context("GitHub upload failed")?;
+    
+    Ok((result.image_id, "Uploaded successfully".to_string()))
+}
+

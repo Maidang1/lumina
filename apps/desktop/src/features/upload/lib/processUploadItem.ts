@@ -8,7 +8,8 @@ import {
   UploadResult,
 } from '@/types/photo';
 import { uploadService } from '@/services/uploadService';
-import { parseImageForUploadFromPath } from '@/lib/tauri/image';
+import { parseImageForUploadFromPathOptimized } from '@/lib/tauri/image';
+import type { ParseImageForUploadResultOptimized } from '@/lib/tauri/image';
 
 interface ParseUploadItemOptions {
   item: UploadQueueItem;
@@ -17,22 +18,25 @@ interface ParseUploadItemOptions {
 }
 
 interface SubmitUploadItemOptions {
-  original: File;
+  imageId: string;
+  originalPath: string;
+  originalMime: string;
+  thumbPath: string;
   metadata: ImageMetadata;
-  thumbBlob: Blob;
-  thumbVariantBlobs?: Partial<Record<'400' | '800' | '1600', Blob>>;
+  thumbVariantPaths?: Partial<Record<'400' | '800' | '1600', string>>;
   deferFinalize?: boolean;
   onProgress?: (progress: number) => void;
 }
 
 interface ParsedUploadItemResult {
   metadata: ImageMetadata;
-  thumbBlob: Blob;
-  thumbVariantBlobs?: Partial<Record<'400' | '800' | '1600', Blob>>;
+  originalPath: string;
+  originalMime: string;
+  thumbPath: string;
+  thumbVariantPaths?: Partial<Record<'400' | '800' | '1600', string>>;
   thumbnailUrl: string;
   processingSummary?: ProcessingSummary;
   taskMetrics: ProcessingTaskMetric[];
-  normalizedOriginalFile: File;
 }
 
 const mapStageFromMetric = (
@@ -53,6 +57,7 @@ export const parseUploadItem = async ({
   updateItem,
   updateStage,
 }: ParseUploadItemOptions): Promise<ParsedUploadItemResult> => {
+  const parseStart = performance.now();
   const fileWithPath = item.file as File & { path?: string };
   const parsePath = item.sourcePath || fileWithPath.path;
   if (!parsePath) {
@@ -62,41 +67,42 @@ export const parseUploadItem = async ({
     maxThumbSize: DEFAULT_UPLOAD_CONFIG.maxThumbSize,
     thumbQuality: DEFAULT_UPLOAD_CONFIG.thumbQuality,
     blurThreshold: DEFAULT_UPLOAD_CONFIG.blurThreshold,
+    enableRegionResolve: DEFAULT_UPLOAD_CONFIG.enableRegionResolve,
+    generateThumbVariants: DEFAULT_UPLOAD_CONFIG.generateThumbVariants,
+    useOptimized: true,  // 使用优化版本，获取文件路径
   };
 
-  const rustParsed = await parseImageForUploadFromPath({
+  const rustParseStart = performance.now();
+  const rustParsed = await parseImageForUploadFromPathOptimized({
     path: parsePath,
     declaredMime: item.sourceMime || item.file.type || 'application/octet-stream',
     config,
   });
+  const rustParseDuration = performance.now() - rustParseStart;
 
-  rustParsed.stageMetrics.forEach((metric) => mapStageFromMetric(updateStage, metric));
-
-  const normalizedOriginalFile = new File(
-    [new Uint8Array(rustParsed.normalizedOriginalBytes)],
-    rustParsed.normalizedOriginalFilename,
-    {
-      type: rustParsed.normalizedOriginalMime,
-      lastModified: item.file.lastModified || Date.now(),
-    },
+  console.log(
+    `[Performance] Image parse completed in ${rustParseDuration.toFixed(2)}ms`,
+    `(file: ${item.file.name}, size: ${(item.file.size / 1024).toFixed(2)}KB)`,
   );
 
-  const thumbBlob = new Blob([new Uint8Array(rustParsed.thumbBytes)], {
-    type: 'image/webp',
-  });
-
-  const thumbVariantBlobs: Partial<Record<'400' | '800' | '1600', Blob>> = {};
-  (['400', '800', '1600'] as const).forEach((size) => {
-    const data = rustParsed.thumbVariants[size];
-    if (!data) {
-      return;
+  rustParsed.stageMetrics.forEach((metric) => {
+    mapStageFromMetric(updateStage, metric);
+    if (metric.duration_ms > 100) {
+      console.log(
+        `[Performance] Stage "${metric.task_id}" took ${metric.duration_ms}ms`,
+      );
     }
-    thumbVariantBlobs[size] = new Blob([new Uint8Array(data)], {
-      type: 'image/webp',
-    });
   });
 
-  const thumbUrl = URL.createObjectURL(thumbBlob);
+  // 解析缩略图变体路径
+  const thumbVariantPaths: Partial<Record<'400' | '800' | '1600', string>> = {};
+  (['400', '800', '1600'] as const).forEach((size) => {
+    const path = rustParsed.thumbVariants[size];
+    if (path) {
+      thumbVariantPaths[size] = path;
+    }
+  });
+
   const metadata = rustParsed.metadata;
 
   metadata.derived.ocr = {
@@ -121,12 +127,23 @@ export const parseUploadItem = async ({
   };
   const taskMetrics = [...rustParsed.stageMetrics, ocrMetric];
 
+  const totalDuration = performance.now() - parseStart;
+  console.log(
+    `[Performance] Total parse time: ${totalDuration.toFixed(2)}ms`,
+    `(Rust: ${rustParseDuration.toFixed(2)}ms, JS overhead: ${(totalDuration - rustParseDuration).toFixed(2)}ms)`,
+  );
+
+  // 为缩略图创建临时对象URL用于预览
+  // 由于我们现在使用文件路径，无法直接创建blob
+  // 可以使用tauri绑定或者等到上传时再处理
+  const thumbnailUrl = ''; // placeholder，或通过tauri读取
+
   updateItem({
     metadata,
-    thumbnail: thumbUrl,
+    thumbnail: thumbnailUrl,
     editDraft: {
       description: metadata.description || '',
-      original_filename: metadata.original_filename || normalizedOriginalFile.name,
+      original_filename: metadata.original_filename || item.file.name,
       category: metadata.category || '',
     },
     processingSummary: metadata.processing?.summary,
@@ -135,29 +152,34 @@ export const parseUploadItem = async ({
 
   return {
     metadata,
-    thumbBlob,
-    thumbVariantBlobs,
-    thumbnailUrl: thumbUrl,
+    originalPath: rustParsed.normalizedOriginalPath,
+    originalMime: rustParsed.normalizedOriginalMime,
+    thumbPath: rustParsed.thumbPath,
+    thumbVariantPaths,
+    thumbnailUrl,
     processingSummary: metadata.processing?.summary,
     taskMetrics,
-    normalizedOriginalFile,
   };
 };
 
 export const submitUploadItem = async ({
-  original,
+  imageId,
+  originalPath,
+  originalMime,
+  thumbPath,
   metadata,
-  thumbBlob,
-  thumbVariantBlobs,
+  thumbVariantPaths,
   deferFinalize,
   onProgress,
 }: SubmitUploadItemOptions): Promise<UploadResult> => {
-  return uploadService.uploadImage(
-    original,
-    thumbBlob,
+  return uploadService.uploadImageFromCache({
+    imageId,
+    originalPath,
+    originalMime,
+    thumbPath,
     metadata,
-    thumbVariantBlobs,
+    thumbVariantPaths,
+    deferFinalize,
     onProgress,
-    { deferFinalize },
-  );
+  });
 };
