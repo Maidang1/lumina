@@ -13,17 +13,17 @@ import {
   listImagesFromGitHub,
 } from "@/lib/tauri/github";
 
-export interface UploadOptions {
+interface UploadOptions {
   apiUrl: string;
   timeout: number;
 }
 
-export interface DeleteImageResult {
+interface DeleteImageResult {
   image_id: string;
   deleted_paths: string[];
 }
 
-export interface SignedShareResult {
+interface SignedShareResult {
   url: string;
   expires_in_seconds: number;
   type: "original" | "thumb";
@@ -49,7 +49,7 @@ function isTauriEnvironment(): boolean {
   return typeof window !== "undefined" && "__TAURI__" in window;
 }
 
-export class UploadService {
+class UploadService {
   private options: UploadOptions;
 
   constructor(options: Partial<UploadOptions> = {}) {

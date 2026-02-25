@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { ImageMetadata, ProcessingTaskMetric } from '@/types/photo';
 
-export interface ParseImageConfig {
+interface ParseImageConfig {
   maxThumbSize?: number;
   thumbQuality?: number;
   blurThreshold?: number;
@@ -17,7 +17,7 @@ export interface ParseFormatReport {
   reason: string;
 }
 
-export interface ParseImageForUploadResult {
+interface ParseImageForUploadResult {
   normalizedOriginalBytes: number[];
   normalizedOriginalMime: string;
   normalizedOriginalFilename: string;
@@ -39,7 +39,7 @@ export interface ParseImageForUploadResultOptimized {
   stageMetrics: ProcessingTaskMetric[];
 }
 
-export async function parseImageForUploadFromPath(params: {
+async function parseImageForUploadFromPath(params: {
   path: string;
   declaredMime?: string;
   config?: ParseImageConfig;
@@ -63,7 +63,7 @@ export async function parseImageForUploadFromPathOptimized(params: {
   });
 }
 
-export interface CacheUploadRequest {
+interface CacheUploadRequest {
   imageId: string;
   originalPath: string;
   originalMime: string;
@@ -73,7 +73,7 @@ export interface CacheUploadRequest {
   deferFinalize?: boolean;
 }
 
-export interface CacheUploadResponse {
+interface CacheUploadResponse {
   success: boolean;
   imageId: string;
   message: string;
@@ -86,18 +86,18 @@ export async function uploadFromCacheToGithub(
 }
 
 // 元数据合并和验证接口
-export interface EditDraft {
+interface EditDraft {
   description?: string;
   original_filename?: string;
   category?: string;
 }
 
-export interface MergeMetadataRequest {
+interface MergeMetadataRequest {
   metadata: ImageMetadata;
   edit_draft: EditDraft;
 }
 
-export interface MergedMetadata {
+interface MergedMetadata {
   metadata: ImageMetadata;
   validation_warnings: string[];
 }
@@ -108,16 +108,16 @@ export async function mergeAndValidateMetadata(
   return invoke<MergedMetadata>('merge_and_validate_metadata', { request });
 }
 
-export interface BatchMergeRequest {
+interface BatchMergeRequest {
   items: MergeMetadataRequest[];
 }
 
-export interface BatchMergeResult {
+interface BatchMergeResult {
   results: MergedMetadata[];
   total_warnings: number;
 }
 
-export async function batchMergeAndValidateMetadata(
+async function batchMergeAndValidateMetadata(
   request: BatchMergeRequest
 ): Promise<BatchMergeResult> {
   return invoke<BatchMergeResult>('batch_merge_and_validate_metadata', { request });

@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { BatchFinalizeResult, ImageListResponse } from '@/types/photo';
 
-export interface GitHubUploadOptions {
+interface GitHubUploadOptions {
   imageId: string;
   original: Uint8Array;
   originalMime: string;
@@ -11,20 +11,20 @@ export interface GitHubUploadOptions {
   deferFinalize?: boolean;
 }
 
-export interface GitHubUploadStored {
+interface GitHubUploadStored {
   original_path: string;
   thumb_path: string;
   meta_path: string;
 }
 
-export interface GitHubUploadResult {
+interface GitHubUploadResult {
   success: boolean;
   image_id: string;
   message?: string;
   stored: GitHubUploadStored;
 }
 
-export interface GitHubDeleteResult {
+interface GitHubDeleteResult {
   success: boolean;
   image_id: string;
   message?: string;

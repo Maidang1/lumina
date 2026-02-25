@@ -1,6 +1,6 @@
 import { open } from '@tauri-apps/plugin-dialog';
 
-export interface FileSelection {
+interface FileSelection {
   path: string;
   name: string;
 }
@@ -25,7 +25,7 @@ export async function selectFiles(): Promise<FileSelection[] | null> {
   }));
 }
 
-export async function selectDirectory(): Promise<string | null> {
+async function selectDirectory(): Promise<string | null> {
   const selected = await open({
     directory: true,
   });

@@ -5,7 +5,6 @@ import {
   FileText,
   Scan,
   Zap,
-  Tag,
 } from "lucide-react";
 import { Photo } from "@/features/photos/types";
 import { ScrollArea } from "@/shared/ui/scroll-area";
@@ -74,12 +73,6 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
             <InfoRow
               label="Category"
               value={photo.category || "--"}
-              icon={<Tag size={14} />}
-            />
-            <InfoRow
-              label="Description"
-              value={photo.visualDescription || "--"}
-              icon={<FileText size={14} />}
             />
             <InfoRow
               label="Capture Time"
@@ -180,6 +173,18 @@ const PhotoDetailInfoPanel: React.FC<PhotoDetailInfoPanelProps> = ({
             <InfoRow label="Lens" value={photo.exif.lens || "Unknown Lens"} />
           </div>
         </div>
+
+        {/* Description */}
+        {photo.visualDescription && (
+          <div className="space-y-3 pt-2 border-t border-white/10">
+            <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
+              Description
+            </h3>
+            <p className="text-xs text-neutral-300 leading-relaxed">
+              {photo.visualDescription}
+            </p>
+          </div>
+        )}
 
       </div>
     </ScrollArea>

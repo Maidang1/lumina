@@ -41,36 +41,36 @@ export interface Photo {
 export type ImageMetadata = ContractsImageMetadata;
 export type UploadResult = ContractsUploadResult;
 export type BatchFinalizeResult = ContractsBatchFinalizeResult;
-export type { FileMeta, PrivacyInfo, ThumbMeta };
+;
 
-export interface Dimensions {
+interface Dimensions {
   width: number;
   height: number;
 }
 
-export interface DominantColor {
+interface DominantColor {
   hex: string;
 }
 
-export interface BlurInfo {
+interface BlurInfo {
   score: number;
   is_blurry: boolean;
   method: "variance_of_laplacian";
 }
 
-export interface PHashInfo {
+interface PHashInfo {
   algo: "blockhash";
   bits: 16 | 32;
   value: string;
 }
 
-export interface OcrInfo {
+interface OcrInfo {
   status: "ok" | "skipped" | "failed";
   lang?: string;
   summary?: string;
 }
 
-export interface DerivedData {
+interface DerivedData {
   dimensions: Dimensions;
   dominant_color: DominantColor;
   blur: BlurInfo;
@@ -164,7 +164,7 @@ export interface UploadQueueItem {
   taskMetrics?: ProcessingTaskMetric[];
 }
 
-export interface UploadConfig {
+interface UploadConfig {
   maxFileSize: number;
   maxThumbSize: number;
   thumbQuality: number;
@@ -184,7 +184,7 @@ export const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
   generateThumbVariants: true, // 仍然生成缩略图变体，但可配置
 };
 
-export type { ExifSummary, GeoRegion };
+;
 
 export interface PhotoOpenTransition {
   photoId: string;

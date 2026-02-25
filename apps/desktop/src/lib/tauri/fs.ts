@@ -1,13 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
 
-export interface FileInfo {
+interface FileInfo {
   path: string;
   size: number;
   modified: number;
   is_file: boolean;
 }
 
-export async function readFileAsBytes(path: string): Promise<Uint8Array> {
+async function readFileAsBytes(path: string): Promise<Uint8Array> {
   const bytes = await invoke<number[]>('read_file_as_bytes', { path });
   return new Uint8Array(bytes);
 }
@@ -16,7 +16,7 @@ export async function getFileInfo(path: string): Promise<FileInfo> {
   return invoke<FileInfo>('get_file_info', { path });
 }
 
-export async function scanDirectory(
+async function scanDirectory(
   path: string,
   extensions: string[] = [],
   recursive: boolean = false
@@ -24,7 +24,7 @@ export async function scanDirectory(
   return invoke<string[]>('scan_directory', { path, extensions, recursive });
 }
 
-export async function fileToBlob(path: string): Promise<File> {
+async function fileToBlob(path: string): Promise<File> {
   const bytes = await readFileAsBytes(path);
   const info = await getFileInfo(path);
   const name = path.split('/').pop() || 'unknown';
