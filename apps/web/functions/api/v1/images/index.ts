@@ -1,16 +1,12 @@
 import {
   Env,
   ImageMetadata,
-  UploadResult,
   createGitHubClient,
-  isValidImageId,
-  buildImageApiUrls,
   decodeBase64Utf8,
   decodeImageListCursor,
   encodeImageListCursor,
   buildWeakEtagFromString,
   ifNoneMatchSatisfied,
-  validateUploadToken,
   mapGitHubErrorToHttp,
   jsonResponse,
   errorResponse,
@@ -28,106 +24,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return handleListImages(request, env);
   }
 
-  if (request.method === "POST") {
-    return handleUpload(request, env);
-  }
-
   return errorResponse(env, "Method not allowed", 405);
 };
-
-async function handleUpload(request: Request, env: Env): Promise<Response> {
-  try {
-    const tokenError = validateUploadToken(request, env);
-    if (tokenError) {
-      return tokenError;
-    }
-
-    const formData = await request.formData();
-    const original = formData.get("original");
-    const thumb = formData.get("thumb");
-    const thumb400 = formData.get("thumb_400");
-    const thumb800 = formData.get("thumb_800");
-    const thumb1600 = formData.get("thumb_1600");
-    const metadataStr = formData.get("metadata");
-    const deferFinalizeValue = formData.get("defer_finalize");
-    const deferFinalize = deferFinalizeValue === "true";
-
-    if (!original || !(original instanceof File)) {
-      return errorResponse(env, "Missing original file", 400);
-    }
-
-    if (!thumb || !(thumb instanceof Blob)) {
-      return errorResponse(env, "Missing thumbnail", 400);
-    }
-
-    if (!metadataStr || typeof metadataStr !== "string") {
-      return errorResponse(env, "Missing metadata", 400);
-    }
-
-    let metadata: ImageMetadata;
-    try {
-      metadata = JSON.parse(metadataStr);
-    } catch {
-      return errorResponse(env, "Invalid metadata JSON", 400);
-    }
-
-    if (!metadata.image_id || !isValidImageId(metadata.image_id)) {
-      return errorResponse(env, "Invalid image_id", 400);
-    }
-
-    const MAX_SIZE = 25 * 1024 * 1024;
-    if (original.size > MAX_SIZE) {
-      return errorResponse(env, "File too large", 413);
-    }
-
-    const github = createGitHubClient(env);
-
-    const originalBytes = new Uint8Array(await original.arrayBuffer());
-    const thumbBytes = new Uint8Array(await thumb.arrayBuffer());
-    const thumbVariantBytes: Partial<
-      Record<"400" | "800" | "1600", Uint8Array>
-    > = {};
-    if (thumb400 instanceof Blob) {
-      thumbVariantBytes["400"] = new Uint8Array(await thumb400.arrayBuffer());
-    }
-    if (thumb800 instanceof Blob) {
-      thumbVariantBytes["800"] = new Uint8Array(await thumb800.arrayBuffer());
-    }
-    if (thumb1600 instanceof Blob) {
-      thumbVariantBytes["1600"] = new Uint8Array(await thumb1600.arrayBuffer());
-    }
-    const { originalPath, thumbPath, metaPath } =
-      await github.uploadImage(
-        originalBytes,
-        original.type,
-        thumbBytes,
-        thumbVariantBytes,
-        metadata,
-        { deferFinalize },
-      );
-
-    const result: UploadResult = {
-      image_id: metadata.image_id,
-      stored: {
-        original_path: originalPath,
-        thumb_path: thumbPath,
-        meta_path: metaPath,
-      },
-      urls: buildImageApiUrls(metadata.image_id),
-    };
-
-    return jsonResponse(env, result, 201);
-  } catch (error) {
-    console.error("Upload error:", error);
-    const mapped = mapGitHubErrorToHttp(env, error);
-    if (mapped) return mapped;
-    return errorResponse(
-      env,
-      error instanceof Error ? error.message : "Upload failed",
-      500,
-    );
-  }
-}
 
 async function handleListImages(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);

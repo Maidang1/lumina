@@ -173,12 +173,9 @@ importers:
       '@luminafe/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@luminafe/github-storage':
+      '@luminafe/image-core-native':
         specifier: workspace:*
-        version: link:../github-storage
-      '@luminafe/upload-core':
-        specifier: workspace:*
-        version: link:../upload-core
+        version: link:../image-core-native
       citty:
         specifier: ^0.2.1
         version: 0.2.1
@@ -210,6 +207,12 @@ importers:
       typescript:
         specifier: ~5.8.2
         version: 5.8.3
+
+  packages/image-core-native:
+    devDependencies:
+      '@napi-rs/cli':
+        specifier: ^2.18.4
+        version: 2.18.4
 
   packages/upload-core:
     dependencies:
@@ -885,6 +888,11 @@ packages:
 
   '@module-federation/webpack-bundler-runtime@0.22.0':
     resolution: {integrity: sha512-aM8gCqXu+/4wBmJtVeMeeMN5guw3chf+2i6HajKtQv7SJfxV/f4IyNQJUeUQu9HfiAZHjqtMV5Lvq/Lvh8LdyA==}
+
+  '@napi-rs/cli@2.18.4':
+    resolution: {integrity: sha512-SgJeA4df9DE2iAEpr3M2H0OKl/yjtg1BnRI5/JyowS71tUWhrfSu2LT0V3vlHET+g1hBVlrO60PmEXwUEKp8Mg==}
+    engines: {node: '>= 10'}
+    hasBin: true
 
   '@napi-rs/wasm-runtime@1.0.7':
     resolution: {integrity: sha512-SeDnOO0Tk7Okiq6DbXmmBODgOAb9dp9gjlphokTUxmt8U3liIP1ZsozBahH69j/RJv+Rfs6IwUKHTgQYJ/HBAw==}
@@ -3080,6 +3088,8 @@ snapshots:
     dependencies:
       '@module-federation/runtime': 0.22.0
       '@module-federation/sdk': 0.22.0
+
+  '@napi-rs/cli@2.18.4': {}
 
   '@napi-rs/wasm-runtime@1.0.7':
     dependencies:

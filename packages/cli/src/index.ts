@@ -1,9 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { defineCommand, runMain } from "citty";
-import { createGitHubClient } from "@luminafe/github-storage";
-import { processForUpload } from "@luminafe/upload-core/node";
-import type { Env } from "@luminafe/contracts";
+import { parseImageFromPath } from "@luminafe/image-core-native";
+import type { ImageMetadata } from "@luminafe/contracts";
+
+const execFileAsync = promisify(execFile);
 
 interface UploadRecord {
   source: string;
@@ -21,10 +24,7 @@ interface UploadManifest {
 }
 
 interface UploadOptions {
-  owner: string;
-  repo: string;
-  branch: string;
-  token: string;
+  repoPath: string;
   concurrency: number;
   ocrConcurrency: number;
   retry: number;
@@ -40,6 +40,34 @@ const IMAGE_EXTENSIONS = new Set([
   ".heif",
   ".avif",
 ]);
+
+async function runGit(repoPath: string, args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync("git", args, { cwd: repoPath });
+  return stdout.trim();
+}
+
+async function writeToRepo(
+  repoPath: string,
+  relativePath: string,
+  content: Uint8Array,
+): Promise<void> {
+  const absPath = path.join(repoPath, relativePath);
+  const parentDir = path.dirname(absPath);
+  await fs.mkdir(parentDir, { recursive: true });
+  await fs.writeFile(absPath, content);
+}
+
+function getExtension(mime: string): string {
+  const map: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/heic": "heic",
+    "image/heif": "heif",
+    "image/avif": "avif",
+  };
+  return map[mime] || "bin";
+}
 
 async function collectFiles(inputs: string[]): Promise<string[]> {
   const out: string[] = [];
@@ -88,18 +116,6 @@ async function writeManifest(
   await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
 }
 
-function getEnvConfig(options: UploadOptions): Env {
-  return {
-    GITHUB_TOKEN: options.token,
-    GH_OWNER: options.owner,
-    GH_REPO: options.repo,
-    GH_BRANCH: options.branch,
-    ALLOW_ORIGIN: "*",
-    UPLOAD_TOKEN: "",
-    SHARE_SIGNING_SECRET: undefined,
-  };
-}
-
 function guessMime(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
@@ -116,27 +132,49 @@ async function uploadOne(
   options: UploadOptions,
 ): Promise<{ ok: true; imageId: string } | { ok: false; error: string }> {
   try {
-    const bytes = new Uint8Array(await fs.readFile(filePath));
-
-    const processed = await processForUpload({
-      fileName: path.basename(filePath),
-      mimeType: guessMime(filePath),
-      bytes,
+    const result = await parseImageFromPath(filePath, guessMime(filePath), {
+      maxThumbSize: 1024,
+      thumbQuality: 0.78,
+      blurThreshold: 100,
+      enableRegionResolve: true,
+      generateThumbVariants: true,
     });
 
-    const github = createGitHubClient(getEnvConfig(options), {
-      retryMaxAttempts: options.retry,
-    });
+    const imageId = result.metadata.image_id;
+    const hash = imageId.replace(/^sha256:/, "");
+    const prefix = `objects/${hash.slice(0, 2)}/${hash.slice(2, 4)}/sha256_${hash}`;
 
-    await github.uploadImage(
-      bytes,
-      processed.metadata.files.original.mime,
-      processed.thumb,
-      processed.thumbVariants,
-      processed.metadata,
+    await writeToRepo(
+      options.repoPath,
+      `${prefix}/original.${getExtension(result.normalizedOriginalMime)}`,
+      new Uint8Array(result.normalizedOriginalBytes),
     );
 
-    return { ok: true, imageId: processed.metadata.image_id };
+    await writeToRepo(
+      options.repoPath,
+      `${prefix}/thumb.webp`,
+      new Uint8Array(result.thumbBytes),
+    );
+
+    for (const [key, buffer] of Object.entries(result.thumbVariants)) {
+      if (key === "400" || key === "800" || key === "1600") {
+        await writeToRepo(
+          options.repoPath,
+          `${prefix}/thumb_${key}.webp`,
+          new Uint8Array(buffer),
+        );
+      }
+    }
+
+    await writeToRepo(
+      options.repoPath,
+      `${prefix}/metadata.json`,
+      new TextEncoder().encode(
+        JSON.stringify(result.metadata as unknown as ImageMetadata, null, 2),
+      ),
+    );
+
+    return { ok: true, imageId };
   } catch (error) {
     return {
       ok: false,
@@ -229,10 +267,38 @@ async function handleValidate(input: string[]): Promise<void> {
   );
 }
 
+async function handleSync(repoPath: string, message?: string): Promise<void> {
+  await runGit(repoPath, ["add", "objects"]);
+
+  try {
+    await execFileAsync("git", ["diff", "--cached", "--quiet"], {
+      cwd: repoPath,
+    });
+    process.stdout.write("[lumina-upload] Nothing to commit\n");
+    return;
+  } catch {
+    // has staged changes, continue
+  }
+
+  const commitMessage =
+    message || `lumina: sync assets ${new Date().toISOString()}`;
+  await runGit(repoPath, ["commit", "-m", commitMessage]);
+
+  const branch = await runGit(repoPath, [
+    "rev-parse",
+    "--abbrev-ref",
+    "HEAD",
+  ]);
+  await runGit(repoPath, ["pull", "--rebase", "origin", branch]);
+  await runGit(repoPath, ["push", "origin", branch]);
+
+  process.stdout.write("[lumina-upload] Commit and push completed\n");
+}
+
 const uploadCommand = defineCommand({
   meta: {
     name: "upload",
-    description: "Upload photos to GitHub objects",
+    description: "Upload photos to local git repository",
   },
   args: {
     input: {
@@ -240,25 +306,10 @@ const uploadCommand = defineCommand({
       description: "File or directory paths",
       required: true,
     },
-    owner: {
+    "repo-path": {
       type: "string",
-      description: "GitHub owner",
-      default: process.env.LUMINA_GH_OWNER,
-    },
-    repo: {
-      type: "string",
-      description: "GitHub repo",
-      default: process.env.LUMINA_GH_REPO,
-    },
-    branch: {
-      type: "string",
-      description: "GitHub branch",
-      default: process.env.LUMINA_GH_BRANCH || "main",
-    },
-    token: {
-      type: "string",
-      description: "GitHub token",
-      default: process.env.LUMINA_GITHUB_TOKEN,
+      description: "Local git repository path",
+      default: process.env.LUMINA_REPO_PATH,
     },
     concurrency: {
       type: "string",
@@ -282,18 +333,15 @@ const uploadCommand = defineCommand({
     },
   },
   async run({ args }) {
-    if (!args.owner || !args.repo || !args.token) {
+    if (!args["repo-path"]) {
       throw new Error(
-        "--owner --repo --token are required (or set env LUMINA_GH_OWNER/LUMINA_GH_REPO/LUMINA_GITHUB_TOKEN)",
+        "--repo-path is required (or set env LUMINA_REPO_PATH)",
       );
     }
 
     const input = Array.isArray(args.input) ? args.input : [args.input];
     await handleUpload(input, {
-      owner: args.owner,
-      repo: args.repo,
-      branch: args.branch,
-      token: args.token,
+      repoPath: args["repo-path"],
       concurrency: Number(args.concurrency),
       ocrConcurrency: Number(args["ocr-concurrency"]),
       retry: Number(args.retry),
@@ -308,25 +356,10 @@ const resumeCommand = defineCommand({
     description: "Resume pending uploads from manifest",
   },
   args: {
-    owner: {
+    "repo-path": {
       type: "string",
-      description: "GitHub owner",
-      default: process.env.LUMINA_GH_OWNER,
-    },
-    repo: {
-      type: "string",
-      description: "GitHub repo",
-      default: process.env.LUMINA_GH_REPO,
-    },
-    branch: {
-      type: "string",
-      description: "GitHub branch",
-      default: process.env.LUMINA_GH_BRANCH || "main",
-    },
-    token: {
-      type: "string",
-      description: "GitHub token",
-      default: process.env.LUMINA_GITHUB_TOKEN,
+      description: "Local git repository path",
+      default: process.env.LUMINA_REPO_PATH,
     },
     concurrency: {
       type: "string",
@@ -350,17 +383,14 @@ const resumeCommand = defineCommand({
     },
   },
   async run({ args }) {
-    if (!args.owner || !args.repo || !args.token) {
+    if (!args["repo-path"]) {
       throw new Error(
-        "--owner --repo --token are required (or set env LUMINA_GH_OWNER/LUMINA_GH_REPO/LUMINA_GITHUB_TOKEN)",
+        "--repo-path is required (or set env LUMINA_REPO_PATH)",
       );
     }
 
     await handleResume({
-      owner: args.owner,
-      repo: args.repo,
-      branch: args.branch,
-      token: args.token,
+      repoPath: args["repo-path"],
       concurrency: Number(args.concurrency),
       ocrConcurrency: Number(args["ocr-concurrency"]),
       retry: Number(args.retry),
@@ -387,16 +417,38 @@ const validateCommand = defineCommand({
   },
 });
 
+const syncCommand = defineCommand({
+  meta: {
+    name: "sync",
+    description: "Commit and push changes to remote repository",
+  },
+  args: {
+    "repo-path": {
+      type: "string",
+      description: "Local git repository path",
+      required: true,
+    },
+    message: {
+      type: "string",
+      description: "Commit message",
+    },
+  },
+  async run({ args }) {
+    await handleSync(args["repo-path"], args.message);
+  },
+});
+
 const main = defineCommand({
   meta: {
     name: "lumina-upload",
-    description: "Batch upload photos to GitHub objects for Lumina",
+    description: "Batch upload photos to local git repository for Lumina",
     version: "0.1.0",
   },
   subCommands: {
     upload: uploadCommand,
     resume: resumeCommand,
     validate: validateCommand,
+    sync: syncCommand,
   },
 });
 

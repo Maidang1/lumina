@@ -1,7 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
 export {
-  buildImageApiUrls,
   decodeImageListCursor,
   encodeImageListCursor,
   imageIdToMetaPath,
@@ -11,9 +10,6 @@ export {
 export type {
   Env,
   ImageMetadata,
-  UploadResult,
-  BatchFinalizeRequest,
-  BatchFinalizeResult,
   ImageListCursor,
   ImageIndexEntry,
   ImageIndexFile,
@@ -36,4 +32,3 @@ export {
   mapGitHubErrorToHttp,
   validateUploadToken,
 } from "./utils/http";
-export { buildSignedAssetUrl, validateSignedAssetAccess } from "./utils/share";

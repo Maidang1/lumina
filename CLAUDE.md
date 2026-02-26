@@ -148,13 +148,11 @@ POST   /api/v1/images/:id/share     # 生成签名资源 URL
 ```
 @luminafe/web
   ├─> @luminafe/contracts
-  └─> @luminafe/upload-core
-        └─> @luminafe/contracts
+  └─> @luminafe/github-storage
 
 @luminafe/cli
   ├─> @luminafe/contracts
-  ├─> @luminafe/github-storage
-  └─> @luminafe/upload-core
+  └─> @luminafe/image-core-native
 
 @luminafe/github-storage
   └─> @luminafe/contracts

@@ -9,7 +9,6 @@ import {
   errorResponse,
   mapGitHubErrorToHttp,
   corsHeaders,
-  validateSignedAssetAccess,
 } from "../../../../_utils";
 
 const LEGACY_VARIANT_NAME_MAP: Record<"400" | "800" | "1600", string[]> = {
@@ -54,16 +53,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   }
 
   try {
-    const signatureError = await validateSignedAssetAccess(
-      request,
-      env,
-      imageId,
-      type,
-    );
-    if (signatureError) {
-      return signatureError;
-    }
-
     const github = createGitHubClient(env);
     const metaFile = await github.getFile(imageIdToMetaPath(imageId));
     const metadata = JSON.parse(
@@ -117,7 +106,6 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       headers: {
         ...corsHeaders(env),
         Location: locationUrl.toString(),
-        // Keep redirect cache short so updated assets are revalidated quickly.
         "Cache-Control": "public, max-age=300, must-revalidate",
       },
     });

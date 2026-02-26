@@ -1,0 +1,25 @@
+[package]
+name = "image-core-native"
+version = "0.1.0"
+edition = "2021"
+description = "Native Node.js module for image processing in Lumina"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "2", default-features = false, features = ["napi9", "async", "serde-json"] }
+napi-derive = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs"] }
+anyhow = "1.0"
+
+lumina-image = { path = "../../crates/lumina-image" }
+
+[build-dependencies]
+napi-build = "2"
+
+[profile.release]
+lto = true

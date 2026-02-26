@@ -2414,18 +2414,12 @@ name = "lumina-desktop"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
  "chrono",
  "dirs 5.0.1",
- "image",
- "infer 0.16.0",
- "kamadak-exif",
- "rand 0.8.5",
+ "lumina-image",
  "rayon",
- "reqwest 0.12.28",
  "serde",
  "serde_json",
- "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -2433,10 +2427,28 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "tauri-plugin-store",
- "thumbhash",
  "tokio",
  "uuid",
  "walkdir",
+]
+
+[[package]]
+name = "lumina-image"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "chrono",
+ "image",
+ "infer 0.16.0",
+ "kamadak-exif",
+ "rayon",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thumbhash",
+ "tokio",
  "webp",
 ]
 

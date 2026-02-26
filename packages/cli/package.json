@@ -22,8 +22,7 @@
   },
   "dependencies": {
     "@luminafe/contracts": "workspace:*",
-    "@luminafe/github-storage": "workspace:*",
-    "@luminafe/upload-core": "workspace:*",
+    "@luminafe/image-core-native": "workspace:*",
     "citty": "^0.2.1"
   },
   "devDependencies": {
