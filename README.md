@@ -5,16 +5,17 @@ Lumina is a photography portfolio monorepo built with React, TypeScript, Rsbuild
 ## Features
 
 - Masonry gallery with EXIF and map display
-- Browser-side image pipeline (EXIF, OCR, pHash, blur detection, dominant color)
+- Local image processing (via CLI or Desktop app)
 - Cloudflare Pages Functions API backed by GitHub object storage
-- Token-protected write APIs and optional signed share URLs
+- Token-protected write APIs
 
 ## Workspace Layout
 
 - `apps/web`: React frontend + Cloudflare Pages Functions API
+- `apps/desktop`: Tauri desktop application
 - `packages/contracts`: shared metadata/types/path helpers
 - `packages/github-storage`: GitHub object/index storage client
-- `packages/upload-core`: upload preprocessing pipeline (Node + browser entry)
+- `packages/image-core-native`: Rust native image processing module
 - `packages/cli`: `lumina-upload` batch upload CLI
 
 ## Quick Start
@@ -36,7 +37,6 @@ Required values in `apps/web/.dev.vars`:
 - `GITHUB_TOKEN`
 - `ALLOW_ORIGIN`
 - `UPLOAD_TOKEN`
-- `SHARE_SIGNING_SECRET` (recommended)
 
 `apps/web/wrangler.toml` vars:
 
@@ -84,44 +84,38 @@ git push origin desktop-v0.1.0
 ## API Endpoints
 
 ```txt
-GET    /api/v1/images
-POST   /api/v1/images
-GET    /api/v1/images/:id
-PATCH  /api/v1/images/:id
-DELETE /api/v1/images/:id
-GET    /api/v1/images/:id/thumb
-GET    /api/v1/images/:id/original
-POST   /api/v1/images/:id/share
+GET    /api/v1/images               # list images (paginated)
+GET    /api/v1/images/:id           # get metadata
+PATCH  /api/v1/images/:id           # update metadata fields
+DELETE /api/v1/images/:id           # delete image assets
+GET    /api/v1/images/:id/thumb     # redirect to thumbnail
+GET    /api/v1/images/:id/original  # redirect to original
 ```
 
-Mutating APIs require header `x-upload-token`.
+Mutating APIs (PATCH/DELETE) require header `x-upload-token`.
 
 ## CLI
 
 Main commands:
 
-- `lumina-upload upload <input...>`
-- `lumina-upload resume`
-- `lumina-upload validate <input...>`
+- `lumina-upload upload <input...>` - Upload images to local git repository
+- `lumina-upload sync` - Commit and push changes to remote
+- `lumina-upload resume` - Resume pending uploads
+- `lumina-upload validate <input...>` - Validate image files
 
 Example:
 
 ```bash
-lumina-upload \
-  --owner your-owner \
-  --repo your-repo \
-  --token ghp_xxx \
-  --branch main \
-  --concurrency 4 \
-  upload ./photos
+# Upload images to local repository
+lumina-upload upload ./photos --repo-path /path/to/local/repo
+
+# Sync to remote
+lumina-upload sync --repo-path /path/to/local/repo --message "Add new photos"
 ```
 
 Environment variable alternatives:
 
-- `LUMINA_GITHUB_TOKEN`
-- `LUMINA_GH_OWNER`
-- `LUMINA_GH_REPO`
-- `LUMINA_GH_BRANCH`
+- `LUMINA_REPO_PATH` - Local git repository path
 
 Publish flow:
 

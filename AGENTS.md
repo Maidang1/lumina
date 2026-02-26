@@ -7,9 +7,9 @@ This document gives coding agents the project-specific context needed to work sa
 Lumina is a monorepo photography portfolio project built with React, TypeScript, and Rsbuild. It supports:
 
 - Masonry gallery with EXIF and map display
-- Browser-side image pipeline (EXIF, OCR, pHash, blur detection, dominant color)
+- Local image processing (via CLI or Desktop app)
 - Cloudflare Pages Functions API backed by GitHub object storage
-- Token-protected write APIs and optional signed share URLs
+- Token-protected write APIs
 
 ## Build Commands
 
@@ -60,7 +60,6 @@ pnpm run cli:publish
    - `GITHUB_TOKEN`
    - `ALLOW_ORIGIN`
    - `UPLOAD_TOKEN`
-   - `SHARE_SIGNING_SECRET` (recommended when using share URLs)
 3. Start local development:
    ```bash
    pnpm run dev:full
@@ -75,17 +74,20 @@ No test framework is currently configured. If tests are added, prefer Vitest.
 ```txt
 lumina/
 ├── apps/
-│   └── web/
-│       ├── src/
-│       ├── functions/
-│       ├── rsbuild.config.ts
-│       ├── tsconfig.json
-│       └── wrangler.toml
+│   ├── web/
+│   │   ├── src/
+│   │   ├── functions/
+│   │   ├── rsbuild.config.ts
+│   │   ├── tsconfig.json
+│   │   └── wrangler.toml
+│   └── desktop/
 ├── packages/
 │   ├── contracts/
 │   ├── github-storage/
-│   ├── upload-core/
+│   ├── image-core-native/
 │   └── cli/
+├── crates/
+│   └── lumina-image/
 ├── pnpm-workspace.yaml
 └── turbo.json
 ```
@@ -94,23 +96,20 @@ lumina/
 
 ```txt
 GET    /api/v1/images               # list images (paginated)
-POST   /api/v1/images               # upload image + thumb + metadata
 GET    /api/v1/images/:id           # get metadata
 PATCH  /api/v1/images/:id           # update metadata fields
 DELETE /api/v1/images/:id           # delete image assets
 GET    /api/v1/images/:id/thumb     # redirect to thumbnail
 GET    /api/v1/images/:id/original  # redirect to original
-POST   /api/v1/images/:id/share     # generate signed asset URL
 ```
 
-Mutating APIs require header `x-upload-token`.
+Mutating APIs (PATCH/DELETE) require header `x-upload-token`.
 
 ## Architecture Notes
 
-- CPU-heavy processing happens in browser workers where possible.
-- Image assets are stored in GitHub under `objects/{p1}/{p2}/sha256_{hash}/...`.
-- GitHub writes are serialized to reduce rate-limit issues.
-- When `SHARE_SIGNING_SECRET` is configured, signed URL access is supported for image/video asset routes.
+- Image upload is done via local git operations (CLI or Desktop writes to local repo, then git push)
+- Image assets are stored in GitHub under `objects/{p1}/{p2}/sha256_{hash}/...`
+- `github-storage` package is used by Cloudflare Functions to read GitHub data
 
 ## Environment Variables
 
@@ -125,8 +124,7 @@ Mutating APIs require header `x-upload-token`.
 
 - `GITHUB_TOKEN` (required)
 - `ALLOW_ORIGIN` (required)
-- `UPLOAD_TOKEN` (required for POST/PATCH/DELETE/share)
-- `SHARE_SIGNING_SECRET` (optional, recommended)
+- `UPLOAD_TOKEN` (required for PATCH/DELETE)
 
 ### `apps/web/wrangler.toml` vars
 
