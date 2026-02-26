@@ -17,7 +17,8 @@ pub fn encode_webp(image: &DynamicImage, quality: f64) -> Result<Vec<u8>> {
     let (w, h) = image.dimensions();
     let encoder = webp::Encoder::from_rgba(rgba.as_raw(), w, h);
     let q = (quality * 100.0).clamp(1.0, 100.0) as f32;
-    Ok(encoder.encode(q).to_vec())
+    let config = webp::WebPConfig::new().map_err(|_| anyhow::anyhow!("failed to create webp config"))?;
+    Ok(encoder.encode_advanced(&config).map(|m| m.to_vec()).unwrap_or_else(|_| encoder.encode(q).to_vec()))
 }
 
 pub fn encode_jpeg(image: &DynamicImage, quality: u8) -> Result<Vec<u8>> {

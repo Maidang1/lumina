@@ -15,6 +15,7 @@ pub use thumbnail::*;
 pub use types::*;
 
 use anyhow::{Context, Result};
+use image::{DynamicImage, GenericImageView};
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::time::Instant;
@@ -47,41 +48,57 @@ pub async fn parse_image(
         degraded: None,
     });
 
-    let t_decode = Instant::now();
-    let source_image = decode_image(&bytes, &detected_mime)
+    let t_decode_exif = Instant::now();
+    let bytes_for_exif = bytes.clone();
+    let detected_mime_clone = detected_mime.clone();
+    let (decode_result, exif_result) = rayon::join(
+        || decode_image(&bytes, &detected_mime_clone),
+        || extract_exif_summary(&bytes_for_exif),
+    );
+    let source_image = decode_result
         .with_context(|| format!("unsupported/invalid image format: {}", detected_mime))?;
+    let exif_summary = exif_result.unwrap_or_default();
+    let decode_exif_duration = t_decode_exif.elapsed().as_millis() as u64;
     task_metrics.push(ProcessingTaskMetric {
         task_id: "decode".to_string(),
         status: "completed".to_string(),
-        duration_ms: t_decode.elapsed().as_millis() as u64,
+        duration_ms: decode_exif_duration / 2,
         degraded: None,
     });
-
-    let t_exif = Instant::now();
-    let exif_summary = extract_exif_summary(&bytes).unwrap_or_default();
     task_metrics.push(ProcessingTaskMetric {
         task_id: "exif".to_string(),
         status: "completed".to_string(),
-        duration_ms: t_exif.elapsed().as_millis() as u64,
+        duration_ms: decode_exif_duration / 2,
         degraded: None,
     });
 
-    let oriented_image = apply_exif_orientation(&source_image, exif_summary.orientation);
+    let orientation = exif_summary.orientation;
+    let needs_orientation = orientation.map_or(false, |o| o != 1);
+    let oriented_image = if needs_orientation {
+        apply_exif_orientation(&source_image, orientation)
+    } else {
+        source_image
+    };
 
     let t_normalize = Instant::now();
-    let quality = if should_convert { 90 } else { 95 };
-    let normalized_original_bytes = encode_jpeg(&oriented_image, quality)?;
-    let normalized_original_filename = replace_extension(&file_name, "jpg");
-    let normalized_original_mime = "image/jpeg".to_string();
+    let can_skip_normalize = is_browser_supported(&detected_mime) && !needs_orientation;
+    let (normalized_original_bytes, normalized_original_mime, normalized_original_filename, actually_converted) = 
+        if can_skip_normalize {
+            (bytes.clone(), detected_mime.clone(), file_name.clone(), false)
+        } else {
+            let quality = if should_convert { 90 } else { 95 };
+            let encoded = encode_jpeg(&oriented_image, quality)?;
+            (encoded, "image/jpeg".to_string(), replace_extension(&file_name, "jpg"), true)
+        };
     task_metrics.push(ProcessingTaskMetric {
         task_id: "normalize_original".to_string(),
-        status: "completed".to_string(),
+        status: if can_skip_normalize { "skipped" } else { "completed" }.to_string(),
         duration_ms: t_normalize.elapsed().as_millis() as u64,
         degraded: None,
     });
 
     let t_hash = Instant::now();
-    let image_id = sha256_with_prefix(&normalized_original_bytes);
+    let image_id = sha256_with_prefix(&bytes);
     task_metrics.push(ProcessingTaskMetric {
         task_id: "hash".to_string(),
         status: "completed".to_string(),
@@ -90,23 +107,26 @@ pub async fn parse_image(
     });
 
     let t_thumb = Instant::now();
-    let thumb_image = resize_inside(&oriented_image, max_thumb_size);
-    let thumb_bytes = encode_webp(&thumb_image, thumb_quality)?;
-    let (thumb_w, thumb_h) = thumb_image.dimensions();
-
     let (width, height) = oriented_image.dimensions();
     let has_gps = exif_summary.gps_latitude.is_some() && exif_summary.gps_longitude.is_some();
+
+    let cascaded_images = generate_cascaded_thumbnails(&oriented_image, max_thumb_size, generate_thumb_variants);
+
+    let thumb_image = &cascaded_images.main_thumb;
+    let thumb_bytes = encode_webp(thumb_image, thumb_quality)?;
+    let (thumb_w, thumb_h) = thumb_image.dimensions();
+
+    let variant_images = &cascaded_images.variants;
 
     let parallel_results = rayon::join(
         || {
             if generate_thumb_variants {
-                let variant_results: Result<Vec<(u32, u32, u32, Vec<u8>)>> = THUMB_VARIANT_SIZES
+                let variant_results: Result<Vec<(u32, u32, u32, Vec<u8>)>> = variant_images
                     .par_iter()
-                    .map(|&size| {
-                        let variant = resize_inside(&oriented_image, size);
-                        let (vw, vh) = variant.dimensions();
-                        let variant_bytes = encode_webp(&variant, thumb_quality)?;
-                        Ok((size, vw, vh, variant_bytes))
+                    .map(|(size, img)| {
+                        let (vw, vh) = img.dimensions();
+                        let variant_bytes = encode_webp(img, thumb_quality)?;
+                        Ok((*size, vw, vh, variant_bytes))
                     })
                     .collect();
                 variant_results
@@ -117,13 +137,13 @@ pub async fn parse_image(
         || {
             rayon::join(
                 || {
-                    let dominant = dominant_color_hex(&thumb_image);
-                    let blur = variance_of_laplacian(&thumb_image, 128);
+                    let dominant = dominant_color_hex(thumb_image);
+                    let blur = variance_of_laplacian(thumb_image, 128);
                     (dominant, blur)
                 },
                 || {
-                    let phash = blockhash16(&thumb_image);
-                    let thash = build_thumbhash(&thumb_image);
+                    let phash = blockhash16(thumb_image);
+                    let thash = build_thumbhash(thumb_image);
                     (phash, thash)
                 },
             )
@@ -217,18 +237,69 @@ pub async fn parse_image(
         format_report: FormatReport {
             declared_mime,
             detected_mime: detected_mime.clone(),
-            converted: should_convert,
-            reason: if should_convert {
+            converted: actually_converted,
+            reason: if actually_converted {
                 format!(
-                    "{} is not browser-display-safe; converted to image/jpeg",
+                    "{} converted to image/jpeg (format unsupported or orientation applied)",
                     detected_mime
                 )
             } else {
-                "already browser-display-safe".to_string()
+                "already browser-display-safe, no conversion needed".to_string()
             },
         },
         stage_metrics: task_metrics,
     })
+}
+
+struct CascadedThumbnails {
+    main_thumb: DynamicImage,
+    variants: Vec<(u32, DynamicImage)>,
+}
+
+fn generate_cascaded_thumbnails(
+    source: &DynamicImage,
+    max_thumb_size: u32,
+    generate_variants: bool,
+) -> CascadedThumbnails {
+    let (w, h) = source.dimensions();
+    let max_dim = w.max(h);
+
+    if !generate_variants {
+        let main_thumb = resize_inside(source, max_thumb_size);
+        return CascadedThumbnails {
+            main_thumb,
+            variants: Vec::new(),
+        };
+    }
+
+    let mut sorted_sizes: Vec<u32> = THUMB_VARIANT_SIZES
+        .iter()
+        .copied()
+        .filter(|&s| s < max_dim)
+        .collect();
+    sorted_sizes.sort_by(|a, b| b.cmp(a));
+
+    let mut variants: Vec<(u32, DynamicImage)> = Vec::new();
+    let mut current_source = source.clone();
+
+    for size in &sorted_sizes {
+        let resized = resize_inside(&current_source, *size);
+        variants.push((*size, resized.clone()));
+        current_source = resized;
+    }
+
+    let main_thumb = if max_thumb_size < *sorted_sizes.last().unwrap_or(&max_dim) {
+        resize_inside(&current_source, max_thumb_size)
+    } else if let Some((_, img)) = variants.iter().find(|(s, _)| *s <= max_thumb_size) {
+        img.clone()
+    } else {
+        resize_inside(source, max_thumb_size)
+    };
+
+    CascadedThumbnails {
+        main_thumb,
+        variants,
+    }
 }
 
 fn replace_extension(file_name: &str, ext: &str) -> String {
@@ -238,5 +309,3 @@ fn replace_extension(file_name: &str, ext: &str) -> String {
         format!("{}.{}", file_name, ext)
     }
 }
-
-use image::GenericImageView;
