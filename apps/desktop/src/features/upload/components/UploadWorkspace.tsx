@@ -17,10 +17,12 @@ const USE_EVENT_DRIVEN_UPLOAD = true;
 
 interface UploadWorkspaceProps {
   onUploadCompleted?: (successCount: number) => void;
+  onNavigateToSettings?: () => void;
 }
 
 const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
   onUploadCompleted,
+  onNavigateToSettings,
 }) => {
   const [isRepoConfigured, setIsRepoConfigured] = useState(false);
   const [repoHint, setRepoHint] = useState("");
@@ -146,15 +148,26 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
         <div className="bg-zinc-900 rounded-lg p-8 border border-zinc-800 max-w-md">
           <h3 className="text-xl font-semibold mb-2">未配置仓库</h3>
           <p className="text-zinc-400 mb-4">
-            先选择一个本地 Git 仓库。上传操作会把文件写入该仓库的 `objects/` 目录。
+            需要先选择一个本地 Git 仓库作为照片存储目录。
           </p>
-          <button
-            type="button"
-            onClick={() => void handleChooseRepo()}
-            className="px-4 py-2 rounded-md bg-sky-600 text-white text-sm hover:bg-sky-500 transition-colors"
-          >
-            立即选择仓库
-          </button>
+          <div className="flex flex-col gap-3 items-center">
+            <button
+              type="button"
+              onClick={() => void handleChooseRepo()}
+              className="px-4 py-2 rounded-md bg-sky-600 text-white text-sm hover:bg-sky-500 transition-colors"
+            >
+              立即选择仓库
+            </button>
+            {onNavigateToSettings && (
+              <button
+                type="button"
+                onClick={onNavigateToSettings}
+                className="text-sm text-zinc-400 hover:text-zinc-200 underline underline-offset-2 transition-colors"
+              >
+                前往设置页配置
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

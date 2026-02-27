@@ -100,6 +100,7 @@ function App(): React.ReactElement {
                 onUploadCompleted={(count) => {
                   pushToast(`上传完成：${count} 张照片`, 'success');
                 }}
+                onNavigateToSettings={() => setCurrentView('settings')}
               />
             </div>
           </div>
