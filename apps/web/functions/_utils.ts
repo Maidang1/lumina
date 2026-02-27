@@ -30,5 +30,4 @@ export {
   errorResponse,
   jsonResponse,
   mapGitHubErrorToHttp,
-  validateUploadToken,
 } from "./utils/http";

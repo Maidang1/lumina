@@ -1,4 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Navigate,
   Route,
@@ -7,7 +15,6 @@ import {
 } from "react-router-dom";
 import PhotoGrid from "@/features/photos/components/PhotoGrid";
 import PhotoDetail from "@/features/photos/components/PhotoDetail";
-import PhotoMapView from "@/features/photos/components/PhotoMapView";
 import { usePhotosCollection } from "@/features/photos/hooks/usePhotosCollection";
 import { useLocalStorageState } from "@/shared/lib/useLocalStorageState";
 import { PhotoOpenTransition } from "@/features/photos/types";
@@ -15,9 +22,20 @@ import { imagePrefetchService } from "@/features/photos/services/imagePrefetchSe
 
 const TAG_STORAGE_KEY = "lumina.photo_tags";
 type GalleryTab = "gallery" | "map";
+const LazyPhotoMapView = lazy(
+  () => import("@/features/photos/components/PhotoMapView"),
+);
 
 const GalleryShell: React.FC = () => {
-  const { photos, isLoading } = usePhotosCollection();
+  const {
+    photos,
+    isLoading,
+    isLoadingMore,
+    error,
+    hasMore,
+    loadMore,
+    refresh,
+  } = usePhotosCollection();
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [openTransition, setOpenTransition] =
     useState<PhotoOpenTransition | null>(null);
@@ -28,6 +46,7 @@ const GalleryShell: React.FC = () => {
     TAG_STORAGE_KEY,
     {},
   );
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (tabParam === "gallery" || tabParam === "map" || tabParam === null) {
@@ -66,6 +85,30 @@ const GalleryShell: React.FC = () => {
       imagePrefetchService.prefetch(nextPhoto.url, { priority: "low" });
     }
   }, [photos, selectedPhoto, selectedPhotoIndex]);
+
+  useEffect(() => {
+    if (
+      viewMode !== "gallery" ||
+      isLoading ||
+      isLoadingMore ||
+      !hasMore ||
+      !loadMoreRef.current
+    ) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void loadMore();
+        }
+      },
+      { rootMargin: "400px" },
+    );
+
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, isLoadingMore, loadMore, viewMode, photos.length]);
 
   const handleTabChange = useCallback(
     (nextTab: GalleryTab): void => {
@@ -127,26 +170,68 @@ const GalleryShell: React.FC = () => {
               Loading gallery...
             </p>
           </div>
+        ) : error && photos.length === 0 ? (
+          <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 px-6 text-center">
+            <p className="text-sm text-red-300">{error}</p>
+            <button
+              type="button"
+              onClick={() => {
+                void refresh();
+              }}
+              className="rounded-md border border-white/20 px-4 py-2 text-xs tracking-wide text-white transition-colors hover:bg-white/10"
+            >
+              Retry
+            </button>
+          </div>
+        ) : photos.length === 0 ? (
+          <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="text-sm text-zinc-300">No photos yet.</p>
+            <p className="text-xs text-zinc-500">
+              Run Desktop or CLI upload first, then refresh this page.
+            </p>
+          </div>
         ) : (
           <>
             {viewMode === "gallery" ? (
-              <PhotoGrid
-                photos={photos}
-                onPhotoClick={(photo, transitionSource) => {
-                  imagePrefetchService.prefetch(photo.url, { priority: "high" });
-                  setOpenTransition(transitionSource);
-                  setSelectedPhotoId(photo.id);
-                }}
-              />
+              <>
+                <PhotoGrid
+                  photos={photos}
+                  onPhotoClick={(photo, transitionSource) => {
+                    imagePrefetchService.prefetch(photo.url, { priority: "high" });
+                    setOpenTransition(transitionSource);
+                    setSelectedPhotoId(photo.id);
+                  }}
+                />
+                <div
+                  ref={loadMoreRef}
+                  className="flex min-h-16 items-center justify-center"
+                >
+                  {isLoadingMore ? (
+                    <p className="text-xs text-zinc-500">Loading more...</p>
+                  ) : hasMore ? (
+                    <p className="text-xs text-zinc-600">Scroll to load more</p>
+                  ) : (
+                    <p className="text-xs text-zinc-600">No more photos</p>
+                  )}
+                </div>
+              </>
             ) : (
-              <PhotoMapView
-                photos={photos}
-                onPhotoClick={(photo) => {
-                  imagePrefetchService.prefetch(photo.url, { priority: "high" });
-                  setOpenTransition(null);
-                  setSelectedPhotoId(photo.id);
-                }}
-              />
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center text-xs text-zinc-500">
+                    Loading map...
+                  </div>
+                }
+              >
+                <LazyPhotoMapView
+                  photos={photos}
+                  onPhotoClick={(photo) => {
+                    imagePrefetchService.prefetch(photo.url, { priority: "high" });
+                    setOpenTransition(null);
+                    setSelectedPhotoId(photo.id);
+                  }}
+                />
+              </Suspense>
             )}
           </>
         )}

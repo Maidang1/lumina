@@ -43,7 +43,7 @@ interface GitHubDeleteResultRaw {
   message?: string;
 }
 
-export interface RepoStatus {
+interface RepoStatus {
   configured: boolean;
   repo_path: string;
   branch: string;

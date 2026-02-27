@@ -4,6 +4,9 @@ import UploadWorkspace from '@/features/upload/components/UploadWorkspace';
 import ManagePage from '@/features/manage/pages/ManagePage';
 import { SettingsPage } from '@/features/settings/pages/SettingsPage';
 import { uploadService } from '@/services/uploadService';
+import { ToastViewport } from '@/components/ui/toast';
+import { pushToast } from '@/lib/toast';
+import { logger } from '@/lib/logger';
 
 function App(): React.ReactElement {
   const [currentView, setCurrentView] = useState<View>('upload');
@@ -12,7 +15,7 @@ function App(): React.ReactElement {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const refreshRepoReady = useCallback(async (): Promise<boolean> => {
-    const ready = await uploadService.hasUploadToken();
+    const ready = await uploadService.hasRepoPath();
     setIsRepoReady(ready);
     return ready;
   }, []);
@@ -35,7 +38,7 @@ function App(): React.ReactElement {
         await uploadService.syncRepo();
         await refreshRepoReady();
       } catch (error) {
-        console.error('Auto sync failed:', error);
+        logger.error('Auto sync failed:', error);
       } finally {
         setIsSyncing(false);
       }
@@ -48,11 +51,11 @@ function App(): React.ReactElement {
     setIsCommitting(true);
     try {
       const message = await uploadService.commitAndPush();
-      window.alert(message);
-      const ready = await uploadService.hasUploadToken();
+      pushToast(message, 'success');
+      const ready = await uploadService.hasRepoPath();
       setIsRepoReady(ready);
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Commit & Push failed');
+      pushToast(error instanceof Error ? error.message : 'Commit & Push failed', 'error');
     } finally {
       setIsCommitting(false);
     }
@@ -62,10 +65,10 @@ function App(): React.ReactElement {
     setIsSyncing(true);
     try {
       const message = await uploadService.syncRepo();
-      window.alert(message);
+      pushToast(message, 'success');
       await refreshRepoReady();
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Sync failed');
+      pushToast(error instanceof Error ? error.message : 'Sync failed', 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -95,7 +98,7 @@ function App(): React.ReactElement {
 
               <UploadWorkspace
                 onUploadCompleted={(count) => {
-                  console.log(`上传完成：${count} 张照片`);
+                  pushToast(`上传完成：${count} 张照片`, 'success');
                 }}
               />
             </div>
@@ -106,6 +109,8 @@ function App(): React.ReactElement {
 
         {currentView === 'settings' && <SettingsPage />}
       </main>
+
+      <ToastViewport />
     </div>
   );
 }

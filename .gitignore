@@ -31,3 +31,6 @@ _worker.bundle
 apps/desktop/src-tauri/target
 crates/lumina-image/target
 packages/image-core-native/target
+*.tsbuildinfo
+apps/desktop/vite.config.js
+apps/desktop/vite.config.d.ts

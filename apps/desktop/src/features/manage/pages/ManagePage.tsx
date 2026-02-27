@@ -58,7 +58,7 @@ const ManagePage: React.FC = () => {
             batchResult={batchResult}
             onClearBatchResult={clearBatchResult}
             onClearSelection={handleClearSelection}
-            onBatchTag={handleBatchTag}
+            onBatchTag={(tag) => handleBatchTag(tag)}
             onBatchDownload={handleBatchDownload}
             onBatchDelete={() => {
               void handleBatchDelete();

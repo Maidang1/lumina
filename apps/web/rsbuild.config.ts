@@ -20,6 +20,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      "@luminafe/gallery-core": path.resolve(
+        __dirname,
+        "../../packages/gallery-core/src/index.ts",
+      ),
     },
   },
   html: {

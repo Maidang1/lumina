@@ -1,28 +1,34 @@
-import * as React from "react"
-import * as ProgressPrimitive from "@radix-ui/react-progress"
+import * as React from "react";
+import { cn } from "@/shared/lib/utils";
 
-import { cn } from "@/shared/lib/utils"
+interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
+  value?: number;
+  indicatorClassName?: string;
+}
 
-const Progress = React.forwardRef<
-  React.ElementRef<typeof ProgressPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root> & {
-    indicatorClassName?: string
-  }
->(({ className, value, indicatorClassName, ...props }, ref) => (
-  <ProgressPrimitive.Root
-    ref={ref}
-    className={cn(
-      "relative h-2 w-full overflow-hidden rounded-full bg-white/10",
-      className
-    )}
-    {...props}
-  >
-    <ProgressPrimitive.Indicator
-      className={cn("h-full w-full flex-1 bg-lumina-accent transition-all", indicatorClassName)}
-      style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
-    />
-  </ProgressPrimitive.Root>
-))
-Progress.displayName = ProgressPrimitive.Root.displayName
+const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
+  ({ className, value = 0, indicatorClassName, ...props }, ref) => {
+    const clamped = Math.max(0, Math.min(100, value));
+    return (
+      <div
+        ref={ref}
+        className={cn(
+          "relative h-2 w-full overflow-hidden rounded-full bg-white/10",
+          className,
+        )}
+        {...props}
+      >
+        <div
+          className={cn(
+            "h-full bg-lumina-accent transition-all",
+            indicatorClassName,
+          )}
+          style={{ width: `${clamped}%` }}
+        />
+      </div>
+    );
+  },
+);
+Progress.displayName = "Progress";
 
-export { Progress }
+export { Progress };

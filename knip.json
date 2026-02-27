@@ -13,11 +13,12 @@
         "apps/web/src/shared/ui/**/*.tsx",
         "apps/web/src/features/photos/components/photo-map/mapData.ts",
         "apps/web/src/features/photos/components/photo-map/leafletRuntime.ts",
-        "apps/web/src/features/photos/services/uploadService.ts",
         "apps/web/src/features/photos/types.ts",
         "apps/web/src/features/photos/components/photo-detail/formatters.ts",
         "apps/web/src/features/photos/components/photo-detail/types.ts",
-        "packages/upload-core/src/browser/pipeline.ts"
+        "apps/desktop/src/features/manage/components/ManageUploadDialog.tsx",
+        "packages/gallery-core/src/**/*.ts",
+        "packages/image-core-native/index.js"
       ]
     }
   }

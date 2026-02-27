@@ -34,14 +34,17 @@ export const useManageActions = ({
 
   useEffect(() => {
     const refreshDeleteTokenState = async (): Promise<void> => {
-      const hasToken = await uploadService.hasUploadToken();
+      const hasToken = await uploadService.hasRepoPath();
       setIsDeleteTokenConfigured(hasToken);
     };
 
     void refreshDeleteTokenState();
-    window.addEventListener("focus", () => void refreshDeleteTokenState());
+    const handleFocus = (): void => {
+      void refreshDeleteTokenState();
+    };
+    window.addEventListener("focus", handleFocus);
     return () => {
-      window.removeEventListener("focus", () => void refreshDeleteTokenState());
+      window.removeEventListener("focus", handleFocus);
     };
   }, []);
 
@@ -51,7 +54,7 @@ export const useManageActions = ({
         return false;
       }
 
-      const hasToken = await uploadService.hasUploadToken();
+      const hasToken = await uploadService.hasRepoPath();
       if (!hasToken) {
         setIsDeleteTokenConfigured(false);
         return false;
@@ -69,7 +72,7 @@ export const useManageActions = ({
         return false;
       } finally {
         setDeletingPhotoId((prev) => (prev === photoId ? null : prev));
-        const hasTokenAfter = await uploadService.hasUploadToken();
+        const hasTokenAfter = await uploadService.hasRepoPath();
         setIsDeleteTokenConfigured(hasTokenAfter);
       }
     },

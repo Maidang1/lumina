@@ -66,7 +66,7 @@ export const buildGeoPoints = (photos: Photo[]): GeoPoint[] => {
     .map((photo) => {
       const coordinates = getPhotoCoordinates(photo);
       const regionFromMetadata = getPhotoRegionFromMetadata(photo);
-      if (!coordinates && !regionFromMetadata) return null;
+      if (!regionFromMetadata) return null;
 
       const date = new Date(photo.exif.date);
       const capturedAtMs = Number.isNaN(date.getTime()) ? null : date.getTime();
@@ -97,13 +97,11 @@ export const buildMonthBuckets = (points: GeoPoint[]): [string, number][] => {
 
 export const buildProvinceAggregates = (
   points: GeoPoint[],
-  regionByPointKey: Record<string, RegionInfo>,
 ): RegionAggregate[] => {
   const grouped = new Map<string, RegionAggregate>();
 
   for (const point of points) {
-    const region =
-      point.regionFromMetadata ?? regionByPointKey[point.key] ?? UNKNOWN_REGION;
+    const region = point.regionFromMetadata ?? UNKNOWN_REGION;
     const provinceKey = `CN|${region.province}`;
 
     const existing = grouped.get(provinceKey);

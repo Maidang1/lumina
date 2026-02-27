@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { Photo } from "@/types/photo";
+import { confirm } from "@tauri-apps/plugin-dialog";
+import { pushToast } from "@/lib/toast";
 
 interface UseBatchPhotoActionsParams {
   photos: Photo[];
@@ -27,7 +29,7 @@ interface UseBatchPhotoActionsResult {
   handleBatchSelectToggle: (photoId: string) => void;
   handleBatchDelete: () => Promise<void>;
   handleBatchDownload: () => void;
-  handleBatchTag: () => void;
+  handleBatchTag: (tag: string) => void;
   handleToggleBatchMode: () => void;
   handleSelectAllVisible: () => void;
   handleClearSelection: () => void;
@@ -73,11 +75,17 @@ export const useBatchPhotoActions = ({
     if (selectedIds.size === 0) return;
     if (!isDeleteTokenConfigured) {
       onDeleteTokenMissing();
-      window.alert("Missing repository configuration. Batch delete is unavailable.");
+      pushToast("Missing repository configuration. Batch delete is unavailable.", "error");
       return;
     }
-    const confirmed = window.confirm(
+    const confirmed = await confirm(
       `Delete ${selectedIds.size} selected photos? This action cannot be undone.`,
+      {
+        title: "Confirm Batch Delete",
+        kind: "warning",
+        okLabel: "Delete",
+        cancelLabel: "Cancel",
+      },
     );
     if (!confirmed) return;
     let success = 0;
@@ -127,10 +135,9 @@ export const useBatchPhotoActions = ({
     });
   }, [photos, selectedIds]);
 
-  const handleBatchTag = useCallback((): void => {
+  const handleBatchTag = useCallback((rawTag: string): void => {
     if (selectedIds.size === 0) return;
-    const tag = window.prompt("Enter a tag to add to selected photos", "");
-    const normalized = tag?.trim();
+    const normalized = rawTag.trim();
     if (!normalized) return;
     let success = 0;
     setPhotoTags((prev) => {

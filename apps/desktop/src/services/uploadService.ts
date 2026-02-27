@@ -16,6 +16,8 @@ import {
   commitAndPushRepo,
   syncRepo as syncRepoInTauri,
 } from "@/lib/tauri/github";
+import { uploadFromCacheToGithub } from "@/lib/tauri/image";
+import { logger } from "@/lib/logger";
 
 interface UploadOptions {
   apiUrl: string;
@@ -79,14 +81,14 @@ class UploadService {
     };
   }
 
-  async getUploadToken(): Promise<string> {
+  async getRepoPath(): Promise<string> {
     return (await tauriStorage.getItem(REPO_PATH_STORAGE_KEY)) || "";
   }
 
-  async hasUploadToken(): Promise<boolean> {
+  async hasRepoPath(): Promise<boolean> {
     if (!isTauriEnvironment()) {
-      const token = await this.getUploadToken();
-      return token.trim().length > 0;
+      const repoPath = await this.getRepoPath();
+      return repoPath.trim().length > 0;
     }
     try {
       await getRepoStatus();
@@ -96,8 +98,8 @@ class UploadService {
     }
   }
 
-  async setUploadToken(token: string): Promise<void> {
-    const normalized = token.trim();
+  async setRepoPath(repoPath: string): Promise<void> {
+    const normalized = repoPath.trim();
     if (!normalized) {
       await tauriStorage.removeItem(REPO_PATH_STORAGE_KEY);
       return;
@@ -115,6 +117,19 @@ class UploadService {
 
   async syncRepo(): Promise<string> {
     return syncRepoInTauri();
+  }
+
+  // Backward-compatible aliases. Use repo-path terminology in new code.
+  async getUploadToken(): Promise<string> {
+    return this.getRepoPath();
+  }
+
+  async hasUploadToken(): Promise<boolean> {
+    return this.hasRepoPath();
+  }
+
+  async setUploadToken(token: string): Promise<void> {
+    await this.setRepoPath(token);
   }
 
   private async parseJson<T>(
@@ -205,13 +220,11 @@ class UploadService {
     onProgress?: (progress: number) => void;
   }): Promise<UploadResult> {
     try {
-      const { uploadFromCacheToGithub } = await import("@/lib/tauri/image");
-
       if (options.onProgress) {
         options.onProgress(10);
       }
 
-      console.log(
+      logger.debug(
         "[uploadService] Starting optimized GitHub upload for image:",
         options.imageId,
       );
@@ -234,11 +247,11 @@ class UploadService {
       }
 
       if (!result.success) {
-        console.error("[uploadService] Upload failed:", result.message);
+        logger.error("[uploadService] Upload failed:", result.message);
         throw new ApiRequestError(result.message || "Upload failed", 500);
       }
 
-      console.log("[uploadService] Optimized upload successful");
+      logger.debug("[uploadService] Optimized upload successful");
 
       return {
         image_id: result.imageId,
@@ -250,7 +263,7 @@ class UploadService {
         urls: this.buildImageApiUrls(result.imageId),
       };
     } catch (error) {
-      console.error("[uploadService] Optimized upload error:", error);
+      logger.error("[uploadService] Optimized upload error:", error);
       if (error instanceof ApiRequestError) {
         throw error;
       }
@@ -269,18 +282,25 @@ class UploadService {
     onProgress?: (progress: number) => void,
     options?: { deferFinalize?: boolean },
   ): Promise<UploadResult> {
-    console.log(
+    logger.debug(
       "[uploadService] Starting GitHub upload for image:",
       metadata.image_id,
     );
     const originalName =
-      original instanceof File ? original.name : `${metadata.image_id}-original`;
-    console.log("[uploadService] Original file:", originalName, original.size, "bytes");
-    console.log("[uploadService] Thumb size:", thumb.size, "bytes");
+      original instanceof File
+        ? original.name
+        : `${metadata.image_id}-original`;
+    logger.debug(
+      "[uploadService] Original file:",
+      originalName,
+      original.size,
+      "bytes",
+    );
+    logger.debug("[uploadService] Thumb size:", thumb.size, "bytes");
 
     try {
       // 读取文件为 Uint8Array
-      console.log("[uploadService] Reading file buffers...");
+      logger.debug("[uploadService] Reading file buffers...");
       const originalBuffer = new Uint8Array(await original.arrayBuffer());
       const thumbBuffer = new Uint8Array(await thumb.arrayBuffer());
 
@@ -288,7 +308,7 @@ class UploadService {
       if (thumbVariantBlobs) {
         for (const [size, blob] of Object.entries(thumbVariantBlobs)) {
           if (blob) {
-            console.log(
+            logger.debug(
               `[uploadService] Reading thumb variant ${size}:`,
               blob.size,
               "bytes",
@@ -303,7 +323,7 @@ class UploadService {
         onProgress(10);
       }
 
-      console.log("[uploadService] Calling uploadImageToGitHub...");
+      logger.debug("[uploadService] Calling uploadImageToGitHub...");
       const result = await uploadImageToGitHub({
         imageId: metadata.image_id,
         original: originalBuffer,
@@ -314,18 +334,18 @@ class UploadService {
         deferFinalize: options?.deferFinalize ?? false,
       });
 
-      console.log("[uploadService] Upload result:", result);
+      logger.debug("[uploadService] Upload result:", result);
 
       if (onProgress) {
         onProgress(100);
       }
 
       if (!result.success) {
-        console.error("[uploadService] Upload failed:", result.message);
+        logger.error("[uploadService] Upload failed:", result.message);
         throw new ApiRequestError(result.message || "Upload failed", 500);
       }
 
-      console.log("[uploadService] Upload successful, returning result");
+      logger.debug("[uploadService] Upload successful, returning result");
 
       return {
         image_id: result.image_id,
@@ -337,7 +357,7 @@ class UploadService {
         urls: this.buildImageApiUrls(result.image_id),
       };
     } catch (error) {
-      console.error("[uploadService] Upload error:", error);
+      logger.error("[uploadService] Upload error:", error);
       if (error instanceof ApiRequestError) {
         throw error;
       }
@@ -356,10 +376,10 @@ class UploadService {
     onProgress?: (progress: number) => void,
     options?: { deferFinalize?: boolean },
   ): Promise<UploadResult> {
-    const uploadToken = await this.getUploadToken();
+    const uploadToken = await this.getRepoPath();
     if (!uploadToken) {
       throw new ApiRequestError(
-        "Missing UPLOAD_TOKEN. Please configure it before upload.",
+        "Missing repository path. Please configure it before upload.",
         401,
       );
     }
@@ -505,7 +525,7 @@ class UploadService {
       const uploadToken = await this.getUploadToken();
       if (!uploadToken) {
         throw new ApiRequestError(
-          "Missing UPLOAD_TOKEN. Please configure it before delete.",
+          "Missing repository path. Please configure it before delete.",
           401,
         );
       }
@@ -546,10 +566,10 @@ class UploadService {
       return updateImageMetadataInRepo(imageId, updates);
     }
 
-    const uploadToken = await this.getUploadToken();
+    const uploadToken = await this.getRepoPath();
     if (!uploadToken) {
       throw new ApiRequestError(
-        "Missing UPLOAD_TOKEN. Please configure it before update.",
+        "Missing repository path. Please configure it before update.",
         401,
       );
     }
@@ -587,10 +607,10 @@ class UploadService {
       return finalizeBatchToGitHub(metadatas);
     } else {
       // 使用现有的 HTTP API
-      const uploadToken = await this.getUploadToken();
+      const uploadToken = await this.getRepoPath();
       if (!uploadToken) {
         throw new ApiRequestError(
-          "Missing UPLOAD_TOKEN. Please configure it before finalize.",
+          "Missing repository path. Please configure it before finalize.",
           401,
         );
       }
@@ -627,10 +647,10 @@ class UploadService {
     type: "original" | "thumb" = "original",
     expiresInSeconds: number = 24 * 60 * 60,
   ): Promise<SignedShareResult> {
-    const uploadToken = await this.getUploadToken();
+    const uploadToken = await this.getRepoPath();
     if (!uploadToken) {
       throw new ApiRequestError(
-        "Missing UPLOAD_TOKEN. Please configure it before creating share links.",
+        "Missing repository path. Please configure it before creating share links.",
         401,
       );
     }

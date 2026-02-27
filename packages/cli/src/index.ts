@@ -2,11 +2,13 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import type { Dirent } from "node:fs";
 import { defineCommand, runMain } from "citty";
 import { parseImageFromPath } from "@luminafe/image-core-native";
-import type { ImageMetadata } from "@luminafe/contracts";
+import type { ImageIndexFile, ImageMetadata } from "@luminafe/contracts";
 
 const execFileAsync = promisify(execFile);
+const IMAGE_INDEX_PATH = "objects/_index/images.json";
 
 interface UploadRecord {
   source: string;
@@ -31,6 +33,14 @@ interface UploadOptions {
   manifest: string;
 }
 
+interface MigrateLayoutResult {
+  scannedFiles: number;
+  renamedFiles: number;
+  removedConflicts: number;
+  indexItems: number;
+  indexWritten: boolean;
+}
+
 const IMAGE_EXTENSIONS = new Set([
   ".jpg",
   ".jpeg",
@@ -40,6 +50,43 @@ const IMAGE_EXTENSIONS = new Set([
   ".heif",
   ".avif",
 ]);
+
+const LEGACY_LAYOUT_NAME_MAP: Record<string, string> = {
+  "metadata.json": "meta.json",
+  "thumb_400.webp": "thumb-400.webp",
+  "thumb_800.webp": "thumb-800.webp",
+  "thumb_1600.webp": "thumb-1600.webp",
+  "thumb_sm.webp": "thumb-400.webp",
+  "thumb_md.webp": "thumb-800.webp",
+  "thumb_lg.webp": "thumb-1600.webp",
+};
+
+let imageIndexWriteChain: Promise<void> = Promise.resolve();
+
+function toPosixPath(value: string): string {
+  return value.split(path.sep).join("/");
+}
+
+function sortIndexItems(
+  items: Array<{ image_id: string; created_at: string; meta_path: string }>,
+): Array<{ image_id: string; created_at: string; meta_path: string }> {
+  return items.sort((a, b) => {
+    const timeDiff =
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    if (timeDiff !== 0) return timeDiff;
+    return b.image_id.localeCompare(a.image_id);
+  });
+}
+
+function relativeRepoPath(repoPath: string, absPath: string): string {
+  const relative = path.relative(repoPath, absPath);
+  return toPosixPath(relative);
+}
+
+function imageIdToMetaPath(imageId: string): string {
+  const hash = imageId.replace(/^sha256:/, "");
+  return `objects/${hash.slice(0, 2)}/${hash.slice(2, 4)}/sha256_${hash}/meta.json`;
+}
 
 async function runGit(repoPath: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync("git", args, { cwd: repoPath });
@@ -55,6 +102,75 @@ async function writeToRepo(
   const parentDir = path.dirname(absPath);
   await fs.mkdir(parentDir, { recursive: true });
   await fs.writeFile(absPath, content);
+}
+
+async function readImageIndex(repoPath: string): Promise<ImageIndexFile> {
+  const indexPath = path.join(repoPath, IMAGE_INDEX_PATH);
+  try {
+    const raw = await fs.readFile(indexPath, "utf-8");
+    const parsed = JSON.parse(raw) as ImageIndexFile;
+    if (!Array.isArray(parsed.items)) {
+      throw new Error("Invalid index items");
+    }
+    return {
+      version: "1",
+      updated_at: parsed.updated_at || new Date().toISOString(),
+      items: sortIndexItems(parsed.items),
+    };
+  } catch {
+    return {
+      version: "1",
+      updated_at: new Date().toISOString(),
+      items: [],
+    };
+  }
+}
+
+async function writeImageIndex(
+  repoPath: string,
+  index: ImageIndexFile,
+): Promise<void> {
+  const content = new TextEncoder().encode(JSON.stringify(index, null, 2));
+  await writeToRepo(repoPath, IMAGE_INDEX_PATH, content);
+}
+
+async function upsertImageIndex(
+  repoPath: string,
+  metadata: ImageMetadata,
+): Promise<void> {
+  const index = await readImageIndex(repoPath);
+  const nextItems = index.items.filter(
+    (item) => item.image_id !== metadata.image_id,
+  );
+  nextItems.push({
+    image_id: metadata.image_id,
+    created_at: metadata.timestamps.created_at,
+    meta_path: imageIdToMetaPath(metadata.image_id),
+  });
+
+  const nextIndex: ImageIndexFile = {
+    version: "1",
+    updated_at: new Date().toISOString(),
+    items: sortIndexItems(nextItems),
+  };
+
+  await writeImageIndex(repoPath, nextIndex);
+}
+
+async function queueIndexUpsert(
+  repoPath: string,
+  metadata: ImageMetadata,
+): Promise<void> {
+  const run = async (): Promise<void> => {
+    await upsertImageIndex(repoPath, metadata);
+  };
+
+  const next = imageIndexWriteChain.then(run, run);
+  imageIndexWriteChain = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  await next;
 }
 
 function getExtension(mime: string): string {
@@ -90,6 +206,34 @@ async function collectFiles(inputs: string[]): Promise<string[]> {
     await walk(path.resolve(input));
   }
 
+  return out.sort();
+}
+
+async function collectMetaFiles(repoPath: string): Promise<string[]> {
+  const objectsRoot = path.join(repoPath, "objects");
+  const out: string[] = [];
+
+  const walk = async (dir: string): Promise<void> => {
+    let entries: Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const absPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(absPath);
+        continue;
+      }
+      if (entry.isFile() && entry.name === "meta.json") {
+        out.push(absPath);
+      }
+    }
+  };
+
+  await walk(objectsRoot);
   return out.sort();
 }
 
@@ -140,7 +284,8 @@ async function uploadOne(
       generateThumbVariants: true,
     });
 
-    const imageId = result.metadata.image_id;
+    const metadata = result.metadata as unknown as ImageMetadata;
+    const imageId = metadata.image_id;
     const hash = imageId.replace(/^sha256:/, "");
     const prefix = `objects/${hash.slice(0, 2)}/${hash.slice(2, 4)}/sha256_${hash}`;
 
@@ -160,7 +305,7 @@ async function uploadOne(
       if (key === "400" || key === "800" || key === "1600") {
         await writeToRepo(
           options.repoPath,
-          `${prefix}/thumb_${key}.webp`,
+          `${prefix}/thumb-${key}.webp`,
           new Uint8Array(buffer),
         );
       }
@@ -168,11 +313,11 @@ async function uploadOne(
 
     await writeToRepo(
       options.repoPath,
-      `${prefix}/metadata.json`,
-      new TextEncoder().encode(
-        JSON.stringify(result.metadata as unknown as ImageMetadata, null, 2),
-      ),
+      `${prefix}/meta.json`,
+      new TextEncoder().encode(JSON.stringify(metadata, null, 2)),
     );
+
+    await queueIndexUpsert(options.repoPath, metadata);
 
     return { ok: true, imageId };
   } catch (error) {
@@ -265,6 +410,127 @@ async function handleValidate(input: string[]): Promise<void> {
   process.stdout.write(
     JSON.stringify({ count: files.length, files }, null, 2) + "\n",
   );
+}
+
+async function rebuildImageIndex(
+  repoPath: string,
+  apply: boolean,
+): Promise<{ items: number; written: boolean }> {
+  const metaFiles = await collectMetaFiles(repoPath);
+  const items: Array<{ image_id: string; created_at: string; meta_path: string }> = [];
+
+  for (const absMetaPath of metaFiles) {
+    try {
+      const raw = await fs.readFile(absMetaPath, "utf-8");
+      const metadata = JSON.parse(raw) as ImageMetadata;
+      if (!metadata.image_id || !metadata.timestamps?.created_at) {
+        continue;
+      }
+      items.push({
+        image_id: metadata.image_id,
+        created_at: metadata.timestamps.created_at,
+        meta_path: relativeRepoPath(repoPath, absMetaPath),
+      });
+    } catch {
+      // ignore malformed metadata
+    }
+  }
+
+  const index: ImageIndexFile = {
+    version: "1",
+    updated_at: new Date().toISOString(),
+    items: sortIndexItems(items),
+  };
+
+  if (apply) {
+    await writeImageIndex(repoPath, index);
+  }
+
+  return {
+    items: index.items.length,
+    written: apply,
+  };
+}
+
+async function handleMigrateLayout(
+  repoPath: string,
+  apply: boolean,
+): Promise<MigrateLayoutResult> {
+  const objectsRoot = path.join(repoPath, "objects");
+  const legacyFiles: string[] = [];
+
+  const walk = async (dir: string): Promise<void> => {
+    let entries: Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const absPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(absPath);
+        continue;
+      }
+      if (!entry.isFile()) {
+        continue;
+      }
+      if (LEGACY_LAYOUT_NAME_MAP[entry.name]) {
+        legacyFiles.push(absPath);
+      }
+    }
+  };
+
+  await walk(objectsRoot);
+
+  let renamedFiles = 0;
+  let removedConflicts = 0;
+
+  for (const fromAbsPath of legacyFiles.sort()) {
+    const fromName = path.basename(fromAbsPath);
+    const nextName = LEGACY_LAYOUT_NAME_MAP[fromName];
+    if (!nextName) {
+      continue;
+    }
+
+    const toAbsPath = path.join(path.dirname(fromAbsPath), nextName);
+    if (!apply) {
+      process.stdout.write(
+        `[dry-run] ${relativeRepoPath(repoPath, fromAbsPath)} -> ${relativeRepoPath(repoPath, toAbsPath)}\n`,
+      );
+      continue;
+    }
+
+    try {
+      await fs.access(toAbsPath);
+      await fs.unlink(fromAbsPath);
+      removedConflicts += 1;
+      continue;
+    } catch {
+      // target does not exist, proceed with rename.
+    }
+
+    await fs.mkdir(path.dirname(toAbsPath), { recursive: true });
+    await fs.rename(fromAbsPath, toAbsPath);
+    renamedFiles += 1;
+  }
+
+  const indexSummary = await rebuildImageIndex(repoPath, apply);
+
+  if (!apply) {
+    process.stdout.write(
+      `[dry-run] image index rebuild: ${indexSummary.items} item(s) would be written to ${IMAGE_INDEX_PATH}\n`,
+    );
+  }
+
+  return {
+    scannedFiles: legacyFiles.length,
+    renamedFiles,
+    removedConflicts,
+    indexItems: indexSummary.items,
+    indexWritten: indexSummary.written,
+  };
 }
 
 async function handleSync(repoPath: string, message?: string): Promise<void> {
@@ -417,6 +683,38 @@ const validateCommand = defineCommand({
   },
 });
 
+const migrateLayoutCommand = defineCommand({
+  meta: {
+    name: "migrate-layout",
+    description: "Migrate legacy object layout to meta.json + thumb-{size}.webp and rebuild index",
+  },
+  args: {
+    "repo-path": {
+      type: "string",
+      description: "Local git repository path",
+      required: true,
+    },
+    apply: {
+      type: "boolean",
+      description: "Apply changes (default is dry-run)",
+      default: false,
+    },
+  },
+  async run({ args }) {
+    const result = await handleMigrateLayout(args["repo-path"], Boolean(args.apply));
+    process.stdout.write(
+      JSON.stringify(
+        {
+          mode: args.apply ? "apply" : "dry-run",
+          ...result,
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+  },
+});
+
 const syncCommand = defineCommand({
   meta: {
     name: "sync",
@@ -448,6 +746,7 @@ const main = defineCommand({
     upload: uploadCommand,
     resume: resumeCommand,
     validate: validateCommand,
+    "migrate-layout": migrateLayoutCommand,
     sync: syncCommand,
   },
 });

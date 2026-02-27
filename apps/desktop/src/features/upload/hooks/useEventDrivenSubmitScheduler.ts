@@ -4,6 +4,7 @@ import { uploadService } from "@/services/uploadService";
 import { mergeAndValidateMetadata, startBatchUploadWithEvents, type PreparedUploadItem } from "@/lib/tauri/image";
 import { useUploadEventListeners } from "@/hooks/useUploadEventListeners";
 import type { MutableRefObject } from "react";
+import { logger } from "@/lib/logger";
 
 interface ParsedPaths {
   originalPath: string;
@@ -110,7 +111,7 @@ export const useEventDrivenSubmitScheduler = ({
           const finalMetadata = mergeResult.metadata;
 
           if (mergeResult.validation_warnings.length > 0) {
-            console.warn(
+            logger.warn(
               `[Metadata Validation] Image ${item.id}:`,
               mergeResult.validation_warnings
             );
@@ -157,7 +158,7 @@ export const useEventDrivenSubmitScheduler = ({
   useUploadEventListeners({
     onUploadStarted: (payload) => {
       const queueId = resolveQueueId(payload.image_id);
-      console.log(`[Upload] Started: ${payload.image_id} (queue: ${queueId})`);
+      logger.debug(`[Upload] Started: ${payload.image_id} (queue: ${queueId})`);
       updateItemByIdRef.current(queueId, {
         progress: 5,
       });
@@ -165,7 +166,7 @@ export const useEventDrivenSubmitScheduler = ({
 
     onUploadProgress: (payload) => {
       const queueId = resolveQueueId(payload.image_id);
-      console.log(
+      logger.debug(
         `[Upload] Progress: ${payload.image_id} - ${payload.progress}%`
       );
       updateItemByIdRef.current(queueId, {
@@ -176,7 +177,7 @@ export const useEventDrivenSubmitScheduler = ({
     onUploadCompleted: (payload) => {
       const queueId = resolveQueueId(payload.image_id);
       if (payload.success) {
-        console.log(`[Upload] Completed: ${payload.image_id} (queue: ${queueId})`);
+        logger.debug(`[Upload] Completed: ${payload.image_id} (queue: ${queueId})`);
         // 记录成功的 image_id（同步写入 ref，不依赖 React 状态更新）
         successfulIdsRef.current.add(payload.image_id);
         updateItemByIdRef.current(queueId, {
@@ -186,7 +187,7 @@ export const useEventDrivenSubmitScheduler = ({
           error: undefined,
         });
       } else {
-        console.error(
+        logger.error(
           `[Upload] Failed: ${payload.image_id} - ${payload.message}`
         );
         updateItemByIdRef.current(queueId, {
@@ -198,19 +199,19 @@ export const useEventDrivenSubmitScheduler = ({
     },
 
     onBatchUploadStarted: (payload) => {
-      console.log(
+      logger.debug(
         `[Batch Upload] Started: batch_id=${payload.batch_id}, items=${payload.total_items}`
       );
     },
 
     onBatchUploadStats: (payload) => {
-      console.log(
+      logger.debug(
         `[Batch Upload] Stats: completed=${payload.completed}, failed=${payload.failed}, progress=${payload.overall_progress}%`
       );
     },
 
     onBatchUploadCompleted: (payload) => {
-      console.log(
+      logger.debug(
         `[Batch Upload] Completed: successful=${payload.successful_items}, failed=${payload.failed_items}, duration=${payload.total_duration_ms}ms`
       );
 
@@ -232,7 +233,7 @@ export const useEventDrivenSubmitScheduler = ({
         }
       }
 
-      console.log(
+      logger.debug(
         `[Batch Finalize] Candidates: ${finalizeCandidates.length} (successful: ${successfulIdsRef.current.size})`
       );
 
@@ -307,11 +308,11 @@ export const useEventDrivenSubmitScheduler = ({
       // 启动后台批量上传
       const batchId = await startBatchUploadWithEvents(preparedItems);
       setCurrentBatchId(batchId);
-      console.log(
+      logger.debug(
         `[Event-Driven Upload] Batch started with ID: ${batchId}, items: ${preparedItems.length}`
       );
     } catch (error) {
-      console.error("[Event-Driven Upload] Failed to start batch:", error);
+      logger.error("[Event-Driven Upload] Failed to start batch:", error);
       setIsSubmitting(false);
     }
   }, [prepareUploadItems]);

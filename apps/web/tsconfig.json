@@ -17,7 +17,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@luminafe/contracts": ["../../packages/contracts/src/index.ts"],
-      "@luminafe/github-storage": ["../../packages/github-storage/src/index.ts"]
+      "@luminafe/github-storage": ["../../packages/github-storage/src/index.ts"],
+      "@luminafe/gallery-core": ["../../packages/gallery-core/src/index.ts"]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true

@@ -21,7 +21,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@luminafe/contracts": ["../../packages/contracts/src/index.ts"]
+      "@luminafe/contracts": ["../../packages/contracts/src/index.ts"],
+      "@luminafe/gallery-core": ["../../packages/gallery-core/src/index.ts"]
     }
   },
   "include": ["src"],

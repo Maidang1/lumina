@@ -10,6 +10,7 @@ import {
 import { uploadService } from '@/services/uploadService';
 import { parseImageForUploadFromPathOptimized } from '@/lib/tauri/image';
 import type { ParseImageForUploadResultOptimized } from '@/lib/tauri/image';
+import { logger } from '@/lib/logger';
 
 interface ParseUploadItemOptions {
   item: UploadQueueItem;
@@ -80,7 +81,7 @@ export const parseUploadItem = async ({
   });
   const rustParseDuration = performance.now() - rustParseStart;
 
-  console.log(
+  logger.debug(
     `[Performance] Image parse completed in ${rustParseDuration.toFixed(2)}ms`,
     `(file: ${item.file.name}, size: ${(item.file.size / 1024).toFixed(2)}KB)`,
   );
@@ -88,7 +89,7 @@ export const parseUploadItem = async ({
   rustParsed.stageMetrics.forEach((metric) => {
     mapStageFromMetric(updateStage, metric);
     if (metric.duration_ms > 100) {
-      console.log(
+      logger.debug(
         `[Performance] Stage "${metric.task_id}" took ${metric.duration_ms}ms`,
       );
     }
@@ -128,7 +129,7 @@ export const parseUploadItem = async ({
   const taskMetrics = [...rustParsed.stageMetrics, ocrMetric];
 
   const totalDuration = performance.now() - parseStart;
-  console.log(
+  logger.debug(
     `[Performance] Total parse time: ${totalDuration.toFixed(2)}ms`,
     `(Rust: ${rustParseDuration.toFixed(2)}ms, JS overhead: ${(totalDuration - rustParseDuration).toFixed(2)}ms)`,
   );

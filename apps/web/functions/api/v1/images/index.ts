@@ -8,7 +8,6 @@ import {
   buildWeakEtagFromString,
   ifNoneMatchSatisfied,
   mapGitHubErrorToHttp,
-  jsonResponse,
   errorResponse,
   corsHeaders,
 } from "../../../_utils";
@@ -73,126 +72,62 @@ async function handleListImages(request: Request, env: Env): Promise<Response> {
 
     const github = createGitHubClient(env);
     const { index, sha: indexSha } = await github.getImageIndexWithSha();
-    if (index && index.items.length > 0) {
-      const filteredIndex = cursorData
-        ? index.items.filter((item) => {
-            const timeDiff =
-              new Date(cursorData.created_at).getTime() -
-              new Date(item.created_at).getTime();
-            if (timeDiff !== 0) {
-              return timeDiff > 0;
-            }
-            return cursorData.image_id.localeCompare(item.image_id) > 0;
-          })
-        : index.items;
-
-      const pageEntries = filteredIndex.slice(0, limit);
-      const pageMetas = (
-        await Promise.all(
-          pageEntries.map(async (entry) => {
-            try {
-              const metaResponse = await github.getFile(entry.meta_path);
-              const content = decodeBase64Utf8(metaResponse.content);
-              return JSON.parse(content) as ImageMetadata;
-            } catch {
-              return null;
-            }
-          }),
-        )
-      ).filter((item): item is ImageMetadata => item !== null);
-
-      const nextCursor =
-        filteredIndex.length > limit
-          ? encodeImageListCursor({
-              created_at: pageEntries[pageEntries.length - 1].created_at,
-              image_id: pageEntries[pageEntries.length - 1].image_id,
-            })
-          : undefined;
-
-      const pageEtag = indexSha
-        ? `W/"idx:${indexSha}:${cursor || ""}:${limit}"`
-        : undefined;
-
-      return respondWithEtag(
-        {
-          images: pageMetas,
-          next_cursor: nextCursor,
-          total: index.items.length,
-        },
-        pageEtag,
+    if (!index) {
+      return errorResponse(
+        env,
+        "Image index not found. Run migration to create objects/_index/images.json.",
+        503,
       );
     }
 
-    const p1Dirs = await github.listDirectory("objects");
-    const allImages: { image_id: string; meta: ImageMetadata }[] = [];
-    const scanCap = Math.max(limit * 3, 100);
-
-    for (const p1Dir of p1Dirs) {
-      if (p1Dir.type !== "dir") continue;
-      const p2Dirs = await github.listDirectory(p1Dir.path);
-
-      for (const p2Dir of p2Dirs) {
-        if (p2Dir.type !== "dir") continue;
-        const imageDirs = await github.listDirectory(p2Dir.path);
-
-        for (const imageDir of imageDirs) {
-          if (imageDir.type !== "dir") continue;
-          const files = await github.listDirectory(imageDir.path);
-          const metaFile = files.find((f) => f.name === "meta.json");
-
-          if (metaFile) {
-            try {
-              const metaResponse = await github.getFile(metaFile.path);
-              const content = decodeBase64Utf8(metaResponse.content);
-              const meta = JSON.parse(content) as ImageMetadata;
-              allImages.push({ image_id: meta.image_id, meta: meta });
-            } catch {
-              // skip
-            }
-          }
-          if (allImages.length >= scanCap) break;
-        }
-        if (allImages.length >= scanCap) break;
-      }
-      if (allImages.length >= scanCap) break;
-    }
-
-    const sorted = allImages
-      .sort((a, b) => {
-        const timeDiff =
-          new Date(b.meta.timestamps.created_at).getTime() -
-          new Date(a.meta.timestamps.created_at).getTime();
-        if (timeDiff !== 0) return timeDiff;
-        return b.image_id.localeCompare(a.image_id);
-      })
-      .map((item) => item.meta);
-
-    const filtered = cursorData
-      ? sorted.filter((meta) => {
+    const filteredIndex = cursorData
+      ? index.items.filter((item) => {
           const timeDiff =
             new Date(cursorData.created_at).getTime() -
-            new Date(meta.timestamps.created_at).getTime();
+            new Date(item.created_at).getTime();
           if (timeDiff !== 0) {
             return timeDiff > 0;
           }
-          return cursorData.image_id.localeCompare(meta.image_id) > 0;
+          return cursorData.image_id.localeCompare(item.image_id) > 0;
         })
-      : sorted;
+      : index.items;
 
-    const page = filtered.slice(0, limit);
+    const pageEntries = filteredIndex.slice(0, limit);
+    const pageMetas = (
+      await Promise.all(
+        pageEntries.map(async (entry) => {
+          try {
+            const metaResponse = await github.getFile(entry.meta_path);
+            const content = decodeBase64Utf8(metaResponse.content);
+            return JSON.parse(content) as ImageMetadata;
+          } catch {
+            return null;
+          }
+        }),
+      )
+    ).filter((item): item is ImageMetadata => item !== null);
+
+    const hasNextPage = filteredIndex.length > pageEntries.length;
     const nextCursor =
-      filtered.length > limit
+      hasNextPage && pageEntries.length > 0
         ? encodeImageListCursor({
-            created_at: page[page.length - 1].timestamps.created_at,
-            image_id: page[page.length - 1].image_id,
+            created_at: pageEntries[pageEntries.length - 1].created_at,
+            image_id: pageEntries[pageEntries.length - 1].image_id,
           })
         : undefined;
 
-    return respondWithEtag({
-      images: page,
-      next_cursor: nextCursor,
-      total: sorted.length,
-    });
+    const pageEtag = indexSha
+      ? `W/"idx:${indexSha}:${cursor || ""}:${limit}"`
+      : undefined;
+
+    return respondWithEtag(
+      {
+        images: pageMetas,
+        next_cursor: nextCursor,
+        total: index.items.length,
+      },
+      pageEtag,
+    );
   } catch (error) {
     console.error("List error:", error);
     const mapped = mapGitHubErrorToHttp(env, error);

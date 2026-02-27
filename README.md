@@ -6,8 +6,8 @@ Lumina is a photography portfolio monorepo built with React, TypeScript, Rsbuild
 
 - Masonry gallery with EXIF and map display
 - Local image processing (via CLI or Desktop app)
-- Cloudflare Pages Functions API backed by GitHub object storage
-- Token-protected write APIs
+- Cloudflare Pages Functions read-only API backed by GitHub object storage
+- Unified object layout: `meta.json`, `thumb-400.webp|thumb-800.webp|thumb-1600.webp`, `objects/_index/images.json`
 
 ## Workspace Layout
 
@@ -36,7 +36,6 @@ Required values in `apps/web/.dev.vars`:
 
 - `GITHUB_TOKEN`
 - `ALLOW_ORIGIN`
-- `UPLOAD_TOKEN`
 
 `apps/web/wrangler.toml` vars:
 
@@ -61,6 +60,7 @@ Frontend optional vars in `.env.local` / `.env`:
 - `pnpm run cli:dev`: run CLI package in dev mode
 - `pnpm run cli:pack`: dry-run npm package contents for CLI
 - `pnpm run cli:publish`: publish CLI package to npm (public)
+- `pnpm knip`: dependency and dead-code scan
 
 ## Desktop Release
 
@@ -86,13 +86,9 @@ git push origin desktop-v0.1.0
 ```txt
 GET    /api/v1/images               # list images (paginated)
 GET    /api/v1/images/:id           # get metadata
-PATCH  /api/v1/images/:id           # update metadata fields
-DELETE /api/v1/images/:id           # delete image assets
 GET    /api/v1/images/:id/thumb     # redirect to thumbnail
 GET    /api/v1/images/:id/original  # redirect to original
 ```
-
-Mutating APIs (PATCH/DELETE) require header `x-upload-token`.
 
 ## CLI
 
@@ -102,6 +98,7 @@ Main commands:
 - `lumina-upload sync` - Commit and push changes to remote
 - `lumina-upload resume` - Resume pending uploads
 - `lumina-upload validate <input...>` - Validate image files
+- `lumina-upload migrate-layout --repo-path <path> [--apply]` - Migrate legacy layout and rebuild index (`--apply` omitted = dry-run)
 
 Example:
 

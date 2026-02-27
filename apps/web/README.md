@@ -19,8 +19,6 @@ Required in `apps/web/.dev.vars`:
 
 - `GITHUB_TOKEN`
 - `ALLOW_ORIGIN`
-- `UPLOAD_TOKEN`
-- `SHARE_SIGNING_SECRET` (recommended)
 
 `apps/web/wrangler.toml` vars:
 

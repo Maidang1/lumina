@@ -26,7 +26,7 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
 
   useEffect(() => {
     const refreshRepoState = async (): Promise<void> => {
-      const configured = await uploadService.hasUploadToken();
+      const configured = await uploadService.hasRepoPath();
       setIsRepoConfigured(configured);
       if (configured) {
         try {
@@ -114,7 +114,7 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
         return;
       }
       await tauriStorage.setItem("lumina.git_repo_path", selected);
-      const ready = await uploadService.hasUploadToken();
+      const ready = await uploadService.hasRepoPath();
       setIsRepoConfigured(ready);
       if (ready) {
         try {

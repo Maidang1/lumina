@@ -214,7 +214,7 @@ const fetchJson = async <T>(url: string): Promise<T> =>
     return (await response.json()) as T;
   });
 
-export async function reverseGeocodeToRegion(
+async function reverseGeocodeToRegion(
   lat: number,
   lng: number,
 ): Promise<RegionInfo> {

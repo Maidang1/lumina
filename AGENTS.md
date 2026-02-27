@@ -8,8 +8,11 @@ Lumina is a monorepo photography portfolio project built with React, TypeScript,
 
 - Masonry gallery with EXIF and map display
 - Local image processing (via CLI or Desktop app)
-- Cloudflare Pages Functions API backed by GitHub object storage
-- Token-protected write APIs
+- Cloudflare Pages Functions read-only API backed by GitHub object storage
+- Unified object layout:
+  - metadata file: `meta.json`
+  - thumb variants: `thumb-400.webp`, `thumb-800.webp`, `thumb-1600.webp`
+  - image index: `objects/_index/images.json`
 
 ## Build Commands
 
@@ -31,6 +34,9 @@ pnpm run dev:full
 
 # Type check
 pnpm run typecheck
+
+# Dead code/dependency check
+pnpm run knip
 
 # Build CLI package
 pnpm run cli:build
@@ -59,7 +65,6 @@ pnpm run cli:publish
 2. Fill required values in `apps/web/.dev.vars`:
    - `GITHUB_TOKEN`
    - `ALLOW_ORIGIN`
-   - `UPLOAD_TOKEN`
 3. Start local development:
    ```bash
    pnpm run dev:full
@@ -82,6 +87,7 @@ lumina/
 │   │   └── wrangler.toml
 │   └── desktop/
 ├── packages/
+│   ├── gallery-core/
 │   ├── contracts/
 │   ├── github-storage/
 │   ├── image-core-native/
@@ -97,13 +103,9 @@ lumina/
 ```txt
 GET    /api/v1/images               # list images (paginated)
 GET    /api/v1/images/:id           # get metadata
-PATCH  /api/v1/images/:id           # update metadata fields
-DELETE /api/v1/images/:id           # delete image assets
 GET    /api/v1/images/:id/thumb     # redirect to thumbnail
 GET    /api/v1/images/:id/original  # redirect to original
 ```
-
-Mutating APIs (PATCH/DELETE) require header `x-upload-token`.
 
 ## Architecture Notes
 
@@ -124,7 +126,6 @@ Mutating APIs (PATCH/DELETE) require header `x-upload-token`.
 
 - `GITHUB_TOKEN` (required)
 - `ALLOW_ORIGIN` (required)
-- `UPLOAD_TOKEN` (required for PATCH/DELETE)
 
 ### `apps/web/wrangler.toml` vars
 

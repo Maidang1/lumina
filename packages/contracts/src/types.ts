@@ -4,7 +4,7 @@ export interface Env {
   GH_REPO: string;
   GH_BRANCH: string;
   ALLOW_ORIGIN: string;
-  UPLOAD_TOKEN: string;
+  UPLOAD_TOKEN?: string;
   SHARE_SIGNING_SECRET?: string;
 }
 

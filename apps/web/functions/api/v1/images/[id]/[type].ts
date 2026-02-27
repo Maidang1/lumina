@@ -11,10 +11,10 @@ import {
   corsHeaders,
 } from "../../../../_utils";
 
-const LEGACY_VARIANT_NAME_MAP: Record<"400" | "800" | "1600", string[]> = {
-  "400": ["thumb-400.webp", "thumb_400.webp", "thumb_sm.webp"],
-  "800": ["thumb-800.webp", "thumb_800.webp", "thumb_md.webp"],
-  "1600": ["thumb-1600.webp", "thumb_1600.webp", "thumb_lg.webp"],
+const VARIANT_NAME_MAP: Record<"400" | "800" | "1600", string> = {
+  "400": "thumb-400.webp",
+  "800": "thumb-800.webp",
+  "1600": "thumb-1600.webp",
 };
 
 export const onRequest: PagesFunction<Env> = async (context) => {
@@ -81,7 +81,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         type === "original"
           ? f.name.startsWith("original.")
           : isVariantSize
-            ? LEGACY_VARIANT_NAME_MAP[sizeParam].includes(f.name)
+            ? f.name === VARIANT_NAME_MAP[sizeParam]
             : f.name === "thumb.webp",
       )?.path;
 
