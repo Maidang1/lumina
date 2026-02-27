@@ -29,6 +29,7 @@ const ManagePage: React.FC = () => {
     handleBatchDelete,
     handleBatchDownload,
     handleBatchTag,
+    handleToggleBatchMode,
     handleSelectAllVisible,
     handleClearSelection,
   } = useBatchPhotoActions({
@@ -37,7 +38,7 @@ const ManagePage: React.FC = () => {
     setPhotoTags,
     onDeletePhoto: handleDeletePhoto,
     onDeleteTokenMissing: markDeleteTokenMissing,
-    initialBatchMode: true,
+    initialBatchMode: false,
   });
 
   return (
@@ -48,9 +49,11 @@ const ManagePage: React.FC = () => {
       <main className="space-y-6">
         <ManageToolbar
           viewMode={viewMode}
+          isBatchMode={isBatchMode}
           selectedCount={selectedIds.size}
           onSelectAllVisible={handleSelectAllVisible}
           onChangeViewMode={setViewMode}
+          onToggleBatchMode={handleToggleBatchMode}
         />
 
         <div className="flex flex-col gap-6">
