@@ -41,10 +41,11 @@ const ManagePage: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <div className="p-8 max-w-6xl mx-auto">
       <ManageHeader />
 
-      <main className="mx-auto w-full max-w-[1720px] space-y-6 px-5 sm:px-8">
+      <main className="space-y-6">
         <ManageToolbar
           viewMode={viewMode}
           selectedCount={selectedIds.size}
@@ -71,7 +72,7 @@ const ManagePage: React.FC = () => {
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/[0.06] border-t-[#c9a962]/60" />
               </div>
               <p className="text-xs font-light tracking-wide text-lumina-text-secondary">
-                Loading gallery...
+                加载照片库...
               </p>
             </div>
           ) : viewMode === "list" ? (
@@ -93,6 +94,7 @@ const ManagePage: React.FC = () => {
           )}
         </div>
       </main>
+      </div>
     </div>
   );
 };

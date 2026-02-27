@@ -25,7 +25,7 @@ export function SettingsPage(): React.ReactElement {
     setSaveMessage('');
     try {
       await refreshRepoStatus();
-      setSaveMessage('设置已保存');
+      setSaveMessage('仓库状态已刷新');
       setTimeout(() => setSaveMessage(''), 2000);
     } finally {
       setIsSaving(false);
@@ -138,7 +138,7 @@ export function SettingsPage(): React.ReactElement {
               className="px-6 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 disabled:text-zinc-500 rounded-md text-sm transition-colors flex items-center gap-2"
             >
               {isSaving && <Loader2 className="animate-spin" size={14} />}
-              保存设置
+              验证仓库状态
             </button>
           </div>
         </main>
