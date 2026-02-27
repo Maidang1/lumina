@@ -6,6 +6,7 @@ export interface ParseConfig {
   blurThreshold?: number;
   enableRegionResolve?: boolean;
   generateThumbVariants?: boolean;
+  parseProfile?: "quality" | "turbo";
 }
 
 export interface FormatReport {

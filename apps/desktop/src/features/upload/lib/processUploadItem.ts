@@ -4,6 +4,7 @@ import {
   ProcessingStage,
   ProcessingSummary,
   ProcessingTaskMetric,
+  UploadParseProfile,
   UploadQueueItem,
   UploadResult,
 } from '@/types/photo';
@@ -16,6 +17,7 @@ interface ParseUploadItemOptions {
   item: UploadQueueItem;
   updateItem: (updates: Partial<UploadQueueItem>) => void;
   updateStage: (stageId: string, updates: Partial<ProcessingStage>) => void;
+  parseProfile?: UploadParseProfile;
 }
 
 interface SubmitUploadItemOptions {
@@ -57,6 +59,7 @@ export const parseUploadItem = async ({
   item,
   updateItem,
   updateStage,
+  parseProfile,
 }: ParseUploadItemOptions): Promise<ParsedUploadItemResult> => {
   const parseStart = performance.now();
   const fileWithPath = item.file as File & { path?: string };
@@ -64,12 +67,16 @@ export const parseUploadItem = async ({
   if (!parsePath) {
     throw new Error('Missing local file path for Rust parser');
   }
+  const effectiveProfile = parseProfile ?? DEFAULT_UPLOAD_CONFIG.parseProfile;
   const config = {
     maxThumbSize: DEFAULT_UPLOAD_CONFIG.maxThumbSize,
     thumbQuality: DEFAULT_UPLOAD_CONFIG.thumbQuality,
     blurThreshold: DEFAULT_UPLOAD_CONFIG.blurThreshold,
-    enableRegionResolve: DEFAULT_UPLOAD_CONFIG.enableRegionResolve,
-    generateThumbVariants: DEFAULT_UPLOAD_CONFIG.generateThumbVariants,
+    enableRegionResolve:
+      effectiveProfile === 'turbo' ? false : DEFAULT_UPLOAD_CONFIG.enableRegionResolve,
+    generateThumbVariants:
+      effectiveProfile === 'turbo' ? false : DEFAULT_UPLOAD_CONFIG.generateThumbVariants,
+    parseProfile: effectiveProfile,
     useOptimized: true,  // 使用优化版本，获取文件路径
   };
 

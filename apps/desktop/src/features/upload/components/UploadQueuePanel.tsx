@@ -74,6 +74,11 @@ function canPreviewItem(item: UploadQueueItem): boolean {
   );
 }
 
+function formatElapsedMs(elapsedMs?: number): string {
+  if (!elapsedMs || elapsedMs <= 0) return "0.0s";
+  return `${(elapsedMs / 1000).toFixed(1)}s`;
+}
+
 const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   queue,
   totalBytes,
@@ -316,6 +321,17 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
             onUpdateCategory;
 
           const runtimeMetric = metrics[item.id];
+          const activeParsingStage = item.stages.find(
+            (stage) => stage.status === "processing",
+          );
+          const latestCompletedStage =
+            [...item.stages]
+              .reverse()
+              .find((stage) => stage.status === "completed") ?? null;
+          const parsingStageName = activeParsingStage?.name || latestCompletedStage?.name;
+          const parsingElapsedMs = activeParsingStage?.started_at
+            ? Date.now() - activeParsingStage.started_at
+            : undefined;
 
           return (
             <div
@@ -410,6 +426,13 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                           value={item.progress}
                           className="h-1 w-28 bg-white/10"
                         />
+                      )}
+                      {isProcessing && (
+                        <span className="text-[11px] text-zinc-500">
+                          {parsingStageName
+                            ? `阶段: ${parsingStageName}`
+                            : "正在解析图像..."} · 已耗时 {formatElapsedMs(parsingElapsedMs)}
+                        </span>
                       )}
                       {isUploading && (
                         <span className="text-[11px] text-zinc-500">

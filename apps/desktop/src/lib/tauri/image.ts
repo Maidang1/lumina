@@ -1,12 +1,15 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { ImageMetadata, ProcessingTaskMetric } from '@/types/photo';
 
+export type ParseProfile = 'quality' | 'turbo';
+
 interface ParseImageConfig {
   maxThumbSize?: number;
   thumbQuality?: number;
   blurThreshold?: number;
   enableRegionResolve?: boolean;
   generateThumbVariants?: boolean;
+  parseProfile?: ParseProfile;
   useOptimized?: boolean;  // 新增：是否使用优化版本（返回路径而不是二进制数据）
 }
 
@@ -190,4 +193,3 @@ export async function startBatchUploadWithEvents(
 ): Promise<string> {
   return invoke<string>('start_batch_upload_with_events', { items });
 }
-

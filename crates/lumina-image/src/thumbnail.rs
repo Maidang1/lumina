@@ -13,12 +13,22 @@ pub fn resize_inside(image: &DynamicImage, max_size: u32) -> DynamicImage {
 }
 
 pub fn encode_webp(image: &DynamicImage, quality: f64) -> Result<Vec<u8>> {
+    encode_webp_with_method(image, quality, 4)
+}
+
+pub fn encode_webp_with_method(image: &DynamicImage, quality: f64, method: i32) -> Result<Vec<u8>> {
     let rgba = image.to_rgba8();
     let (w, h) = image.dimensions();
     let encoder = webp::Encoder::from_rgba(rgba.as_raw(), w, h);
-    let q = (quality * 100.0).clamp(1.0, 100.0) as f32;
-    let config = webp::WebPConfig::new().map_err(|_| anyhow::anyhow!("failed to create webp config"))?;
-    Ok(encoder.encode_advanced(&config).map(|m| m.to_vec()).unwrap_or_else(|_| encoder.encode(q).to_vec()))
+    let mut config =
+        webp::WebPConfig::new().map_err(|_| anyhow::anyhow!("failed to create webp config"))?;
+    config.lossless = 0;
+    config.quality = (quality * 100.0).clamp(1.0, 100.0) as f32;
+    config.method = method.clamp(0, 6);
+    let encoded = encoder
+        .encode_advanced(&config)
+        .map_err(|e| anyhow::anyhow!("failed to encode webp: {:?}", e))?;
+    Ok(encoded.to_vec())
 }
 
 pub fn encode_jpeg(image: &DynamicImage, quality: u8) -> Result<Vec<u8>> {

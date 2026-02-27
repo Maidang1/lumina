@@ -164,6 +164,8 @@ export interface UploadQueueItem {
   taskMetrics?: ProcessingTaskMetric[];
 }
 
+export type UploadParseProfile = "quality" | "turbo";
+
 interface UploadConfig {
   maxFileSize: number;
   maxThumbSize: number;
@@ -172,6 +174,7 @@ interface UploadConfig {
   blurThreshold: number;
   enableRegionResolve: boolean;
   generateThumbVariants: boolean;
+  parseProfile: UploadParseProfile;
 }
 
 export const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
@@ -182,6 +185,7 @@ export const DEFAULT_UPLOAD_CONFIG: UploadConfig = {
   blurThreshold: 100,
   enableRegionResolve: true, // 默认开启地理位置解析
   generateThumbVariants: true, // 仍然生成缩略图变体，但可配置
+  parseProfile: "quality",
 };
 
 ;

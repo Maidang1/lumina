@@ -30,16 +30,28 @@ pub async fn parse_image(
 ) -> Result<ParseImageResult> {
     let pipeline_start = Instant::now();
     let config = config.unwrap_or_default();
+    let parse_profile = config.parse_profile.unwrap_or_default();
     let max_thumb_size = config.max_thumb_size.unwrap_or(1024);
     let thumb_quality = config.thumb_quality.unwrap_or(0.78).clamp(0.1, 1.0);
     let blur_threshold = config.blur_threshold.unwrap_or(100.0);
-    let enable_region_resolve = config.enable_region_resolve.unwrap_or(false);
-    let generate_thumb_variants = config.generate_thumb_variants.unwrap_or(true);
+    let enable_region_resolve = config.enable_region_resolve.unwrap_or(match parse_profile {
+        ParseProfile::Turbo => false,
+        ParseProfile::Quality => false,
+    });
+    let generate_thumb_variants = config.generate_thumb_variants.unwrap_or(match parse_profile {
+        ParseProfile::Turbo => false,
+        ParseProfile::Quality => true,
+    });
+    let webp_method = match parse_profile {
+        ParseProfile::Turbo => 3,
+        ParseProfile::Quality => 4,
+    };
 
     let mut task_metrics: Vec<ProcessingTaskMetric> = Vec::new();
+    let mut input_bytes = bytes;
 
     let t_format = Instant::now();
-    let detected_mime = detect_mime(&bytes, &file_name, &declared_mime);
+    let detected_mime = detect_mime(&input_bytes, &file_name, &declared_mime);
     let should_convert = !is_browser_supported(&detected_mime);
     task_metrics.push(ProcessingTaskMetric {
         task_id: "format_validate".to_string(),
@@ -48,27 +60,31 @@ pub async fn parse_image(
         degraded: None,
     });
 
-    let t_decode_exif = Instant::now();
-    let bytes_for_exif = bytes.clone();
-    let detected_mime_clone = detected_mime.clone();
-    let (decode_result, exif_result) = rayon::join(
-        || decode_image(&bytes, &detected_mime_clone),
-        || extract_exif_summary(&bytes_for_exif),
+    let ((decode_result, decode_ms), (exif_result, exif_ms)) = rayon::join(
+        || {
+            let t_decode = Instant::now();
+            let result = decode_image(&input_bytes, &detected_mime);
+            (result, t_decode.elapsed().as_millis() as u64)
+        },
+        || {
+            let t_exif = Instant::now();
+            let result = extract_exif_summary(&input_bytes);
+            (result, t_exif.elapsed().as_millis() as u64)
+        },
     );
     let source_image = decode_result
         .with_context(|| format!("unsupported/invalid image format: {}", detected_mime))?;
     let exif_summary = exif_result.unwrap_or_default();
-    let decode_exif_duration = t_decode_exif.elapsed().as_millis() as u64;
     task_metrics.push(ProcessingTaskMetric {
         task_id: "decode".to_string(),
         status: "completed".to_string(),
-        duration_ms: decode_exif_duration / 2,
+        duration_ms: decode_ms,
         degraded: None,
     });
     task_metrics.push(ProcessingTaskMetric {
         task_id: "exif".to_string(),
         status: "completed".to_string(),
-        duration_ms: decode_exif_duration / 2,
+        duration_ms: exif_ms,
         degraded: None,
     });
 
@@ -81,14 +97,34 @@ pub async fn parse_image(
     };
 
     let t_normalize = Instant::now();
-    let can_skip_normalize = is_browser_supported(&detected_mime) && !needs_orientation;
-    let (normalized_original_bytes, normalized_original_mime, normalized_original_filename, actually_converted) = 
+    let bake_orientation_into_original = !matches!(parse_profile, ParseProfile::Turbo);
+    let can_skip_normalize = is_browser_supported(&detected_mime)
+        && (!needs_orientation || !bake_orientation_into_original);
+    let (
+        normalized_original_bytes,
+        normalized_original_mime,
+        normalized_original_filename,
+        actually_converted,
+        used_original_bytes_directly,
+    ) =
         if can_skip_normalize {
-            (bytes.clone(), detected_mime.clone(), file_name.clone(), false)
+            (
+                std::mem::take(&mut input_bytes),
+                detected_mime.clone(),
+                file_name.clone(),
+                false,
+                true,
+            )
         } else {
             let quality = if should_convert { 90 } else { 95 };
             let encoded = encode_jpeg(&oriented_image, quality)?;
-            (encoded, "image/jpeg".to_string(), replace_extension(&file_name, "jpg"), true)
+            (
+                encoded,
+                "image/jpeg".to_string(),
+                replace_extension(&file_name, "jpg"),
+                true,
+                false,
+            )
         };
     task_metrics.push(ProcessingTaskMetric {
         task_id: "normalize_original".to_string(),
@@ -98,7 +134,12 @@ pub async fn parse_image(
     });
 
     let t_hash = Instant::now();
-    let image_id = sha256_with_prefix(&bytes);
+    let hash_source = if used_original_bytes_directly {
+        normalized_original_bytes.as_slice()
+    } else {
+        input_bytes.as_slice()
+    };
+    let image_id = sha256_with_prefix(hash_source);
     task_metrics.push(ProcessingTaskMetric {
         task_id: "hash".to_string(),
         status: "completed".to_string(),
@@ -113,7 +154,7 @@ pub async fn parse_image(
     let cascaded_images = generate_cascaded_thumbnails(&oriented_image, max_thumb_size, generate_thumb_variants);
 
     let thumb_image = &cascaded_images.main_thumb;
-    let thumb_bytes = encode_webp(thumb_image, thumb_quality)?;
+    let thumb_bytes = encode_webp_with_method(thumb_image, thumb_quality, webp_method)?;
     let (thumb_w, thumb_h) = thumb_image.dimensions();
 
     let variant_images = &cascaded_images.variants;
@@ -125,7 +166,7 @@ pub async fn parse_image(
                     .par_iter()
                     .map(|(size, img)| {
                         let (vw, vh) = img.dimensions();
-                        let variant_bytes = encode_webp(img, thumb_quality)?;
+                        let variant_bytes = encode_webp_with_method(img, thumb_quality, webp_method)?;
                         Ok((*size, vw, vh, variant_bytes))
                     })
                     .collect();
@@ -279,17 +320,22 @@ fn generate_cascaded_thumbnails(
         .collect();
     sorted_sizes.sort_by(|a, b| b.cmp(a));
 
-    let mut variants: Vec<(u32, DynamicImage)> = Vec::new();
-    let mut current_source = source.clone();
-
+    let mut variants: Vec<(u32, DynamicImage)> = Vec::with_capacity(sorted_sizes.len());
     for size in &sorted_sizes {
-        let resized = resize_inside(&current_source, *size);
-        variants.push((*size, resized.clone()));
-        current_source = resized;
+        let resized = if let Some((_, previous)) = variants.last() {
+            resize_inside(previous, *size)
+        } else {
+            resize_inside(source, *size)
+        };
+        variants.push((*size, resized));
     }
 
     let main_thumb = if max_thumb_size < *sorted_sizes.last().unwrap_or(&max_dim) {
-        resize_inside(&current_source, max_thumb_size)
+        if let Some((_, smallest_variant)) = variants.last() {
+            resize_inside(smallest_variant, max_thumb_size)
+        } else {
+            resize_inside(source, max_thumb_size)
+        }
     } else if let Some((_, img)) = variants.iter().find(|(s, _)| *s <= max_thumb_size) {
         img.clone()
     } else {

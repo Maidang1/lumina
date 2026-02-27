@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::time::Instant;
 
 use anyhow::{Context, Result};
-use lumina_image::{ParseConfig, ParseImageResult};
+use lumina_image::{ParseConfig, ParseImageResult, ParseProfile};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
@@ -26,6 +27,22 @@ fn get_upload_cache_dir() -> Result<std::path::PathBuf> {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TauriParseProfile {
+    Quality,
+    Turbo,
+}
+
+impl From<TauriParseProfile> for ParseProfile {
+    fn from(value: TauriParseProfile) -> Self {
+        match value {
+            TauriParseProfile::Quality => ParseProfile::Quality,
+            TauriParseProfile::Turbo => ParseProfile::Turbo,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TauriParseConfig {
     pub max_thumb_size: Option<u32>,
@@ -33,6 +50,7 @@ pub struct TauriParseConfig {
     pub blur_threshold: Option<f64>,
     pub enable_region_resolve: Option<bool>,
     pub generate_thumb_variants: Option<bool>,
+    pub parse_profile: Option<TauriParseProfile>,
 }
 
 impl From<TauriParseConfig> for ParseConfig {
@@ -43,6 +61,7 @@ impl From<TauriParseConfig> for ParseConfig {
             blur_threshold: config.blur_threshold,
             enable_region_resolve: config.enable_region_resolve,
             generate_thumb_variants: config.generate_thumb_variants,
+            parse_profile: config.parse_profile.map(|value| value.into()),
         }
     }
 }
@@ -92,6 +111,15 @@ pub struct ParseImageForUploadResultOptimized {
     pub stage_metrics: Vec<ProcessingTaskMetric>,
 }
 
+fn build_stage_metric(task_id: &str, status: &str, duration_ms: u64) -> ProcessingTaskMetric {
+    ProcessingTaskMetric {
+        task_id: task_id.to_string(),
+        status: status.to_string(),
+        duration_ms,
+        degraded: None,
+    }
+}
+
 fn convert_result(result: ParseImageResult) -> ParseImageForUploadResult {
     let stage_metrics: Vec<ProcessingTaskMetric> = result
         .stage_metrics
@@ -127,7 +155,9 @@ pub async fn parse_image_for_upload_from_path(
     declared_mime: Option<String>,
     config: Option<TauriParseConfig>,
 ) -> Result<ParseImageForUploadResult, String> {
+    let read_start = Instant::now();
     let bytes = fs::read(&path).map_err(|e| format!("failed to read file: {}", e))?;
+    let read_duration_ms = read_start.elapsed().as_millis() as u64;
     let file_name = Path::new(&path)
         .file_name()
         .and_then(|name| name.to_str())
@@ -136,10 +166,16 @@ pub async fn parse_image_for_upload_from_path(
     let mime = declared_mime.unwrap_or_else(|| "application/octet-stream".to_string());
     let lumina_config = config.map(|c| c.into());
 
-    lumina_image::parse_image(file_name, mime, bytes, lumina_config)
+    let mut converted = lumina_image::parse_image(file_name, mime, bytes, lumina_config)
         .await
         .map(convert_result)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    let mut stage_metrics = Vec::with_capacity(converted.stage_metrics.len() + 1);
+    stage_metrics.push(build_stage_metric("read_file", "completed", read_duration_ms));
+    stage_metrics.extend(converted.stage_metrics);
+    converted.stage_metrics = stage_metrics;
+    Ok(converted)
 }
 
 #[tauri::command]
@@ -148,7 +184,9 @@ pub async fn parse_image_for_upload_from_path_optimized(
     declared_mime: Option<String>,
     config: Option<TauriParseConfig>,
 ) -> Result<ParseImageForUploadResultOptimized, String> {
+    let read_start = Instant::now();
     let bytes = fs::read(&path).map_err(|e| format!("failed to read file: {}", e))?;
+    let read_duration_ms = read_start.elapsed().as_millis() as u64;
     let file_name = Path::new(&path)
         .file_name()
         .and_then(|name| name.to_str())
@@ -161,6 +199,7 @@ pub async fn parse_image_for_upload_from_path_optimized(
         .await
         .map_err(|e| e.to_string())?;
 
+    let write_start = Instant::now();
     let cache_dir = get_upload_cache_dir().map_err(|e| e.to_string())?;
 
     let session_id = uuid::Uuid::new_v4().to_string();
@@ -180,6 +219,7 @@ pub async fn parse_image_for_upload_from_path_optimized(
         std::fs::write(&variant_path, bytes).map_err(|e| e.to_string())?;
         thumb_variants_paths.insert(size.clone(), variant_path.to_string_lossy().to_string());
     }
+    let write_duration_ms = write_start.elapsed().as_millis() as u64;
 
     let stage_metrics: Vec<ProcessingTaskMetric> = result
         .stage_metrics
@@ -191,6 +231,14 @@ pub async fn parse_image_for_upload_from_path_optimized(
             degraded: m.degraded,
         })
         .collect();
+    let mut end_to_end_stage_metrics = Vec::with_capacity(stage_metrics.len() + 2);
+    end_to_end_stage_metrics.push(build_stage_metric("read_file", "completed", read_duration_ms));
+    end_to_end_stage_metrics.extend(stage_metrics);
+    end_to_end_stage_metrics.push(build_stage_metric(
+        "write_cache",
+        "completed",
+        write_duration_ms,
+    ));
 
     Ok(ParseImageForUploadResultOptimized {
         normalized_original_path: normalized_original_path.to_string_lossy().to_string(),
@@ -205,7 +253,7 @@ pub async fn parse_image_for_upload_from_path_optimized(
             converted: result.format_report.converted,
             reason: result.format_report.reason,
         },
-        stage_metrics,
+        stage_metrics: end_to_end_stage_metrics,
     })
 }
 

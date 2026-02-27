@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { tauriStorage } from '@/lib/tauri/storage';
 import { getRepoStatus } from '@/lib/tauri/github';
+import { UploadParseProfile } from '@/types/photo';
 
 interface SettingsState {
   repoPath: string;
   concurrency: number;
+  parseProfile: UploadParseProfile;
 }
 
 interface UseSettingsStoreResult extends SettingsState {
@@ -13,6 +15,7 @@ interface UseSettingsStoreResult extends SettingsState {
   isRepoReady: boolean;
   updateRepoPath: (repoPath: string) => Promise<void>;
   updateConcurrency: (concurrency: number) => Promise<void>;
+  updateParseProfile: (profile: UploadParseProfile) => Promise<void>;
   refreshRepoStatus: (pathOverride?: string) => Promise<void>;
   saveAll: () => Promise<void>;
 }
@@ -20,12 +23,14 @@ interface UseSettingsStoreResult extends SettingsState {
 const STORAGE_KEYS = {
   REPO_PATH: 'lumina.git_repo_path',
   CONCURRENCY: 'lumina.concurrency',
+  PARSE_PROFILE: 'lumina.parse_profile',
 };
 
 export function useSettingsStore(): UseSettingsStoreResult {
   const [isLoading, setIsLoading] = useState(true);
   const [repoPath, setRepoPath] = useState('');
   const [concurrency, setConcurrency] = useState(3);
+  const [parseProfile, setParseProfile] = useState<UploadParseProfile>('quality');
   const [repoStatusMessage, setRepoStatusMessage] = useState('未选择仓库');
   const [isRepoReady, setIsRepoReady] = useState(false);
 
@@ -54,13 +59,17 @@ export function useSettingsStore(): UseSettingsStoreResult {
   useEffect(() => {
     const loadSettings = async (): Promise<void> => {
       try {
-        const [savedRepoPath, concurrencyStr] = await Promise.all([
+        const [savedRepoPath, concurrencyStr, savedParseProfile] = await Promise.all([
           tauriStorage.getItem(STORAGE_KEYS.REPO_PATH),
           tauriStorage.getItem(STORAGE_KEYS.CONCURRENCY),
+          tauriStorage.getItem(STORAGE_KEYS.PARSE_PROFILE),
         ]);
 
         setRepoPath(savedRepoPath || '');
         setConcurrency(concurrencyStr ? parseInt(concurrencyStr, 10) : 3);
+        if (savedParseProfile === 'quality' || savedParseProfile === 'turbo') {
+          setParseProfile(savedParseProfile);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -84,21 +93,29 @@ export function useSettingsStore(): UseSettingsStoreResult {
     await tauriStorage.setItem(STORAGE_KEYS.CONCURRENCY, String(normalized));
   }, []);
 
+  const updateParseProfile = useCallback(async (profile: UploadParseProfile): Promise<void> => {
+    setParseProfile(profile);
+    await tauriStorage.setItem(STORAGE_KEYS.PARSE_PROFILE, profile);
+  }, []);
+
   const saveAll = useCallback(async (): Promise<void> => {
     await Promise.all([
       tauriStorage.setItem(STORAGE_KEYS.REPO_PATH, repoPath),
       tauriStorage.setItem(STORAGE_KEYS.CONCURRENCY, String(concurrency)),
+      tauriStorage.setItem(STORAGE_KEYS.PARSE_PROFILE, parseProfile),
     ]);
-  }, [repoPath, concurrency]);
+  }, [concurrency, parseProfile, repoPath]);
 
   return {
     isLoading,
     repoPath,
     concurrency,
+    parseProfile,
     repoStatusMessage,
     isRepoReady,
     updateRepoPath,
     updateConcurrency,
+    updateParseProfile,
     refreshRepoStatus,
     saveAll,
   };

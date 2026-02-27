@@ -13,16 +13,23 @@ pub struct ParseConfig {
     pub blur_threshold: Option<f64>,
     pub enable_region_resolve: Option<bool>,
     pub generate_thumb_variants: Option<bool>,
+    pub parse_profile: Option<String>,
 }
 
 impl From<ParseConfig> for LuminaParseConfig {
     fn from(config: ParseConfig) -> Self {
+        let parse_profile = match config.parse_profile.as_deref() {
+            Some("turbo") => Some(lumina_image::ParseProfile::Turbo),
+            Some("quality") => Some(lumina_image::ParseProfile::Quality),
+            _ => None,
+        };
         LuminaParseConfig {
             max_thumb_size: config.max_thumb_size,
             thumb_quality: config.thumb_quality,
             blur_threshold: config.blur_threshold,
             enable_region_resolve: config.enable_region_resolve,
             generate_thumb_variants: config.generate_thumb_variants,
+            parse_profile,
         }
     }
 }

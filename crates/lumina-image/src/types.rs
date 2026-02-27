@@ -1,6 +1,19 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+#[derive(Debug, Clone, Copy, Deserialize, Eq, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ParseProfile {
+    Quality,
+    Turbo,
+}
+
+impl Default for ParseProfile {
+    fn default() -> Self {
+        Self::Quality
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ParseConfig {
     pub max_thumb_size: Option<u32>,
@@ -8,6 +21,7 @@ pub struct ParseConfig {
     pub blur_threshold: Option<f64>,
     pub enable_region_resolve: Option<bool>,
     pub generate_thumb_variants: Option<bool>,
+    pub parse_profile: Option<ParseProfile>,
 }
 
 #[derive(Debug, Clone, Serialize)]

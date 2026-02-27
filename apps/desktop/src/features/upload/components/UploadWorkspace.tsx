@@ -10,6 +10,7 @@ import { useEventDrivenSubmitScheduler } from "@/features/upload/hooks/useEventD
 import { selectDirectory, selectFiles } from "@/lib/tauri/dialog";
 import { getFileInfo } from "@/lib/tauri/fs";
 import { tauriStorage } from "@/lib/tauri/storage";
+import { DEFAULT_UPLOAD_CONFIG, UploadParseProfile } from "@/types/photo";
 
 // 功能标志：启用事件驱动上传（性能优化）
 const USE_EVENT_DRIVEN_UPLOAD = true;
@@ -23,6 +24,9 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
 }) => {
   const [isRepoConfigured, setIsRepoConfigured] = useState(false);
   const [repoHint, setRepoHint] = useState("");
+  const [parseProfile, setParseProfile] = useState<UploadParseProfile>(
+    DEFAULT_UPLOAD_CONFIG.parseProfile,
+  );
 
   useEffect(() => {
     const refreshRepoState = async (): Promise<void> => {
@@ -42,6 +46,16 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
     void refreshRepoState();
   }, []);
 
+  useEffect(() => {
+    const loadParseProfile = async (): Promise<void> => {
+      const raw = await tauriStorage.getItem("lumina.parse_profile");
+      if (raw === "quality" || raw === "turbo") {
+        setParseProfile(raw);
+      }
+    };
+    void loadParseProfile();
+  }, []);
+
   const {
     queue,
     parsedPathsRef,
@@ -57,6 +71,7 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
   const { parseWorkerCount } = useParseScheduler({
     queue,
     isTokenConfigured: isRepoConfigured,
+    parseProfile,
     updateItemById,
     updateStageById,
     parsedPathsRef,

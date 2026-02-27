@@ -8,10 +8,12 @@ export function SettingsPage(): React.ReactElement {
     isLoading,
     repoPath,
     concurrency,
+    parseProfile,
     repoStatusMessage,
     isRepoReady,
     updateRepoPath,
     updateConcurrency,
+    updateParseProfile,
     refreshRepoStatus,
   } = useSettingsStore();
 
@@ -103,6 +105,28 @@ export function SettingsPage(): React.ReactElement {
                   onChange={(e) => void updateConcurrency(parseInt(e.target.value, 10) || 1)}
                 />
               </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-zinc-300">解析模式</p>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Quality 保持完整功能；Turbo 速度更快但可能影响地图信息和大图细节。
+                  </p>
+                </div>
+                <select
+                  className="w-32 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md text-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-600"
+                  value={parseProfile}
+                  onChange={(e) => void updateParseProfile((e.target.value === 'turbo' ? 'turbo' : 'quality'))}
+                >
+                  <option value="quality">Quality</option>
+                  <option value="turbo">Turbo</option>
+                </select>
+              </div>
+              {parseProfile === 'turbo' && (
+                <p className="text-xs text-amber-400">
+                  Turbo 模式会优先性能，可能关闭区域解析/缩略图变体/方向烘焙，建议批量导入场景使用。
+                </p>
+              )}
             </div>
           </section>
 

@@ -3,8 +3,20 @@ mod github;
 
 use tauri::Manager;
 
+fn configure_rayon_global_pool() {
+    let logical_cpus = std::thread::available_parallelism()
+        .map(|value| value.get())
+        .unwrap_or(4);
+    let target_threads = std::cmp::max(2, logical_cpus / 2);
+    let _ = rayon::ThreadPoolBuilder::new()
+        .num_threads(target_threads)
+        .build_global();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    configure_rayon_global_pool();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
