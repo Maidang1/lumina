@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Photo } from "@/features/photos/types";
 import {
   RegionAggregate,
   RegionBoundaryResult,
 } from "@/features/photos/types/map";
-import { getRegionBoundary } from "@/features/photos/services/geoRegionService";
+import { getRegionBoundary, clearBoundaryCache } from "@/features/photos/services/geoRegionService";
 import {
   GeoPoint,
   buildGeoPoints,
@@ -26,6 +26,7 @@ interface UseMapRegionDataResult {
   boundaryByRegionKey: Record<string, RegionBoundaryResult | null>;
   isResolvingRegions: boolean;
   isLoadingBoundaries: boolean;
+  refreshBoundaries: () => void;
 }
 
 export const useMapRegionData = (photos: Photo[]): UseMapRegionDataResult => {
@@ -98,6 +99,12 @@ export const useMapRegionData = (photos: Photo[]): UseMapRegionDataResult => {
     };
   }, [boundaryByRegionKey, provinceAggregates]);
 
+  const refreshBoundaries = useCallback(() => {
+    clearBoundaryCache();
+    boundaryRetryCountRef.current = {};
+    setBoundaryByRegionKey({});
+  }, []);
+
   return {
     activeMonth,
     setActiveMonth,
@@ -111,5 +118,6 @@ export const useMapRegionData = (photos: Photo[]): UseMapRegionDataResult => {
     boundaryByRegionKey,
     isResolvingRegions,
     isLoadingBoundaries,
+    refreshBoundaries,
   };
 };

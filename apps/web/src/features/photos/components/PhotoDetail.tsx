@@ -2,7 +2,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { Photo } from "@/features/photos/types";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
-import PhotoDetailInfoPanel from "@/features/photos/components/photo-detail/PhotoDetailInfoPanel";
+import { InfoPanel } from "@/features/photos/components/photo-detail/InfoPanel";
 import PhotoDetailOverlay from "@/features/photos/components/photo-detail/PhotoDetailOverlay";
 import PhotoDetailControls from "@/features/photos/components/photo-detail/PhotoDetailControls";
 import PhotoDetailMediaStage from "@/features/photos/components/photo-detail/PhotoDetailMediaStage";
@@ -110,7 +110,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
             animate={{ opacity: isClosing ? 0 : 1, x: isClosing ? 24 : 0 }}
             transition={{ duration: 0.2, delay: infoPanelDelay }}
           >
-            <PhotoDetailInfoPanel photo={photo} tags={tags} />
+            <InfoPanel photo={photo} tags={tags} />
           </motion.div>
         </motion.div>
       </DialogContent>

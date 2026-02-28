@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { MapPin } from "lucide-react";
+import { MapPin, RefreshCw } from "lucide-react";
 import { Photo } from "@/features/photos/types";
 import { MagicCard } from "@/shared/magicui/magic-card";
 import MapSidePanel from "@/features/photos/components/photo-map/MapSidePanel";
@@ -28,6 +28,8 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({
     selectedRegionKey,
     setSelectedRegionKey,
     boundaryByRegionKey,
+    isLoadingBoundaries,
+    refreshBoundaries,
   } = useMapRegionData(photos);
 
   const { mapReady, mapError } = useLeafletMapLayer({
@@ -55,6 +57,15 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({
               {visiblePoints.length} points
             </span>
           </div>
+          <button
+            type="button"
+            onClick={refreshBoundaries}
+            disabled={isLoadingBoundaries}
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-gray-400 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
+            title="Refresh map boundaries"
+          >
+            <RefreshCw size={14} className={isLoadingBoundaries ? "animate-spin" : ""} />
+          </button>
         </div>
       </MagicCard>
 

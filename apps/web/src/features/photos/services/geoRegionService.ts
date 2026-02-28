@@ -100,6 +100,17 @@ const getBoundaryCache = (): Record<string, RegionBoundaryResult | null> => {
   return boundaryMemoryCache;
 };
 
+export const clearBoundaryCache = (): void => {
+  boundaryMemoryCache = {};
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(BOUNDARY_CACHE_KEY);
+    } catch {
+      // ignore storage errors
+    }
+  }
+};
+
 const queueRequest = async <T>(task: () => Promise<T>): Promise<T> => {
   const run = async (): Promise<T> => {
     const now = Date.now();
