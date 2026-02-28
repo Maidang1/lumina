@@ -1,13 +1,40 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@luminafe/theme/tokens.css";
+@import "@luminafe/theme/effects.css";
 
-@layer base {
-  * {
-    @apply border-zinc-800;
-  }
+@theme {
+  --font-sans: "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --font-serif: "Songti SC", "Noto Serif SC", "Source Han Serif SC", serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
 
-  body {
-    @apply bg-zinc-950 text-zinc-50;
-  }
+  --color-lumina-bg: var(--lumina-bg);
+  --color-lumina-surface: var(--lumina-surface);
+  --color-lumina-surface-elevated: var(--lumina-surface-elevated);
+  --color-lumina-border: var(--lumina-border);
+  --color-lumina-border-subtle: var(--lumina-border-subtle);
+  --color-lumina-text: var(--lumina-text);
+  --color-lumina-text-secondary: var(--lumina-text-secondary);
+  --color-lumina-muted: var(--lumina-muted);
+  --color-lumina-accent: var(--lumina-accent);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 500px at 15% -100px, rgba(255, 255, 255, 0.05), transparent 60%),
+    radial-gradient(900px 420px at 85% 120%, rgba(255, 255, 255, 0.035), transparent 62%),
+    var(--lumina-bg);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
 }

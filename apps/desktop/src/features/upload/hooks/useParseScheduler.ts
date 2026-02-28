@@ -31,6 +31,56 @@ interface UseParseSchedulerResult {
   parseWorkerCount: number;
 }
 
+function trimErrorMessage(message: string, maxLength = 1200): string {
+  const normalized = message.trim().replace(/\s+/g, " ");
+  if (!normalized) {
+    return "Parse failed";
+  }
+  return normalized.length > maxLength
+    ? `${normalized.slice(0, maxLength)}...`
+    : normalized;
+}
+
+function extractErrorMessage(error: unknown): string {
+  if (typeof error === "string") {
+    return trimErrorMessage(error);
+  }
+  if (error instanceof Error) {
+    const chunks = [error.message];
+    const withCause = error as Error & { cause?: unknown };
+    if (withCause.cause) {
+      chunks.push(extractErrorMessage(withCause.cause));
+    }
+    return trimErrorMessage(chunks.filter(Boolean).join(" | "));
+  }
+  if (error && typeof error === "object") {
+    const candidate = error as {
+      message?: unknown;
+      error?: unknown;
+      reason?: unknown;
+      details?: unknown;
+    };
+    const chunks = [
+      candidate.message,
+      candidate.error,
+      candidate.reason,
+      candidate.details,
+    ]
+      .filter((value): value is string => typeof value === "string")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (chunks.length > 0) {
+      return trimErrorMessage(chunks.join(" | "));
+    }
+    try {
+      return trimErrorMessage(JSON.stringify(error));
+    } catch {
+      return "Parse failed";
+    }
+  }
+  return "Parse failed";
+}
+
 const PARSE_HEARTBEAT_MS = 350;
 const PARSE_STAGE_ORDER = [
   "format_validate",
@@ -175,10 +225,13 @@ export const useParseScheduler = ({
           parseError: undefined,
         });
       } catch (error) {
+        const detail = extractErrorMessage(error);
+        const parseHint = `file=${item.sourceName || item.file.name}, profile=${parseProfile}`;
+        const parseError = trimErrorMessage(`${detail} | ${parseHint}`);
         updateItemById(item.id, {
           status: "parse_failed",
-          parseError: error instanceof Error ? error.message : "Parse failed",
-          error: error instanceof Error ? error.message : "Parse failed",
+          parseError,
+          error: parseError,
         });
       } finally {
         stopParseHeartbeat(item.id);

@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { animated, to, useSpring } from "@react-spring/web";
+import { motion } from "motion/react";
 import { Photo, PhotoOpenTransition } from "@/features/photos/types";
 import { thumbhashToDataUrl } from "@/features/photos/services/thumbhash";
 import { imagePrefetchService } from "@/features/photos/services/imagePrefetchService";
@@ -42,30 +42,6 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
     [photo.metadata?.thumbhash],
   );
 
-  const enterSpring = useSpring({
-    from: {
-      opacity: 0,
-      y: prefersReducedMotion ? 0 : 24,
-      scale: prefersReducedMotion ? 1 : 0.97,
-    },
-    to: {
-      opacity: isVisible ? 1 : 0,
-      y: isVisible ? 0 : prefersReducedMotion ? 0 : 12,
-      scale: isVisible ? 1 : prefersReducedMotion ? 1 : 0.97,
-    },
-    delay: prefersReducedMotion ? 0 : Math.min(index, 20) * 50,
-    config: { tension: 200, friction: 28 },
-  });
-
-  const hoverSpring = useSpring({
-    to: {
-      scale: isHovered && !prefersReducedMotion ? 1.008 : 1,
-      overlayOpacity: isHovered ? 1 : 0,
-      overlayY: isHovered && !prefersReducedMotion ? 0 : 16,
-    },
-    config: { tension: 280, friction: 32 },
-  });
-
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     const handleMotionChange = (event: MediaQueryListEvent): void => {
@@ -79,7 +55,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
+        if (entries[0]?.isIntersecting) {
           setIsVisible(true);
           observer.disconnect();
         }
@@ -175,7 +151,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   ]);
 
   return (
-    <animated.div
+    <motion.div
       ref={cardRef}
       className={`group relative mb-0 w-full break-inside-avoid overflow-hidden bg-[#060606] transition-colors duration-200 ${canActivate ? "cursor-pointer" : "cursor-default"}`}
       role={canActivate ? "button" : undefined}
@@ -187,6 +163,13 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
             ? `Select photo ${photo.title}`
             : undefined
       }
+      initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 24, scale: prefersReducedMotion ? 1 : 0.97 }}
+      animate={{ opacity: isVisible ? 1 : 0, y: isVisible ? 0 : prefersReducedMotion ? 0 : 12, scale: isHovered && !prefersReducedMotion ? 1.008 : 1 }}
+      transition={{
+        opacity: { duration: 0.35, delay: prefersReducedMotion ? 0 : Math.min(index, 20) * 0.05 },
+        y: { duration: 0.35, delay: prefersReducedMotion ? 0 : Math.min(index, 20) * 0.05 },
+        scale: { duration: 0.18 },
+      }}
       onClick={handleActivate}
       onKeyDown={(event) => {
         if (!canActivate) return;
@@ -229,21 +212,12 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
           }`}
         >
           {isSelected && (
-            <span className="block h-2 w-2 bg-black rounded-full" />
+            <span className="block h-2 w-2 rounded-full bg-black" />
           )}
         </span>
       )}
 
-      <animated.div
-        className="h-full w-full will-change-transform"
-        style={{
-          opacity: enterSpring.opacity,
-          transform: to(
-            [enterSpring.y, hoverSpring.scale],
-            (y, scale) => `translate3d(0, ${y}px, 0) scale(${scale})`,
-          ),
-        }}
-      >
+      <div className="h-full w-full will-change-transform">
         {isVisible && thumbhashDataUrl && (
           <img
             src={thumbhashDataUrl}
@@ -262,7 +236,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
             onLoad={() => setIsLoaded(true)}
           />
         )}
-      </animated.div>
+      </div>
 
       {!compact && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex translate-y-2 flex-col justify-end p-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 sm:p-5">
@@ -298,7 +272,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
           </div>
         </div>
       )}
-    </animated.div>
+    </motion.div>
   );
 };
 

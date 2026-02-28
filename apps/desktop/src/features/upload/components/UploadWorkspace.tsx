@@ -144,17 +144,17 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
     };
 
     return (
-      <div className="flex flex-col items-center justify-center h-96 text-center">
-        <div className="bg-zinc-900 rounded-lg p-8 border border-zinc-800 max-w-md">
-          <h3 className="text-xl font-semibold mb-2">未配置仓库</h3>
-          <p className="text-zinc-400 mb-4">
+      <div className="flex h-[420px] flex-col items-center justify-center text-center">
+        <div className="max-w-md rounded-xl border border-white/10 bg-white/[0.03] p-8 shadow-[var(--shadow-elevation-2)] backdrop-blur-sm">
+          <h3 className="mb-2 text-xl font-semibold text-[var(--foreground)]">未配置仓库</h3>
+          <p className="mb-4 text-sm text-[var(--muted-foreground)]">
             需要先选择一个本地 Git 仓库作为照片存储目录。
           </p>
-          <div className="flex flex-col gap-3 items-center">
+          <div className="flex flex-col items-center gap-3">
             <button
               type="button"
               onClick={() => void handleChooseRepo()}
-              className="px-4 py-2 rounded-md bg-sky-600 text-white text-sm hover:bg-sky-500 transition-colors"
+              className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm text-[var(--primary-foreground)] transition-opacity hover:opacity-90"
             >
               立即选择仓库
             </button>
@@ -162,7 +162,7 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={onNavigateToSettings}
-                className="text-sm text-zinc-400 hover:text-zinc-200 underline underline-offset-2 transition-colors"
+                className="text-sm text-[var(--muted-foreground)] underline underline-offset-2 transition-colors hover:text-[var(--foreground)]"
               >
                 前往设置页配置
               </button>
@@ -174,9 +174,13 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      <header className="rounded-xl border border-white/10 bg-white/[0.03] px-5 py-4 backdrop-blur-sm">
+        <h1 className="text-2xl font-semibold text-[var(--foreground)]">照片上传</h1>
+        <p className="mt-1 text-sm text-[var(--muted-foreground)]">上传会写入本地 Git 工作区，不会自动提交；请手动执行 Commit & Push</p>
+      </header>
       {repoHint && (
-        <div className="rounded-lg border border-emerald-700/40 bg-emerald-950/20 px-4 py-3 text-sm text-emerald-200">
+        <div className="rounded-lg border border-emerald-700/30 bg-emerald-950/20 px-4 py-3 text-sm text-emerald-200">
           当前仓库: <span className="font-medium">{repoHint}</span>。上传后请点击左侧 `Commit & Push` 完成同步。
         </div>
       )}
@@ -243,7 +247,7 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
       )}
 
       {queue.length === 0 && isRepoConfigured && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 text-sm text-zinc-400">
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 text-sm text-[var(--muted-foreground)]">
           建议流程: 1) 选择照片并写入仓库 2) 在管理页确认结果 3) 点击左侧 `Commit & Push` 推送远端。
         </div>
       )}

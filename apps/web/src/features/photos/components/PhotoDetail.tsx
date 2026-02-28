@@ -1,5 +1,5 @@
 import React from "react";
-import { animated } from "@react-spring/web";
+import { motion } from "motion/react";
 import { Photo } from "@/features/photos/types";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
 import PhotoDetailInfoPanel from "@/features/photos/components/photo-detail/PhotoDetailInfoPanel";
@@ -44,9 +44,9 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
 
   const {
     transitionState,
-    overlaySpring,
-    controlsSpring,
-    infoPanelSpring,
+    isClosing,
+    controlsDelay,
+    infoPanelDelay,
     handleRequestClose,
   } = usePhotoDetailTransition({
     photo,
@@ -73,10 +73,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
       }}
     >
       <DialogContent className="h-screen w-screen max-w-none overflow-hidden rounded-none border-0 bg-transparent p-0 [&>button]:hidden">
-        <PhotoDetailOverlay
-          thumbnailUrl={photo.thumbnail}
-          opacity={overlaySpring.opacity}
-        />
+        <PhotoDetailOverlay thumbnailUrl={photo.thumbnail} isClosing={isClosing} />
 
         <PhotoDetailControls
           canPrev={canPrev}
@@ -84,14 +81,17 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           onClose={handleRequestClose}
           onPrev={onPrev}
           onNext={onNext}
-          controlsOpacity={controlsSpring.opacity}
-          controlsTransform={controlsSpring.transform}
-          isClosing={transitionState === "closing"}
+          isClosing={isClosing}
+          delay={controlsDelay}
         />
 
-        <animated.div
-          className={`absolute inset-0 flex h-full w-full overflow-hidden ${transitionState === "closing" ? "pointer-events-none" : ""}`}
-          style={{ opacity: overlaySpring.opacity }}
+        <motion.div
+          className={`absolute inset-0 flex h-full w-full overflow-hidden ${
+            transitionState === "closing" ? "pointer-events-none" : ""
+          }`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: isClosing ? 0 : 1 }}
+          transition={{ duration: 0.2 }}
         >
           <PhotoDetailMediaStage
             photo={photo}
@@ -104,19 +104,15 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
             onOriginalError={handleOriginalError}
           />
 
-          <animated.div
-            className="absolute inset-x-0 bottom-0 h-[44svh] w-full shrink-0 border-t border-white/10 bg-black/70 backdrop-blur-xl will-change-transform md:static md:h-full md:w-[360px] md:border-l md:border-t-0 md:bg-black/40 lg:w-[420px]"
-            style={{
-              opacity: infoPanelSpring.opacity,
-              transform: infoPanelSpring.transform,
-            }}
+          <motion.div
+            className="absolute inset-x-0 bottom-0 h-[44svh] w-full shrink-0 border-t border-white/10 bg-black/70 backdrop-blur-xl will-change-transform md:static md:h-full md:w-[360px] md:border-t-0 md:border-l md:bg-black/40 lg:w-[420px]"
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: isClosing ? 0 : 1, x: isClosing ? 24 : 0 }}
+            transition={{ duration: 0.2, delay: infoPanelDelay }}
           >
-            <PhotoDetailInfoPanel
-              photo={photo}
-              tags={tags}
-            />
-          </animated.div>
-        </animated.div>
+            <PhotoDetailInfoPanel photo={photo} tags={tags} />
+          </motion.div>
+        </motion.div>
       </DialogContent>
     </Dialog>
   );

@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { MapPin } from "lucide-react";
 import { Photo } from "@/features/photos/types";
+import { MagicCard } from "@/shared/magicui/magic-card";
 import MapSidePanel from "@/features/photos/components/photo-map/MapSidePanel";
 import { useMapRegionData } from "@/features/photos/components/photo-map/useMapRegionData";
 import { useLeafletMapLayer } from "@/features/photos/components/photo-map/useLeafletMapLayer";
@@ -44,16 +45,18 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({
   });
 
   return (
-    <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#0a0a0a]">
-      <div className="absolute left-3 top-3 z-[400] flex max-w-[calc(100vw-24px)] flex-wrap items-center gap-2 rounded-2xl border border-white/[0.12] bg-[#141414]/88 px-3 py-2 shadow-[0_14px_38px_rgba(0,0,0,0.42)] backdrop-blur-lg transition-colors duration-200 hover:bg-[#161616]/95 sm:left-4 sm:top-4 sm:gap-3 sm:px-4 sm:py-2.5">
-        <div className="flex items-center gap-2 text-gray-200">
-          <MapPin size={16} className="text-gray-400" />
-          <h2 className="text-sm font-medium">Map Footprint</h2>
-          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-gray-400">
-            {visiblePoints.length} points
-          </span>
+    <section className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0a]">
+      <MagicCard className="absolute top-3 left-3 z-[400] max-w-[calc(100vw-24px)] rounded-2xl sm:top-4 sm:left-4">
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 sm:py-2.5">
+          <div className="flex items-center gap-2 text-gray-200">
+            <MapPin size={16} className="text-gray-400" />
+            <h2 className="text-sm font-medium">Map Footprint</h2>
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-gray-400">
+              {visiblePoints.length} points
+            </span>
+          </div>
         </div>
-      </div>
+      </MagicCard>
 
       <div className="relative h-full w-full">
         <style>{`
@@ -98,14 +101,16 @@ const PhotoMapView: React.FC<PhotoMapViewProps> = ({
           </div>
         )}
 
-        <div className="absolute bottom-3 left-3 right-3 z-[400] overflow-hidden rounded-2xl border border-white/[0.12] bg-[#141414]/88 p-2.5 shadow-[0_14px_36px_rgba(0,0,0,0.42)] backdrop-blur-lg sm:bottom-6 sm:left-auto sm:right-4 sm:w-64 sm:max-w-[calc(100vw-32px)] sm:p-3">
-          <MapSidePanel
-            activeMonth={activeMonth}
-            monthBuckets={monthBuckets}
-            onMonthChange={setActiveMonth}
-            visiblePointsCount={visiblePoints.length}
-          />
-        </div>
+        <MagicCard className="absolute right-3 bottom-3 left-3 z-[400] overflow-hidden rounded-2xl sm:right-4 sm:bottom-6 sm:left-auto sm:w-64 sm:max-w-[calc(100vw-32px)]">
+          <div className="p-2.5 sm:p-3">
+            <MapSidePanel
+              activeMonth={activeMonth}
+              monthBuckets={monthBuckets}
+              onMonthChange={setActiveMonth}
+              visiblePointsCount={visiblePoints.length}
+            />
+          </div>
+        </MagicCard>
       </div>
     </section>
   );

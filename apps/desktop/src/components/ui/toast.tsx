@@ -8,9 +8,9 @@ interface ActiveToast extends ToastPayload {
 const TOAST_LIFETIME_MS = 3200;
 
 const typeClass: Record<ToastPayload["type"], string> = {
-  info: "border-zinc-700/70 bg-zinc-900/95 text-zinc-100",
-  success: "border-emerald-600/70 bg-emerald-950/95 text-emerald-100",
-  error: "border-rose-600/70 bg-rose-950/95 text-rose-100",
+  info: "border-white/12 bg-[var(--card)]/92 text-[var(--foreground)]",
+  success: "border-emerald-500/35 bg-emerald-950/78 text-emerald-100",
+  error: "border-rose-500/35 bg-rose-950/78 text-rose-100",
 };
 
 export function ToastViewport(): React.ReactElement | null {
@@ -45,11 +45,11 @@ export function ToastViewport(): React.ReactElement | null {
   }
 
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-[1000] flex w-[min(90vw,360px)] flex-col gap-2">
+    <div className="pointer-events-none fixed top-4 right-4 z-[1000] flex w-[min(92vw,380px)] flex-col gap-2">
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`rounded-md border px-3 py-2 text-xs shadow-lg backdrop-blur ${typeClass[toast.type]}`}
+          className={`rounded-lg border px-3 py-2.5 text-xs leading-relaxed shadow-[var(--shadow-elevation-2)] backdrop-blur-md transition-opacity ${typeClass[toast.type]}`}
         >
           {toast.message}
         </div>

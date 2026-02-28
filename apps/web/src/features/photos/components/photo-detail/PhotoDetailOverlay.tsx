@@ -1,14 +1,22 @@
 import React from "react";
-import { animated, SpringValue } from "@react-spring/web";
+import { motion } from "motion/react";
 
 interface PhotoDetailOverlayProps {
   thumbnailUrl: string;
-  opacity: SpringValue<number>;
+  isClosing: boolean;
 }
 
-const PhotoDetailOverlay: React.FC<PhotoDetailOverlayProps> = ({ thumbnailUrl, opacity }) => {
+const PhotoDetailOverlay: React.FC<PhotoDetailOverlayProps> = ({
+  thumbnailUrl,
+  isClosing,
+}) => {
   return (
-    <animated.div className="fixed inset-0 z-0 bg-black/95" style={{ opacity }}>
+    <motion.div
+      className="fixed inset-0 z-0 bg-black/95"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: isClosing ? 0 : 1 }}
+      transition={{ duration: 0.2 }}
+    >
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 blur-3xl saturate-150"
         style={{
@@ -17,7 +25,7 @@ const PhotoDetailOverlay: React.FC<PhotoDetailOverlayProps> = ({ thumbnailUrl, o
         }}
       />
       <div className="absolute inset-0 bg-black/20" />
-    </animated.div>
+    </motion.div>
   );
 };
 

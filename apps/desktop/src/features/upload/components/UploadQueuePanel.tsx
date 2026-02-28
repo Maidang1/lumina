@@ -17,7 +17,11 @@ interface UploadQueuePanelProps {
   onEditItem?: (id: string) => void;
   isEditEnabled?: boolean;
   onUpdateCategory?: (id: string, category: string, save?: boolean) => void;
-  onUpdateDescription?: (id: string, description: string, save?: boolean) => void;
+  onUpdateDescription?: (
+    id: string,
+    description: string,
+    save?: boolean,
+  ) => void;
 }
 
 interface UploadRuntimeMetric {
@@ -79,6 +83,59 @@ function formatElapsedMs(elapsedMs?: number): string {
   return `${(elapsedMs / 1000).toFixed(1)}s`;
 }
 
+function getPrimaryError(item: UploadQueueItem): string {
+  return item.uploadError || item.parseError || item.error || "Unknown error";
+}
+
+function getErrorDetailLines(item: UploadQueueItem): string[] {
+  const details: string[] = [];
+  const seenMessages = new Set<string>();
+  const pushIfUnique = (label: string, message?: string): void => {
+    const normalized = (message || "").trim();
+    if (!normalized || seenMessages.has(normalized)) {
+      return;
+    }
+    seenMessages.add(normalized);
+    details.push(`${label}: ${normalized}`);
+  };
+
+  pushIfUnique("Parse", item.parseError);
+  pushIfUnique("Upload", item.uploadError);
+  pushIfUnique("Error", item.error);
+
+  item.stages.forEach((stage) => {
+    const stageError = (stage.error || "").trim();
+    if (stageError && !seenMessages.has(stageError)) {
+      seenMessages.add(stageError);
+      details.push(`Stage[${stage.name}]: ${stageError}`);
+    }
+  });
+
+  const unique = Array.from(
+    new Set(details.map((line) => line.trim()).filter(Boolean)),
+  );
+  return unique.length > 0 ? unique : ["Unknown error"];
+}
+
+function getErrorHint(item: UploadQueueItem): string | null {
+  const joined = [
+    item.parseError || "",
+    item.uploadError || "",
+    item.error || "",
+    ...item.stages.map((stage) => stage.error || ""),
+  ]
+    .join(" | ")
+    .toLowerCase();
+
+  if (
+    joined.includes("unsupported/invalid image format") &&
+    (joined.includes("image/heic") || joined.includes("image/heif"))
+  ) {
+    return "当前解析器不支持 HEIC/HEIF。请先转换为 JPG/PNG 后再上传。";
+  }
+  return null;
+}
+
 const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   queue,
   totalBytes,
@@ -89,12 +146,28 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   onUpdateCategory,
   onUpdateDescription,
 }) => {
-  const previousRef = useRef<Map<string, { progress: number; bytesUploaded: number; timestamp: number; speedBps: number }>>(
-    new Map(),
+  const previousRef = useRef<
+    Map<
+      string,
+      {
+        progress: number;
+        bytesUploaded: number;
+        timestamp: number;
+        speedBps: number;
+      }
+    >
+  >(new Map());
+  const [metrics, setMetrics] = useState<Record<string, UploadRuntimeMetric>>(
+    {},
   );
-  const [metrics, setMetrics] = useState<Record<string, UploadRuntimeMetric>>({});
   const [overall, setOverall] = useState<UploadRuntimeMetric>({ speedBps: 0 });
-  const [previewItemId, setPreviewItemId] = useState<string | null>(null);
+  const [hoverPreviewItemId, setHoverPreviewItemId] = useState<string | null>(
+    null,
+  );
+  const [hoverErrorItemId, setHoverErrorItemId] = useState<string | null>(null);
+  const [hoverFailedReason, setHoverFailedReason] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     const now = Date.now();
@@ -121,14 +194,22 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
 
       const prev = nextPrev.get(item.id);
       if (!prev) {
-        nextPrev.set(item.id, { progress, bytesUploaded, timestamp: now, speedBps: 0 });
+        nextPrev.set(item.id, {
+          progress,
+          bytesUploaded,
+          timestamp: now,
+          speedBps: 0,
+        });
         return;
       }
 
       const dt = Math.max(0.001, (now - prev.timestamp) / 1000);
       const deltaBytes = Math.max(0, bytesUploaded - prev.bytesUploaded);
       const instantSpeed = deltaBytes / dt;
-      const smoothSpeed = instantSpeed > 0 ? prev.speedBps * 0.6 + instantSpeed * 0.4 : prev.speedBps * 0.85;
+      const smoothSpeed =
+        instantSpeed > 0
+          ? prev.speedBps * 0.6 + instantSpeed * 0.4
+          : prev.speedBps * 0.85;
 
       nextPrev.set(item.id, {
         progress,
@@ -161,137 +242,111 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   }, [queue]);
 
   const failedReasonStats = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { count: number; samples: string[] }>();
     queue
-      .filter((item) =>
-        item.status === "failed" ||
-        item.status === "parse_failed" ||
-        item.status === "upload_failed",
+      .filter(
+        (item) =>
+          item.status === "failed" ||
+          item.status === "parse_failed" ||
+          item.status === "upload_failed",
       )
       .forEach((item) => {
-        const reason = (item.uploadError || item.parseError || item.error || "Unknown error").trim();
-        map.set(reason, (map.get(reason) || 0) + 1);
+        const reason = getPrimaryError(item).trim();
+        const existing = map.get(reason);
+        const sample = `${getItemName(item)}: ${getErrorDetailLines(item).join(" | ")}`;
+        if (existing) {
+          existing.count += 1;
+          if (
+            existing.samples.length < 3 &&
+            !existing.samples.includes(sample)
+          ) {
+            existing.samples.push(sample);
+          }
+        } else {
+          map.set(reason, { count: 1, samples: [sample] });
+        }
       });
     return Array.from(map.entries())
-      .map(([reason, count]) => ({ reason, count }))
-      .sort((a, b) => b.count - a.count);
+      .map(([reason, payload]) => ({
+        reason,
+        count: payload.count,
+        samples: payload.samples,
+      }))
+      .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
   }, [queue]);
 
   useEffect(() => {
-    if (previewItemId) {
-      const exists = queue.some((item) => item.id === previewItemId && canPreviewItem(item));
-      if (!exists) {
-        setPreviewItemId(null);
-      }
+    if (!hoverPreviewItemId) {
       return;
     }
-
-    const firstParsed = queue.find((item) => canPreviewItem(item));
-    if (firstParsed) {
-      setPreviewItemId(firstParsed.id);
+    const exists = queue.some(
+      (item) => item.id === hoverPreviewItemId && canPreviewItem(item),
+    );
+    if (!exists) {
+      setHoverPreviewItemId(null);
     }
-  }, [previewItemId, queue]);
-
-  const previewItem = useMemo(
-    () => queue.find((item) => item.id === previewItemId && canPreviewItem(item)),
-    [previewItemId, queue],
-  );
+  }, [hoverPreviewItemId, queue]);
 
   if (queue.length === 0) {
     return null;
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-[#0a0a0a]">
-      <div className="border-b border-white/5 px-4 py-3">
-        <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400">
-          <span>
-            Queue {queue.length}
-          </span>
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] shadow-[var(--shadow-elevation-1)] backdrop-blur-sm">
+      <div className="border-b border-white/8 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-4 text-xs text-[var(--muted-foreground)]">
+          <span>Queue {queue.length}</span>
           <span>
             Workers {activeWorkers}/{workerCount}
           </span>
-          <span>
-            Total {formatBytes(totalBytes)}
-          </span>
+          <span>Total {formatBytes(totalBytes)}</span>
           <span className="inline-flex items-center gap-1">
             <Gauge size={12} />
             {formatSpeed(overall.speedBps)}
           </span>
-          <span>
-            ETA {formatEta(overall.etaSeconds)}
-          </span>
+          <span>ETA {formatEta(overall.etaSeconds)}</span>
         </div>
       </div>
 
       {failedCount > 0 && failedReasonStats.length > 0 && (
-        <div className="border-b border-white/5 bg-rose-500/5 px-4 py-3">
+        <div className="border-b border-white/8 bg-rose-500/5 px-4 py-3">
           <div className="mb-2 inline-flex items-center gap-2 text-xs text-rose-300">
             <AlertTriangle size={12} />
             {failedCount} failure(s)
           </div>
           <div className="space-y-1">
             {failedReasonStats.slice(0, 4).map((entry) => (
-              <div key={entry.reason} className="flex items-start justify-between gap-3 text-xs text-rose-200/90">
-                <span className="truncate" title={entry.reason}>{entry.reason}</span>
+              <div
+                key={entry.reason}
+                className="relative flex items-start justify-between gap-3 text-xs text-rose-200/90"
+                onMouseEnter={() => setHoverFailedReason(entry.reason)}
+                onMouseLeave={() =>
+                  setHoverFailedReason((current) =>
+                    current === entry.reason ? null : current,
+                  )
+                }
+              >
+                <span className="truncate" title={entry.reason}>
+                  {entry.reason}
+                </span>
                 <span className="shrink-0 text-rose-300">x{entry.count}</span>
+                {hoverFailedReason === entry.reason &&
+                  entry.samples.length > 0 && (
+                    <div className="absolute right-0 top-full z-30 mt-2 w-[520px] max-w-[85vw] rounded-lg border border-rose-400/30 bg-zinc-950/95 p-3 shadow-2xl backdrop-blur-md">
+                      <p className="mb-2 text-xs font-medium text-rose-200">
+                        错误详情样例
+                      </p>
+                      <div className="space-y-1.5 text-[11px] text-rose-100/90">
+                        {entry.samples.map((sample) => (
+                          <p key={sample} className="break-words leading-4">
+                            {sample}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {previewItem?.metadata && (
-        <div className="border-b border-white/5 bg-white/[0.02] px-4 py-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-white">解析预览</p>
-              <p className="text-xs text-zinc-400" title={getItemName(previewItem)}>
-                {getItemName(previewItem)}
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs text-zinc-300 hover:bg-white/10"
-              onClick={() => setPreviewItemId(null)}
-            >
-              关闭
-            </Button>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-[120px_1fr]">
-            <div className="h-[90px] w-[120px] overflow-hidden rounded-md border border-white/10 bg-white/5">
-              {previewItem.thumbnail ? (
-                <img src={previewItem.thumbnail} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-zinc-500">
-                  <ImageIcon size={16} />
-                </div>
-              )}
-            </div>
-
-            <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2 lg:grid-cols-3">
-              <span>尺寸: {previewItem.metadata.derived?.dimensions?.width} x {previewItem.metadata.derived?.dimensions?.height}</span>
-              <span>MIME: {previewItem.metadata.files?.original?.mime || "unknown"}</span>
-              <span>主色: {previewItem.metadata.derived?.dominant_color?.hex || "-"}</span>
-              <span>
-                模糊分:{" "}
-                {typeof previewItem.metadata.derived?.blur?.score === "number"
-                  ? previewItem.metadata.derived.blur.score.toFixed(2)
-                  : "-"}
-              </span>
-              <span>是否模糊: {previewItem.metadata.derived?.blur?.is_blurry ? "是" : "否"}</span>
-              <span>pHash: {previewItem.metadata.derived?.phash?.value || "-"}</span>
-              <span>相机: {previewItem.metadata.exif?.Model || "-"}</span>
-              <span>镜头: {previewItem.metadata.exif?.LensModel || "-"}</span>
-              <span>ISO: {previewItem.metadata.exif?.ISO || "-"}</span>
-              <span>省份: {previewItem.metadata.geo?.region?.province || "-"}</span>
-              <span>拍摄时间: {previewItem.metadata.exif?.DateTimeOriginal || "-"}</span>
-              <span>OCR: {previewItem.metadata.derived?.ocr?.status || "-"}</span>
-              <span>总耗时: {previewItem.metadata.processing?.summary?.total_ms ?? 0} ms</span>
-            </div>
           </div>
         </div>
       )}
@@ -328,7 +383,8 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
             [...item.stages]
               .reverse()
               .find((stage) => stage.status === "completed") ?? null;
-          const parsingStageName = activeParsingStage?.name || latestCompletedStage?.name;
+          const parsingStageName =
+            activeParsingStage?.name || latestCompletedStage?.name;
           const parsingElapsedMs = activeParsingStage?.started_at
             ? Date.now() - activeParsingStage.started_at
             : undefined;
@@ -336,7 +392,7 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
           return (
             <div
               key={item.id}
-              className="group flex items-center justify-between gap-4 p-4 hover:bg-white/[0.02]"
+              className="group flex items-center justify-between gap-4 p-4 hover:bg-white/[0.03]"
             >
               <div className="flex items-center gap-4 overflow-hidden">
                 <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded bg-white/5">
@@ -348,14 +404,17 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">
-                      <ImageIcon size={16} className="text-white/20" />
+                      <ImageIcon
+                        size={16}
+                        className="text-[var(--foreground)]/20"
+                      />
                     </div>
                   )}
                 </div>
 
                 <div className="min-w-0 flex-1">
                   <p
-                    className="truncate text-sm font-medium text-white"
+                    className="truncate text-sm font-medium text-[var(--foreground)]"
                     title={getItemName(item)}
                   >
                     {getItemName(item)}
@@ -373,7 +432,7 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                       <Input
                         type="text"
                         placeholder="Description..."
-                        className="h-7 w-full flex-1 border-white/10 bg-white/5 px-2 text-xs text-white placeholder:text-zinc-600 focus-visible:ring-sky-500/50"
+                        className="h-7 w-full flex-1 border-[var(--border)] bg-white/[0.04] px-2 text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus-visible:ring-[var(--ring)]"
                         defaultValue={
                           item.editDraft?.description ??
                           item.metadata?.description ??
@@ -392,9 +451,11 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                       <Input
                         type="text"
                         placeholder="Category..."
-                        className="h-7 w-20 border-white/10 bg-white/5 px-2 text-xs text-white placeholder:text-zinc-600 focus-visible:ring-sky-500/50"
+                        className="h-7 w-20 border-[var(--border)] bg-white/[0.04] px-2 text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus-visible:ring-[var(--ring)]"
                         defaultValue={
-                          item.editDraft?.category ?? item.metadata?.category ?? ""
+                          item.editDraft?.category ??
+                          item.metadata?.category ??
+                          ""
                         }
                         onBlur={(e) =>
                           onUpdateCategory?.(item.id, e.target.value, true)
@@ -416,7 +477,7 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                             ? "text-emerald-500"
                             : isFailed
                               ? "text-red-500"
-                              : "text-zinc-400",
+                              : "text-[var(--muted-foreground)]",
                         )}
                       >
                         {statusText}
@@ -431,7 +492,8 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                         <span className="text-[11px] text-zinc-500">
                           {parsingStageName
                             ? `阶段: ${parsingStageName}`
-                            : "正在解析图像..."} · 已耗时 {formatElapsedMs(parsingElapsedMs)}
+                            : "正在解析图像..."}{" "}
+                          · 已耗时 {formatElapsedMs(parsingElapsedMs)}
                         </span>
                       )}
                       {isUploading && (
@@ -441,12 +503,47 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                         </span>
                       )}
                       {isFailed && (
-                        <span
-                          className="max-w-72 truncate text-[11px] text-rose-300/90"
-                          title={item.uploadError || item.parseError || item.error || "Unknown error"}
+                        <div
+                          className="relative max-w-72"
+                          onMouseEnter={() => setHoverErrorItemId(item.id)}
+                          onMouseLeave={() =>
+                            setHoverErrorItemId((current) =>
+                              current === item.id ? null : current,
+                            )
+                          }
                         >
-                          {item.uploadError || item.parseError || item.error || "Unknown error"}
-                        </span>
+                          <span
+                            className="block truncate text-[11px] text-rose-300/90"
+                            title={getPrimaryError(item)}
+                          >
+                            {getPrimaryError(item)}
+                          </span>
+                          {hoverErrorItemId === item.id && (
+                            <div className="absolute right-0 top-full z-30 mt-2 w-[520px] max-w-[85vw] rounded-lg border border-rose-400/30 bg-zinc-950/95 p-3 shadow-2xl backdrop-blur-md">
+                              <p className="mb-1 text-xs font-medium text-rose-200">
+                                错误详情
+                              </p>
+                              <p className="mb-2 text-[11px] text-zinc-400">
+                                {getItemName(item)}
+                              </p>
+                              <div className="space-y-1.5 text-[11px] text-rose-100/90">
+                                {getErrorDetailLines(item).map((line) => (
+                                  <p
+                                    key={line}
+                                    className="break-words leading-4"
+                                  >
+                                    {line}
+                                  </p>
+                                ))}
+                              </div>
+                              {getErrorHint(item) && (
+                                <p className="mt-3 text-[11px] text-amber-300/90">
+                                  建议: {getErrorHint(item)}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </>
                   )}
@@ -454,21 +551,121 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
 
                 <div className="flex items-center gap-1">
                   {canPreviewItem(item) && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        setPreviewItemId((prev) => (prev === item.id ? null : item.id))
+                    <div
+                      className="relative"
+                      onMouseEnter={() => setHoverPreviewItemId(item.id)}
+                      onMouseLeave={() =>
+                        setHoverPreviewItemId((current) =>
+                          current === item.id ? null : current,
+                        )
                       }
-                      className={cn(
-                        "h-7 px-2 text-[11px] text-zinc-400 hover:bg-white/10 hover:text-zinc-200",
-                        previewItemId === item.id && "text-sky-300",
-                      )}
                     >
-                      <Eye size={13} className="mr-1" />
-                      解析预览
-                    </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onFocus={() => setHoverPreviewItemId(item.id)}
+                        onBlur={() =>
+                          setHoverPreviewItemId((current) =>
+                            current === item.id ? null : current,
+                          )
+                        }
+                        className={cn(
+                          "h-7 px-2 text-[11px] text-[var(--muted-foreground)] hover:bg-white/10 hover:text-zinc-200",
+                          hoverPreviewItemId === item.id && "text-sky-300",
+                        )}
+                      >
+                        <Eye size={13} className="mr-1" />
+                        解析预览
+                      </Button>
+                      {hoverPreviewItemId === item.id && item.metadata && (
+                        <div className="absolute right-0 top-full z-30 mt-2 w-[520px] max-w-[90vw] rounded-lg border border-white/12 bg-zinc-950/95 p-3 shadow-2xl backdrop-blur-md">
+                          <div className="mb-2">
+                            <p className="text-sm font-medium text-[var(--foreground)]">
+                              解析预览
+                            </p>
+                            <p
+                              className="text-xs text-[var(--muted-foreground)]"
+                              title={getItemName(item)}
+                            >
+                              {getItemName(item)}
+                            </p>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-[100px_1fr]">
+                            <div className="h-[75px] w-[100px] overflow-hidden rounded-md border border-[var(--border)] bg-white/[0.04]">
+                              {item.thumbnail ? (
+                                <img
+                                  src={item.thumbnail}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-zinc-500">
+                                  <ImageIcon size={16} />
+                                </div>
+                              )}
+                            </div>
+                            <div className="grid gap-x-3 gap-y-1 text-[11px] text-zinc-300 sm:grid-cols-2">
+                              <span>
+                                尺寸: {item.metadata.derived?.dimensions?.width}{" "}
+                                x {item.metadata.derived?.dimensions?.height}
+                              </span>
+                              <span>
+                                MIME:{" "}
+                                {item.metadata.files?.original?.mime ||
+                                  "unknown"}
+                              </span>
+                              <span>
+                                主色:{" "}
+                                {item.metadata.derived?.dominant_color?.hex ||
+                                  "-"}
+                              </span>
+                              <span>
+                                模糊分:{" "}
+                                {typeof item.metadata.derived?.blur?.score ===
+                                "number"
+                                  ? item.metadata.derived.blur.score.toFixed(2)
+                                  : "-"}
+                              </span>
+                              <span>
+                                是否模糊:{" "}
+                                {item.metadata.derived?.blur?.is_blurry
+                                  ? "是"
+                                  : "否"}
+                              </span>
+                              <span>
+                                pHash:{" "}
+                                {item.metadata.derived?.phash?.value || "-"}
+                              </span>
+                              <span>
+                                相机: {item.metadata.exif?.Model || "-"}
+                              </span>
+                              <span>
+                                镜头: {item.metadata.exif?.LensModel || "-"}
+                              </span>
+                              <span>ISO: {item.metadata.exif?.ISO || "-"}</span>
+                              <span>
+                                省份:{" "}
+                                {item.metadata.geo?.region?.province || "-"}
+                              </span>
+                              <span>
+                                拍摄时间:{" "}
+                                {item.metadata.exif?.DateTimeOriginal || "-"}
+                              </span>
+                              <span>
+                                OCR: {item.metadata.derived?.ocr?.status || "-"}
+                              </span>
+                              <span>
+                                总耗时:{" "}
+                                {item.metadata.processing?.summary?.total_ms ??
+                                  0}{" "}
+                                ms
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   <Button

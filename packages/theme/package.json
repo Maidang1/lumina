@@ -1,0 +1,13 @@
+{
+  "name": "@luminafe/theme",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tokens.css": "./src/tokens.css",
+    "./effects.css": "./src/effects.css"
+  },
+  "files": [
+    "src"
+  ]
+}

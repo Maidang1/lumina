@@ -41,9 +41,9 @@ const ManageBatchActions: React.FC<ManageBatchActionsProps> = ({
   return (
     <div className="space-y-3">
       {batchResult && (
-        <div className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-lumina-text shadow-[0_14px_40px_rgba(0,0,0,0.4)] backdrop-blur-md">
+        <div className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-[var(--foreground)] shadow-[var(--shadow-elevation-2)] backdrop-blur-md">
           <div className="flex items-center gap-4">
-            <span className="text-lumina-text-secondary">
+            <span className="text-[var(--muted-foreground)]">
               {actionLabel}结果（{batchResult.total}）
             </span>
             <span className="inline-flex items-center gap-1 text-emerald-300">
@@ -68,8 +68,8 @@ const ManageBatchActions: React.FC<ManageBatchActionsProps> = ({
       )}
 
       {selectedCount > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-lumina-text shadow-[0_14px_40px_rgba(0,0,0,0.4)] backdrop-blur-md">
-          <span className="mr-2 text-lumina-text-secondary">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-[var(--foreground)] shadow-[var(--shadow-elevation-2)] backdrop-blur-md">
+          <span className="mr-2 text-[var(--muted-foreground)]">
             已选 {selectedCount} 张
           </span>
           <Button
@@ -116,16 +116,16 @@ const ManageBatchActions: React.FC<ManageBatchActionsProps> = ({
 
       {isTagDialogOpen && (
         <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-sm rounded-lg border border-zinc-700 bg-zinc-900 p-4 shadow-xl">
-            <h3 className="text-sm font-semibold text-zinc-100">添加标签</h3>
-            <p className="mt-1 text-xs text-zinc-400">
+          <div className="w-full max-w-sm rounded-lg border border-white/10 bg-[var(--card)] p-4 shadow-[var(--shadow-elevation-3)]">
+            <h3 className="text-sm font-semibold text-[var(--foreground)]">添加标签</h3>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
               为所有选中照片应用同一个标签。
             </p>
             <input
               type="text"
               value={tagInput}
               onChange={(event) => setTagInput(event.target.value)}
-              className="mt-3 w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 outline-none ring-0 focus:border-zinc-500"
+              className="mt-3 w-full rounded-md border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-[var(--foreground)] outline-none ring-0 focus:border-[var(--ring)]"
               placeholder="标签"
               onKeyDown={(event) => {
                 if (event.key === "Enter") {

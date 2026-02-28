@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
@@ -149,6 +150,99 @@ fn convert_result(result: ParseImageResult) -> ParseImageForUploadResult {
     }
 }
 
+fn is_heif_like(path: &str, mime: &str) -> bool {
+    let lower_path = path.to_lowercase();
+    let lower_mime = mime.to_lowercase();
+    lower_path.ends_with(".heic")
+        || lower_path.ends_with(".heif")
+        || lower_mime.contains("image/heic")
+        || lower_mime.contains("image/heif")
+}
+
+fn convert_heif_to_jpeg_bytes(path: &str) -> Result<Vec<u8>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let tmp_dir = std::env::temp_dir();
+        let output_path = tmp_dir.join(format!("lumina_heif_{}.jpg", uuid::Uuid::new_v4()));
+        let status = Command::new("sips")
+            .args(["-s", "format", "jpeg", path, "--out"])
+            .arg(&output_path)
+            .status()
+            .map_err(|e| format!("failed to execute sips for HEIF conversion: {}", e))?;
+
+        if !status.success() {
+            let _ = std::fs::remove_file(&output_path);
+            return Err(format!(
+                "HEIF conversion failed with sips exit code: {}",
+                status
+                    .code()
+                    .map(|code| code.to_string())
+                    .unwrap_or_else(|| "unknown".to_string())
+            ));
+        }
+
+        let bytes =
+            std::fs::read(&output_path).map_err(|e| format!("failed to read converted JPEG: {}", e))?;
+        let _ = std::fs::remove_file(&output_path);
+        Ok(bytes)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = path;
+        Err("HEIC/HEIF fallback conversion is currently supported on macOS only".to_string())
+    }
+}
+
+async fn parse_with_heif_fallback(
+    path: &str,
+    file_name: &str,
+    mime: &str,
+    bytes: Vec<u8>,
+    lumina_config: Option<ParseConfig>,
+) -> Result<ParseImageResult, String> {
+    match lumina_image::parse_image(
+        file_name.to_string(),
+        mime.to_string(),
+        bytes,
+        lumina_config.clone(),
+    )
+    .await
+    {
+        Ok(result) => Ok(result),
+        Err(primary_error) => {
+            if !is_heif_like(path, mime) {
+                return Err(primary_error.to_string());
+            }
+
+            let converted_bytes = convert_heif_to_jpeg_bytes(path)?;
+            let jpg_name = if file_name.to_lowercase().ends_with(".heif")
+                || file_name.to_lowercase().ends_with(".heic")
+            {
+                file_name
+                    .rsplit_once('.')
+                    .map(|(name, _)| format!("{}.jpg", name))
+                    .unwrap_or_else(|| format!("{}.jpg", file_name))
+            } else {
+                format!("{}.jpg", file_name)
+            };
+
+            lumina_image::parse_image(
+                jpg_name,
+                "image/jpeg".to_string(),
+                converted_bytes,
+                lumina_config,
+            )
+            .await
+            .map_err(|fallback_error| {
+                format!(
+                    "HEIF parse failed. primary={} | fallback={}",
+                    primary_error, fallback_error
+                )
+            })
+        }
+    }
+}
+
 #[tauri::command]
 pub async fn parse_image_for_upload_from_path(
     path: String,
@@ -166,7 +260,7 @@ pub async fn parse_image_for_upload_from_path(
     let mime = declared_mime.unwrap_or_else(|| "application/octet-stream".to_string());
     let lumina_config = config.map(|c| c.into());
 
-    let mut converted = lumina_image::parse_image(file_name, mime, bytes, lumina_config)
+    let mut converted = parse_with_heif_fallback(&path, &file_name, &mime, bytes, lumina_config)
         .await
         .map(convert_result)
         .map_err(|e| e.to_string())?;
@@ -195,7 +289,7 @@ pub async fn parse_image_for_upload_from_path_optimized(
     let mime = declared_mime.unwrap_or_else(|| "application/octet-stream".to_string());
     let lumina_config = config.map(|c| c.into());
 
-    let result = lumina_image::parse_image(file_name, mime, bytes, lumina_config)
+    let result = parse_with_heif_fallback(&path, &file_name, &mime, bytes, lumina_config)
         .await
         .map_err(|e| e.to_string())?;
 

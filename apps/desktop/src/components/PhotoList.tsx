@@ -48,8 +48,9 @@ const PhotoList: React.FC<PhotoListProps> = ({
   };
 
   return (
-    <Table className="text-left text-sm text-zinc-400">
-      <TableHeader className="bg-[#1A1A1A] text-xs uppercase text-zinc-500">
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] backdrop-blur-sm">
+    <Table className="text-left text-sm text-zinc-300">
+      <TableHeader className="bg-white/[0.04] text-xs uppercase text-[var(--muted-foreground)]">
         <TableRow>
           <TableHead className="px-4 py-3 font-medium">Preview</TableHead>
           <TableHead className="px-4 py-3 font-medium">Filename</TableHead>
@@ -176,6 +177,7 @@ const PhotoList: React.FC<PhotoListProps> = ({
         })}
       </TableBody>
     </Table>
+    </div>
   );
 };
 

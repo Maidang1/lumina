@@ -42,8 +42,8 @@ const ManagePage: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      <div className="p-8 max-w-6xl mx-auto">
+    <div className="text-white">
+      <div className="mx-auto max-w-6xl">
       <ManageHeader />
 
       <main className="space-y-6">

@@ -18,17 +18,17 @@ const UploadConfirmHeader: React.FC<UploadConfirmHeaderProps> = ({
   onSubmit,
 }) => {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
       <div>
-        <h2 className="text-lg font-medium text-white">准备写入仓库</h2>
-        <p className="text-sm text-zinc-400">
+        <h2 className="text-lg font-medium text-[var(--foreground)]">准备写入仓库</h2>
+        <p className="text-sm text-[var(--muted-foreground)]">
           本次将写入 {queueLength} 个文件，预计 {(totalBytes / 1024 / 1024).toFixed(1)} MB。
         </p>
       </div>
       <Button
         onClick={onSubmit}
         disabled={!canSubmit}
-        className="h-9 rounded-md bg-sky-500 px-6 text-sm font-medium text-white hover:bg-sky-400 disabled:bg-sky-500/40"
+        className="h-9 px-6 text-sm font-medium"
       >
         {isSubmitting ? (
           <>

@@ -7,6 +7,10 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { BlurFade } from "@/shared/magicui/blur-fade";
+import { NumberTicker } from "@/shared/magicui/number-ticker";
+import { ScrollProgress } from "@/shared/magicui/scroll-progress";
+import { AnimatedGridPattern } from "@/shared/magicui/animated-grid-pattern";
 import {
   Navigate,
   Route,
@@ -120,11 +124,22 @@ const GalleryShell: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="sticky top-0 z-30 mx-auto w-full max-w-[1720px]">
-        <div className="mx-auto flex h-16 items-center justify-between border-b border-white/[0.08] bg-[#080808]/90 px-4 shadow-[0_22px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:h-20 sm:px-8">
+    <div className="relative min-h-screen bg-lumina-bg text-lumina-text">
+      <ScrollProgress />
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <AnimatedGridPattern
+          className="opacity-25"
+          numSquares={35}
+          maxOpacity={0.35}
+          duration={5}
+          repeatDelay={1}
+        />
+      </div>
+
+      <header className="sticky top-0 z-30 mx-auto w-full max-w-[1720px] px-2 sm:px-4">
+        <div className="mx-auto mt-2 flex h-16 items-center justify-between rounded-xl border border-white/[0.12] bg-[#080b10]/82 px-4 shadow-[var(--shadow-elevation-3)] backdrop-blur-xl sm:mt-3 sm:h-20 sm:px-8">
           <div className="flex items-center gap-3 sm:gap-6">
-            <span className="font-serif text-2xl tracking-tight text-lumina-text sm:text-3xl">
+            <span className="font-display text-2xl tracking-tight text-lumina-text sm:text-3xl">
               Lumina
             </span>
             <div className="hidden h-3 w-px bg-lumina-border sm:block" />
@@ -133,18 +148,22 @@ const GalleryShell: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-8">
-            <div className="flex items-center gap-4 text-sm font-medium sm:gap-6">
+          <div className="flex items-center gap-4 sm:gap-8">
+            <div className="hidden items-center gap-3 text-xs text-lumina-text-secondary sm:flex">
+              <span className="uppercase">Photos</span>
+              <NumberTicker value={photos.length} className="text-sm text-lumina-text" />
+            </div>
+            <div className="flex items-center rounded-lg border border-white/[0.08] bg-white/[0.03] p-1 text-sm font-medium sm:gap-1">
               <button
                 type="button"
-                className={`cursor-pointer transition-colors duration-200 ${viewMode === "gallery" ? "text-white" : "text-white/40 hover:text-white/75"}`}
+                className={`cursor-pointer rounded-md px-3 py-1.5 transition-colors duration-200 ${viewMode === "gallery" ? "bg-white/12 text-white" : "text-white/45 hover:text-white/75"}`}
                 onClick={() => handleTabChange("gallery")}
               >
                 Gallery
               </button>
               <button
                 type="button"
-                className={`cursor-pointer transition-colors duration-200 ${viewMode === "map" ? "text-white" : "text-white/40 hover:text-white/75"}`}
+                className={`cursor-pointer rounded-md px-3 py-1.5 transition-colors duration-200 ${viewMode === "map" ? "bg-white/12 text-white" : "text-white/45 hover:text-white/75"}`}
                 onClick={() => handleTabChange("map")}
               >
                 Map
@@ -157,8 +176,8 @@ const GalleryShell: React.FC = () => {
       <main
         className={
           viewMode === "map"
-            ? "mx-auto h-[calc(100svh-64px)] w-full max-w-[1720px] flex-grow overflow-hidden border-t border-white/[0.06] bg-black sm:h-[calc(100svh-80px)]"
-            : "mx-auto w-full max-w-[1720px] flex-grow"
+            ? "mx-auto h-[calc(100svh-72px)] w-full max-w-[1720px] flex-grow overflow-hidden px-2 sm:h-[calc(100svh-96px)] sm:px-4"
+            : "mx-auto w-full max-w-[1720px] flex-grow px-2 pt-2 sm:px-4 sm:pt-4"
         }
       >
         {isLoading ? (
@@ -194,14 +213,16 @@ const GalleryShell: React.FC = () => {
           <>
             {viewMode === "gallery" ? (
               <>
-                <PhotoGrid
-                  photos={photos}
-                  onPhotoClick={(photo, transitionSource) => {
-                    imagePrefetchService.prefetch(photo.url, { priority: "high" });
-                    setOpenTransition(transitionSource);
-                    setSelectedPhotoId(photo.id);
-                  }}
-                />
+                <BlurFade inView>
+                  <PhotoGrid
+                    photos={photos}
+                    onPhotoClick={(photo, transitionSource) => {
+                      imagePrefetchService.prefetch(photo.url, { priority: "high" });
+                      setOpenTransition(transitionSource);
+                      setSelectedPhotoId(photo.id);
+                    }}
+                  />
+                </BlurFade>
                 <div
                   ref={loadMoreRef}
                   className="flex min-h-16 items-center justify-center"

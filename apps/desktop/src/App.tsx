@@ -1,15 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Sidebar, View } from '@/components/Sidebar';
-import UploadWorkspace from '@/features/upload/components/UploadWorkspace';
-import ManagePage from '@/features/manage/pages/ManagePage';
-import { SettingsPage } from '@/features/settings/pages/SettingsPage';
-import { uploadService } from '@/services/uploadService';
-import { ToastViewport } from '@/components/ui/toast';
-import { pushToast } from '@/lib/toast';
-import { logger } from '@/lib/logger';
+import React, { useCallback, useEffect, useState } from "react";
+import { Sidebar, View } from "@/components/Sidebar";
+import UploadWorkspace from "@/features/upload/components/UploadWorkspace";
+import ManagePage from "@/features/manage/pages/ManagePage";
+import { SettingsPage } from "@/features/settings/pages/SettingsPage";
+import { uploadService } from "@/services/uploadService";
+import { ToastViewport } from "@/components/ui/toast";
+import { pushToast } from "@/lib/toast";
+import { logger } from "@/lib/logger";
+import { AnimatedGridPattern } from "@/components/magicui/animated-grid-pattern";
 
 function App(): React.ReactElement {
-  const [currentView, setCurrentView] = useState<View>('upload');
+  const [currentView, setCurrentView] = useState<View>("upload");
   const [isRepoReady, setIsRepoReady] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -23,8 +24,8 @@ function App(): React.ReactElement {
   useEffect(() => {
     void refreshRepoReady();
     const onFocus = () => void refreshRepoReady();
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [currentView, refreshRepoReady]);
 
   useEffect(() => {
@@ -38,7 +39,7 @@ function App(): React.ReactElement {
         await uploadService.syncRepo();
         await refreshRepoReady();
       } catch (error) {
-        logger.error('Auto sync failed:', error);
+        logger.error("Auto sync failed:", error);
       } finally {
         setIsSyncing(false);
       }
@@ -51,11 +52,14 @@ function App(): React.ReactElement {
     setIsCommitting(true);
     try {
       const message = await uploadService.commitAndPush();
-      pushToast(message, 'success');
+      pushToast(message, "success");
       const ready = await uploadService.hasRepoPath();
       setIsRepoReady(ready);
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Commit & Push failed', 'error');
+      pushToast(
+        error instanceof Error ? error.message : "Commit & Push failed",
+        "error",
+      );
     } finally {
       setIsCommitting(false);
     }
@@ -65,17 +69,24 @@ function App(): React.ReactElement {
     setIsSyncing(true);
     try {
       const message = await uploadService.syncRepo();
-      pushToast(message, 'success');
+      pushToast(message, "success");
       await refreshRepoReady();
     } catch (error) {
-      pushToast(error instanceof Error ? error.message : 'Sync failed', 'error');
+      pushToast(
+        error instanceof Error ? error.message : "Sync failed",
+        "error",
+      );
     } finally {
       setIsSyncing(false);
     }
   };
 
   return (
-    <div className="flex h-screen bg-zinc-950 text-zinc-50">
+    <div className="relative flex h-screen bg-lumina-bg text-zinc-50">
+      <div className="pointer-events-none absolute inset-0 opacity-30">
+        <AnimatedGridPattern numSquares={30} maxOpacity={0.35} duration={6} />
+      </div>
+
       <Sidebar
         currentView={currentView}
         onViewChange={setCurrentView}
@@ -87,28 +98,34 @@ function App(): React.ReactElement {
         syncLoading={isSyncing}
       />
 
-      <main className="flex-1 overflow-auto">
-        {currentView === 'upload' && (
-          <div className="p-8">
-            <div className="max-w-6xl mx-auto">
-              <header className="mb-8">
-                <h1 className="text-3xl font-bold">照片上传</h1>
-                <p className="text-zinc-400 mt-2">上传会写入本地 Git 工作区，不会自动提交；请手动执行 Commit & Push</p>
-              </header>
+      <main className="relative z-10 flex-1 overflow-auto p-4">
+        <div className="mx-auto max-w-7xl">
+          <section
+            className={currentView === "upload" ? "block" : "hidden"}
+            aria-hidden={currentView !== "upload"}
+          >
+            <UploadWorkspace
+              onUploadCompleted={(count) => {
+                pushToast(`上传完成：${count} 张照片`, "success");
+              }}
+              onNavigateToSettings={() => setCurrentView("settings")}
+            />
+          </section>
 
-              <UploadWorkspace
-                onUploadCompleted={(count) => {
-                  pushToast(`上传完成：${count} 张照片`, 'success');
-                }}
-                onNavigateToSettings={() => setCurrentView('settings')}
-              />
-            </div>
-          </div>
-        )}
+          <section
+            className={currentView === "manage" ? "block" : "hidden"}
+            aria-hidden={currentView !== "manage"}
+          >
+            <ManagePage />
+          </section>
 
-        {currentView === 'manage' && <ManagePage />}
-
-        {currentView === 'settings' && <SettingsPage />}
+          <section
+            className={currentView === "settings" ? "block" : "hidden"}
+            aria-hidden={currentView !== "settings"}
+          >
+            <SettingsPage />
+          </section>
+        </div>
       </main>
 
       <ToastViewport />

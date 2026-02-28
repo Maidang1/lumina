@@ -1,5 +1,5 @@
 import React from "react";
-import { animated, SpringValue } from "@react-spring/web";
+import { motion } from "motion/react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 
@@ -9,9 +9,8 @@ interface PhotoDetailControlsProps {
   onClose: () => void;
   onPrev?: () => void;
   onNext?: () => void;
-  controlsOpacity: SpringValue<number>;
-  controlsTransform: SpringValue<string>;
   isClosing?: boolean;
+  delay?: number;
 }
 
 const PhotoDetailControls: React.FC<PhotoDetailControlsProps> = ({
@@ -20,49 +19,57 @@ const PhotoDetailControls: React.FC<PhotoDetailControlsProps> = ({
   onClose,
   onPrev,
   onNext,
-  controlsOpacity,
-  controlsTransform,
   isClosing = false,
+  delay = 0,
 }) => {
   return (
     <>
-      <animated.div className="relative z-[80]" style={{ opacity: controlsOpacity, transform: controlsTransform }}>
+      <motion.div
+        className="relative z-[80]"
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: isClosing ? 0 : 1, y: isClosing ? -8 : 0 }}
+        transition={{ duration: 0.18, delay }}
+      >
         <Button
           type="button"
           size="icon"
           variant="ghost"
           onClick={onClose}
           disabled={isClosing}
-          className="fixed left-6 top-6 z-[80] flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-black/20 text-white/70 backdrop-blur-md transition-all duration-200 hover:bg-black/40 hover:text-white disabled:cursor-default disabled:opacity-70"
+          className="fixed top-6 left-6 z-[80] flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.08] bg-black/20 text-white/70 backdrop-blur-md transition-all duration-200 hover:bg-black/40 hover:text-white disabled:cursor-default disabled:opacity-70"
         >
           <X size={18} strokeWidth={1.5} />
         </Button>
-      </animated.div>
+      </motion.div>
 
       {canPrev && (
-        <animated.button
+        <motion.button
           type="button"
-          className="fixed left-4 top-1/2 z-40 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/40 text-white/70 backdrop-blur-xl transition hover:border-white/[0.15] hover:text-white sm:left-6 sm:h-12 sm:w-12"
-          style={{ opacity: controlsOpacity, transform: controlsTransform }}
+          className="fixed top-1/2 left-4 z-40 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/40 text-white/70 backdrop-blur-xl transition hover:border-white/[0.15] hover:text-white sm:left-6 sm:h-12 sm:w-12"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: isClosing ? 0 : 1, y: isClosing ? -8 : 0 }}
+          transition={{ duration: 0.18, delay }}
           onClick={onPrev}
           aria-label="Previous photo"
           disabled={isClosing}
         >
           <ChevronLeft size={22} />
-        </animated.button>
+        </motion.button>
       )}
 
       {canNext && (
-        <animated.button
+        <motion.button
           type="button"
-          className="fixed right-4 top-1/2 z-40 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/40 text-white/70 backdrop-blur-xl transition hover:border-white/[0.15] hover:text-white sm:h-12 sm:w-12 md:right-[calc(360px+24px)] lg:right-[calc(420px+24px)]"
-          style={{ opacity: controlsOpacity, transform: controlsTransform }}
+          className="fixed top-1/2 right-4 z-40 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/[0.08] bg-black/40 text-white/70 backdrop-blur-xl transition hover:border-white/[0.15] hover:text-white sm:h-12 sm:w-12 md:right-[calc(360px+24px)] lg:right-[calc(420px+24px)]"
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: isClosing ? 0 : 1, y: isClosing ? -8 : 0 }}
+          transition={{ duration: 0.18, delay }}
           onClick={onNext}
           aria-label="Next photo"
           disabled={isClosing}
         >
           <ChevronRight size={22} />
-        </animated.button>
+        </motion.button>
       )}
     </>
   );

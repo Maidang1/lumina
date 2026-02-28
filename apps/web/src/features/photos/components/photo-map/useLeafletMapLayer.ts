@@ -158,6 +158,7 @@ export const useLeafletMapLayer = ({
     routeLayer.clearLayers();
     pointsLayerRef.current?.remove?.();
     pointsLayerRef.current = null;
+    pointsLayerRef.current = L.layerGroup().addTo(map);
 
     const coordinates: [number, number][] = [];
     visiblePoints.forEach((point) => {
@@ -198,6 +199,37 @@ export const useLeafletMapLayer = ({
         });
 
       layer.addTo(boundaryLayer);
+    }
+
+    // Fallback markers for provinces whose polygon boundary is unavailable.
+    // This prevents "has location but not rendered" when boundary lookup fails.
+    for (const aggregate of provinceAggregates) {
+      const boundary = boundaryByRegionKey[aggregate.key];
+      if (boundary || !aggregate.representative || !pointsLayerRef.current) continue;
+
+      const intensity = getIntensity(aggregate.count, maxCount);
+      const isSelected = selectedRegionKey === aggregate.key;
+      const marker = L.circleMarker(
+        [aggregate.representative.lat, aggregate.representative.lng],
+        {
+          radius: isSelected ? 9 : 6 + intensity,
+          color: isSelected ? "#ffffff" : "#d4d4d8",
+          weight: isSelected ? 2 : 1.2,
+          fillColor: isSelected ? "#ffffff" : "#a1a1aa",
+          fillOpacity: isSelected ? 0.75 : 0.55,
+        },
+      );
+
+      marker
+        .bindTooltip?.(`${aggregate.region.displayName} · ${aggregate.count} photos`)
+        .on?.("click", () => {
+          setSelectedRegionKey(aggregate.key);
+          if (aggregate.photos[0]) {
+            onPhotoClick(aggregate.photos[0]);
+          }
+        });
+
+      marker.addTo(pointsLayerRef.current as LeafletLayerGroup);
     }
 
     if (showRoute && routePoints.length > 1) {

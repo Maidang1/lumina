@@ -17,10 +17,8 @@ const MapSidePanel: React.FC<MapSidePanelProps> = ({
   return (
     <aside>
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-medium text-gray-400">Timeline</p>
-        <span className="text-[10px] text-gray-500">
-          {visiblePointsCount} points
-        </span>
+        <p className="text-xs font-medium text-gray-300">Timeline</p>
+        <span className="text-[10px] text-gray-500">{visiblePointsCount} points</span>
       </div>
 
       <div className="custom-scrollbar flex gap-1 overflow-x-auto">
@@ -31,7 +29,7 @@ const MapSidePanel: React.FC<MapSidePanelProps> = ({
           onClick={() => onMonthChange("all")}
           className={`h-auto shrink-0 rounded-lg px-2 py-1 text-xs transition ${
             activeMonth === "all"
-              ? "bg-white/10 text-white"
+              ? "bg-white/12 text-white"
               : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
           }`}
         >
@@ -46,7 +44,7 @@ const MapSidePanel: React.FC<MapSidePanelProps> = ({
             onClick={() => onMonthChange(month)}
             className={`h-auto shrink-0 rounded-lg px-2 py-1 text-xs transition ${
               activeMonth === month
-                ? "bg-white/10 text-white"
+                ? "bg-white/12 text-white"
                 : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
             }`}
           >
