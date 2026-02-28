@@ -1,30 +1,19 @@
-import React, { useEffect, useState, useCallback } from "react";
-import {
-  X,
-  RefreshCw,
-  ChevronDown,
-  ChevronRight,
-  Plus,
-  Minus,
-  GitBranch,
-} from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { X, RefreshCw, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  getChangesPreview,
-  stageFile,
-  unstageFile,
-  discardFile,
-  stageAll,
-  unstageAll,
-  type ChangesPreview,
-} from "@/lib/tauri/github";
-import { FileChangeItem } from "./FileChangeItem";
 import { CommitForm } from "./CommitForm";
+import {
+  GitChangeList,
+  deriveGitChanges,
+  useGitChangesSnapshot,
+  useGitOps,
+  type GitChangeRow,
+} from "@/features/git";
 
 interface GitSidebarPanelProps {
   open: boolean;
   onClose: () => void;
-  onCommit: () => void;
+  onCommit: (message?: string) => void;
   commitLoading?: boolean;
   repoHint?: string;
 }
@@ -36,82 +25,36 @@ export function GitSidebarPanel({
   commitLoading = false,
   repoHint,
 }: GitSidebarPanelProps): React.ReactElement | null {
-  const [changes, setChanges] = useState<ChangesPreview | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [operatingFile, setOperatingFile] = useState<string | null>(null);
   const [stagedExpanded, setStagedExpanded] = useState(true);
   const [unstagedExpanded, setUnstagedExpanded] = useState(true);
 
-  const loadChanges = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await getChangesPreview();
-      setChanges(data);
-    } catch (err) {
-      console.error("Failed to load changes:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { snapshot, loading, error, setError, refresh } = useGitChangesSnapshot();
+  const { operatingKey, bulkLoading, stage, unstage, discard, remove, stageEverything, unstageEverything } =
+    useGitOps({ refresh, setError });
 
   useEffect(() => {
     if (open) {
-      void loadChanges();
+      void refresh();
     }
-  }, [open, loadChanges]);
+  }, [open, refresh]);
 
-  const handleStageFile = async (path: string) => {
-    setOperatingFile(path);
-    try {
-      await stageFile(path);
-      await loadChanges();
-    } finally {
-      setOperatingFile(null);
-    }
-  };
+  const derived = useMemo(() => deriveGitChanges(snapshot), [snapshot]);
 
-  const handleUnstageFile = async (path: string) => {
-    setOperatingFile(path);
-    try {
-      await unstageFile(path);
-      await loadChanges();
-    } finally {
-      setOperatingFile(null);
+  const handleToggleStage = (row: GitChangeRow): void => {
+    if (row.source === "staged") {
+      void unstage(row.path, row.key);
+    } else {
+      void stage(row.path, row.key);
     }
   };
 
-  const handleDiscardFile = async (path: string) => {
-    setOperatingFile(path);
-    try {
-      await discardFile(path);
-      await loadChanges();
-    } finally {
-      setOperatingFile(null);
-    }
+  const handleDiscard = (row: GitChangeRow): void => {
+    void discard(row.path, row.key);
   };
 
-  const handleStageAll = async () => {
-    setLoading(true);
-    try {
-      await stageAll();
-      await loadChanges();
-    } finally {
-      setLoading(false);
-    }
+  const handleDelete = (row: GitChangeRow): void => {
+    void remove(row.path, row.key);
   };
-
-  const handleUnstageAll = async () => {
-    setLoading(true);
-    try {
-      await unstageAll();
-      await loadChanges();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const stagedFiles = changes?.files.filter((f) => f.staged) || [];
-  const unstagedFiles = changes?.files.filter((f) => !f.staged) || [];
 
   if (!open) return null;
 
@@ -125,24 +68,22 @@ export function GitSidebarPanel({
       <header className="flex items-center justify-between px-3 py-2 border-b border-[var(--lumina-border)]">
         <div className="flex items-center gap-2">
           <GitBranch size={14} className="text-[var(--lumina-muted)]" />
-          <span className="text-xs font-medium text-[var(--lumina-text)]">
-            源代码管理
-          </span>
-          {changes && changes.files.length > 0 && (
+          <span className="text-xs font-medium text-[var(--lumina-text)]">源代码管理</span>
+          {derived.counts.total > 0 && (
             <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500 text-[10px] font-medium">
-              {changes.files.length}
+              {derived.counts.total}
             </span>
           )}
         </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => void loadChanges()}
-            disabled={loading}
+            onClick={() => void refresh()}
+            disabled={loading || bulkLoading}
             className="p-1 rounded hover:bg-[var(--lumina-accent-muted)] text-[var(--lumina-muted)] hover:text-[var(--lumina-text)]"
             title="刷新"
           >
-            <RefreshCw size={14} className={cn(loading && "animate-spin")} />
+            <RefreshCw size={14} className={cn((loading || bulkLoading) && "animate-spin")} />
           </button>
           <button
             type="button"
@@ -162,97 +103,38 @@ export function GitSidebarPanel({
       )}
 
       <CommitForm
-        stagedCount={stagedFiles.length}
+        stagedCount={derived.counts.staged}
         onCommit={onCommit}
         loading={commitLoading}
-        disabled={loading}
+        disabled={loading || bulkLoading}
       />
 
+      {error && (
+        <div className="px-3 py-2 border-b border-rose-500/20 text-[11px] text-rose-500 bg-rose-500/10">
+          {error}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
-        {stagedFiles.length > 0 && (
-          <div>
-            <div
-              className="flex items-center justify-between px-2 py-1.5 cursor-pointer hover:bg-[var(--lumina-accent-muted)]"
-              onClick={() => setStagedExpanded(!stagedExpanded)}
-            >
-              <div className="flex items-center gap-1 text-xs font-medium text-[var(--lumina-text)]">
-                {stagedExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                <span>已暂存的更改</span>
-                <span className="ml-1 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-500 text-[10px]">
-                  {stagedFiles.length}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void handleUnstageAll();
-                }}
-                className="p-1 rounded hover:bg-[var(--lumina-surface-elevated)] text-[var(--lumina-muted)] hover:text-[var(--lumina-text)]"
-                title="全部取消暂存"
-              >
-                <Minus size={12} />
-              </button>
-            </div>
-            {stagedExpanded && (
-              <div className="pb-1">
-                {stagedFiles.map((file) => (
-                  <FileChangeItem
-                    key={`staged-${file.path}`}
-                    file={file}
-                    operating={operatingFile === file.path}
-                    onUnstage={() => void handleUnstageFile(file.path)}
-                    onClick={() => void handleUnstageFile(file.path)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <GitChangeList
+          stagedRows={derived.stagedRows}
+          unstagedRows={derived.unstagedRows}
+          operatingKey={operatingKey}
+          bulkLoading={bulkLoading}
+          onToggleStage={handleToggleStage}
+          onDiscard={handleDiscard}
+          onDelete={handleDelete}
+          onStageAll={() => void stageEverything()}
+          onUnstageAll={() => void unstageEverything()}
+          collapsible
+          stagedExpanded={stagedExpanded}
+          unstagedExpanded={unstagedExpanded}
+          onToggleStagedExpanded={() => setStagedExpanded((value) => !value)}
+          onToggleUnstagedExpanded={() => setUnstagedExpanded((value) => !value)}
+          compact
+        />
 
-        {unstagedFiles.length > 0 && (
-          <div>
-            <div
-              className="flex items-center justify-between px-2 py-1.5 cursor-pointer hover:bg-[var(--lumina-accent-muted)]"
-              onClick={() => setUnstagedExpanded(!unstagedExpanded)}
-            >
-              <div className="flex items-center gap-1 text-xs font-medium text-[var(--lumina-text)]">
-                {unstagedExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                <span>更改</span>
-                <span className="ml-1 px-1.5 py-0.5 rounded bg-[var(--lumina-accent-muted)] text-[var(--lumina-muted)] text-[10px]">
-                  {unstagedFiles.length}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void handleStageAll();
-                }}
-                className="p-1 rounded hover:bg-[var(--lumina-surface-elevated)] text-[var(--lumina-muted)] hover:text-emerald-500"
-                title="全部暂存"
-              >
-                <Plus size={12} />
-              </button>
-            </div>
-            {unstagedExpanded && (
-              <div className="pb-1">
-                {unstagedFiles.map((file) => (
-                  <FileChangeItem
-                    key={`unstaged-${file.path}`}
-                    file={file}
-                    operating={operatingFile === file.path}
-                    onStage={() => void handleStageFile(file.path)}
-                    onDiscard={() => void handleDiscardFile(file.path)}
-                    onClick={() => void handleStageFile(file.path)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!loading && changes && changes.files.length === 0 && (
+        {!loading && derived.counts.total === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <GitBranch size={32} className="mb-2 text-[var(--lumina-muted)]/50" />
             <p className="text-xs text-[var(--lumina-muted)]">没有待提交的更改</p>

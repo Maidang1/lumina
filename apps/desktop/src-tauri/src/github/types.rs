@@ -54,18 +54,20 @@ pub struct RepoStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChangedFile {
-    pub status: String,
+pub struct GitFileState {
     pub path: String,
-    pub staged: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub staged_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unstaged_status: Option<String>,
+    pub untracked: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChangesPreview {
-    pub files: Vec<ChangedFile>,
-    pub total_added: usize,
-    pub total_modified: usize,
-    pub total_deleted: usize,
+pub struct GitChangesSnapshot {
+    pub files: Vec<GitFileState>,
 }
 
 // GitHub API 响应类型

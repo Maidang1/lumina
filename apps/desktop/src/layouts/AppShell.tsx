@@ -6,6 +6,7 @@ import { uploadService } from "@/services/uploadService";
 import { pushToast } from "@/lib/toast";
 import { logger } from "@/lib/logger";
 import { getChangesPreview } from "@/lib/tauri/github";
+import { deriveGitChanges } from "@/features/git";
 
 import { Sidebar } from "./Sidebar";
 import { HeaderBar } from "./HeaderBar";
@@ -59,7 +60,8 @@ export function AppShell({
   const refreshChangesCount = useCallback(async (): Promise<void> => {
     try {
       const changes = await getChangesPreview();
-      setChangesCount(changes.files.length);
+      const derived = deriveGitChanges(changes);
+      setChangesCount(derived.counts.total);
     } catch {
       setChangesCount(0);
     }
@@ -108,11 +110,11 @@ export function AppShell({
     void syncOnStartup();
   }, [refreshRepoReady, setIsSyncing]);
 
-  const handleCommitAndPush = async (): Promise<void> => {
+  const handleCommitAndPush = async (message?: string): Promise<void> => {
     setIsCommitting(true);
     try {
-      const message = await uploadService.commitAndPush();
-      pushToast(message, "success");
+      const result = await uploadService.commitAndPush(message);
+      pushToast(result, "success");
       await refreshRepoReady();
     } catch (error) {
       pushToast(
@@ -204,7 +206,7 @@ export function AppShell({
             <GitSidebarPanel
               open={gitSidebarOpen}
               onClose={() => setGitSidebarOpen(false)}
-              onCommit={() => void handleCommitAndPush()}
+              onCommit={(message) => void handleCommitAndPush(message)}
               commitLoading={isCommitting}
               repoHint={repoHint}
             />

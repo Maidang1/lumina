@@ -39,6 +39,7 @@ pub fn run() {
             commands::github::github_stage_file,
             commands::github::github_unstage_file,
             commands::github::github_discard_file,
+            commands::github::github_delete_file,
             commands::github::github_stage_all,
             commands::github::github_unstage_all,
             commands::github::github_commit_and_push,

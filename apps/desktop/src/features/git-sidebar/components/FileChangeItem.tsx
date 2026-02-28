@@ -1,10 +1,15 @@
 import React from "react";
 import { FilePlus, FileEdit, FileX, FileQuestion, Plus, Minus, Undo2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ChangedFile } from "@/lib/tauri/github";
+
+interface LegacyChangedFile {
+  status: string;
+  path: string;
+  staged: boolean;
+}
 
 interface FileChangeItemProps {
-  file: ChangedFile;
+  file: LegacyChangedFile;
   operating?: boolean;
   onStage?: () => void;
   onUnstage?: () => void;
