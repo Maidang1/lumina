@@ -53,6 +53,21 @@ pub struct RepoStatus {
     pub dirty_files: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChangedFile {
+    pub status: String,
+    pub path: String,
+    pub staged: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChangesPreview {
+    pub files: Vec<ChangedFile>,
+    pub total_added: usize,
+    pub total_modified: usize,
+    pub total_deleted: usize,
+}
+
 // GitHub API 响应类型
 #[derive(Debug, Deserialize)]
 pub struct GitHubFileResponse {

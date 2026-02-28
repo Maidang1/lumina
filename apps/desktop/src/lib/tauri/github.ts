@@ -53,6 +53,19 @@ interface RepoStatus {
   dirty_files: number;
 }
 
+export interface ChangedFile {
+  status: string;
+  path: string;
+  staged: boolean;
+}
+
+export interface ChangesPreview {
+  files: ChangedFile[];
+  total_added: number;
+  total_modified: number;
+  total_deleted: number;
+}
+
 export async function uploadImageToGitHub(
   options: GitHubUploadOptions
 ): Promise<GitHubUploadResult> {
@@ -136,4 +149,28 @@ export async function commitAndPushRepo(message?: string): Promise<string> {
 
 export async function syncRepo(): Promise<string> {
   return invoke<string>('github_sync_repo');
+}
+
+export async function getChangesPreview(): Promise<ChangesPreview> {
+  return invoke<ChangesPreview>('github_get_changes_preview');
+}
+
+export async function stageFile(path: string): Promise<void> {
+  return invoke<void>('github_stage_file', { path });
+}
+
+export async function unstageFile(path: string): Promise<void> {
+  return invoke<void>('github_unstage_file', { path });
+}
+
+export async function discardFile(path: string): Promise<void> {
+  return invoke<void>('github_discard_file', { path });
+}
+
+export async function stageAll(): Promise<void> {
+  return invoke<void>('github_stage_all');
+}
+
+export async function unstageAll(): Promise<void> {
+  return invoke<void>('github_unstage_all');
 }

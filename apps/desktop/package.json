@@ -13,18 +13,23 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@luminafe/theme": "workspace:*",
     "@luminafe/contracts": "workspace:*",
+    "@luminafe/theme": "workspace:*",
+    "@tanstack/react-virtual": "^3.13.19",
     "@tauri-apps/api": "^2.2.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-store": "^2.0.0",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "lucide-react": "^0.563.0",
     "motion": "^12.23.24",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-hotkeys-hook": "^5.2.4",
     "tailwind-merge": "^3.5.0",
-    "thumbhash": "^0.1.1"
+    "thumbhash": "^0.1.1",
+    "yet-another-react-lightbox": "^3.29.1",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.13",

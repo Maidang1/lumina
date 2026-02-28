@@ -117,6 +117,90 @@ pub async fn github_get_repo_status(app: tauri::AppHandle) -> Result<RepoStatus,
 }
 
 #[tauri::command]
+pub async fn github_get_changes_preview(app: tauri::AppHandle) -> Result<crate::github::types::ChangesPreview, String> {
+    use crate::github::types::{ChangedFile, ChangesPreview};
+    
+    let config = GitHubConfig::from_store(&app).map_err(|e| format!("仓库配置加载失败: {e}"))?;
+    ensure_is_git_repo(&config.repo_path)?;
+
+    let status_output = run_git(&config.repo_path, &["status", "--porcelain"])?;
+    
+    let mut files = Vec::new();
+    let mut total_added = 0;
+    let mut total_modified = 0;
+    let mut total_deleted = 0;
+
+    for line in status_output.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        
+        let index_status = line.chars().next().unwrap_or(' ');
+        let worktree_status = line.chars().nth(1).unwrap_or(' ');
+        let path = line[3..].to_string();
+        
+        let (status, staged) = match (index_status, worktree_status) {
+            ('A', _) => { total_added += 1; ("added".to_string(), true) }
+            ('M', _) => { total_modified += 1; ("modified".to_string(), true) }
+            ('D', _) => { total_deleted += 1; ("deleted".to_string(), true) }
+            ('?', '?') => { total_added += 1; ("untracked".to_string(), false) }
+            (_, 'M') => { total_modified += 1; ("modified".to_string(), false) }
+            (_, 'D') => { total_deleted += 1; ("deleted".to_string(), false) }
+            _ => ("unknown".to_string(), false)
+        };
+
+        files.push(ChangedFile { status, path, staged });
+    }
+
+    Ok(ChangesPreview {
+        files,
+        total_added,
+        total_modified,
+        total_deleted,
+    })
+}
+
+#[tauri::command]
+pub async fn github_stage_file(path: String, app: tauri::AppHandle) -> Result<(), String> {
+    let config = GitHubConfig::from_store(&app).map_err(|e| format!("仓库配置加载失败: {e}"))?;
+    ensure_is_git_repo(&config.repo_path)?;
+    run_git(&config.repo_path, &["add", &path])?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn github_unstage_file(path: String, app: tauri::AppHandle) -> Result<(), String> {
+    let config = GitHubConfig::from_store(&app).map_err(|e| format!("仓库配置加载失败: {e}"))?;
+    ensure_is_git_repo(&config.repo_path)?;
+    run_git(&config.repo_path, &["reset", "HEAD", &path])?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn github_discard_file(path: String, app: tauri::AppHandle) -> Result<(), String> {
+    let config = GitHubConfig::from_store(&app).map_err(|e| format!("仓库配置加载失败: {e}"))?;
+    ensure_is_git_repo(&config.repo_path)?;
+    run_git(&config.repo_path, &["checkout", "--", &path])?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn github_stage_all(app: tauri::AppHandle) -> Result<(), String> {
+    let config = GitHubConfig::from_store(&app).map_err(|e| format!("仓库配置加载失败: {e}"))?;
+    ensure_is_git_repo(&config.repo_path)?;
+    run_git(&config.repo_path, &["add", "."])?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn github_unstage_all(app: tauri::AppHandle) -> Result<(), String> {
+    let config = GitHubConfig::from_store(&app).map_err(|e| format!("仓库配置加载失败: {e}"))?;
+    ensure_is_git_repo(&config.repo_path)?;
+    run_git(&config.repo_path, &["reset", "HEAD"])?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn github_commit_and_push(
     message: Option<String>,
     app: tauri::AppHandle,

@@ -21,9 +21,7 @@ export const usePhotosCollection = (): UsePhotosCollectionResult => {
       setPhotos(
         images.map((image) =>
           metadataToPhoto(image, {
-            owner: repoStatus.owner || undefined,
-            repo: repoStatus.repo || undefined,
-            branch: repoStatus.branch || undefined,
+            repoPath: repoStatus.repo_path,
           }),
         ),
       );

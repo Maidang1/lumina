@@ -42,7 +42,7 @@ const ManagePage: React.FC = () => {
   });
 
   return (
-    <div className="text-white">
+    <div className="text-[var(--lumina-text)]">
       <div className="mx-auto max-w-6xl">
       <ManageHeader />
 
@@ -72,9 +72,9 @@ const ManagePage: React.FC = () => {
           {isLoading ? (
             <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4">
               <div className="relative">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/[0.06] border-t-[#c9a962]/60" />
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--lumina-border)] border-t-[var(--lumina-text)]" />
               </div>
-              <p className="text-xs font-light tracking-wide text-lumina-text-secondary">
+              <p className="text-xs font-light tracking-wide text-[var(--lumina-text-secondary)]">
                 加载照片库...
               </p>
             </div>
