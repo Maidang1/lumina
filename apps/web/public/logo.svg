@@ -1,0 +1,124 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <radialGradient id="bgGrad" cx="0.5" cy="0.5" r="0.65">
+    <stop offset="0" stop-color="#111D28"/>
+    <stop offset="1" stop-color="#050810"/>
+  </radialGradient>
+
+  <linearGradient id="ringGrad" x1="180" y1="180" x2="844" y2="844" gradientUnits="userSpaceOnUse">
+    <stop offset="0"   stop-color="#5A7080"/>
+    <stop offset="0.25" stop-color="#A0BFCC"/>
+    <stop offset="0.5" stop-color="#4A6070"/>
+    <stop offset="0.75" stop-color="#7A9FAF"/>
+    <stop offset="1"   stop-color="#3A5060"/>
+  </linearGradient>
+
+  <radialGradient id="apGlow" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0"    stop-color="#FFFFFF" stop-opacity="1"/>
+    <stop offset="0.1"  stop-color="#FFF4D0" stop-opacity="1"/>
+    <stop offset="0.28" stop-color="#FFD050" stop-opacity="0.95"/>
+    <stop offset="0.55" stop-color="#FF7B18" stop-opacity="0.8"/>
+    <stop offset="0.82" stop-color="#CC3A00" stop-opacity="0.4"/>
+    <stop offset="1"    stop-color="#800000" stop-opacity="0"/>
+  </radialGradient>
+
+  <radialGradient id="ambientGlow" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0.3" stop-color="#FF6010" stop-opacity="0"/>
+    <stop offset="0.68" stop-color="#FF4400" stop-opacity="0.14"/>
+    <stop offset="1"   stop-color="#000000" stop-opacity="0"/>
+  </radialGradient>
+
+  
+  <linearGradient id="bg0" x1="512" y1="512" x2="754" y2="652" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#243040"/>
+    <stop offset="0.35" stop-color="#18242F"/>
+    <stop offset="1" stop-color="#0C1620"/>
+  </linearGradient>
+  <linearGradient id="bg1" x1="512" y1="512" x2="512" y2="792" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#243040"/>
+    <stop offset="0.35" stop-color="#18242F"/>
+    <stop offset="1" stop-color="#0C1620"/>
+  </linearGradient>
+  <linearGradient id="bg2" x1="512" y1="512" x2="270" y2="652" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#243040"/>
+    <stop offset="0.35" stop-color="#18242F"/>
+    <stop offset="1" stop-color="#0C1620"/>
+  </linearGradient>
+  <linearGradient id="bg3" x1="512" y1="512" x2="270" y2="372" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#243040"/>
+    <stop offset="0.35" stop-color="#18242F"/>
+    <stop offset="1" stop-color="#0C1620"/>
+  </linearGradient>
+  <linearGradient id="bg4" x1="512" y1="512" x2="512" y2="232" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#243040"/>
+    <stop offset="0.35" stop-color="#18242F"/>
+    <stop offset="1" stop-color="#0C1620"/>
+  </linearGradient>
+  <linearGradient id="bg5" x1="512" y1="512" x2="754" y2="372" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#243040"/>
+    <stop offset="0.35" stop-color="#18242F"/>
+    <stop offset="1" stop-color="#0C1620"/>
+  </linearGradient>
+
+  <!-- Glow filter for center -->
+  <filter id="cf" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="22" result="blur"/>
+    <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+
+  <filter id="ambFilter" x="-40%" y="-40%" width="180%" height="180%">
+    <feGaussianBlur stdDeviation="50"/>
+  </filter>
+
+  <!-- Clip to lens -->
+  <clipPath id="lensClip">
+    <circle cx="512" cy="512" r="330"/>
+  </clipPath>
+  <!-- Clip glow to aperture hexagon -->
+  <clipPath id="hexClip">
+    <path d="M 628.00,512.00 L 570.00,612.46 L 454.00,612.46 L 396.00,512.00 L 454.00,411.54 L 570.00,411.54 Z"/>
+  </clipPath>
+</defs>
+
+<!-- Background -->
+<rect x="0" y="0" width="1024" height="1024" rx="226" fill="url(#bgGrad)"/>
+
+<!-- Ambient warm glow behind lens -->
+<circle cx="512" cy="512" r="470" fill="url(#ambientGlow)" filter="url(#ambFilter)"/>
+
+<!-- Outer metallic ring -->
+<circle cx="512" cy="512" r="350" fill="#0A1118" stroke="url(#ringGrad)" stroke-width="20"/>
+<!-- Inner bevel lines -->
+<circle cx="512" cy="512" r="332" fill="none" stroke="#283840" stroke-width="2.5" stroke-opacity="0.7"/>
+<circle cx="512" cy="512" r="326" fill="none" stroke="#060E18" stroke-width="2" stroke-opacity="1"/>
+
+<!-- Lens content -->
+<g clip-path="url(#lensClip)">
+  <circle cx="512" cy="512" r="330" fill="#090D14"/>
+  <!-- Warm glow base (visible only through aperture) -->
+  <circle cx="512" cy="512" r="200" fill="url(#apGlow)" clip-path="url(#hexClip)" opacity="0.85"/>
+  <!-- Blades -->
+  <path d="M 620.00,512.00 L 785.58,327.47 A 330,330 0 0,1 557.93,838.79 L 566.00,605.53 A 108,108 0 0,0 620.00,512.00 Z" fill="url(#bg0)"/>
+  <path d="M 566.00,605.53 L 808.60,656.66 A 330,330 0 0,1 251.96,715.17 L 458.00,605.53 A 108,108 0 0,0 566.00,605.53 Z" fill="url(#bg1)"/>
+  <path d="M 458.00,605.53 L 535.02,841.20 A 330,330 0 0,1 206.03,388.38 L 404.00,512.00 A 108,108 0 0,0 458.00,605.53 Z" fill="url(#bg2)"/>
+  <path d="M 404.00,512.00 L 238.42,696.53 A 330,330 0 0,1 466.07,185.21 L 458.00,418.47 A 108,108 0 0,0 404.00,512.00 Z" fill="url(#bg3)"/>
+  <path d="M 458.00,418.47 L 215.40,367.34 A 330,330 0 0,1 772.04,308.83 L 566.00,418.47 A 108,108 0 0,0 458.00,418.47 Z" fill="url(#bg4)"/>
+  <path d="M 566.00,418.47 L 488.98,182.80 A 330,330 0 0,1 817.97,635.62 L 620.00,512.00 A 108,108 0 0,0 566.00,418.47 Z" fill="url(#bg5)"/>
+  <!-- Subtle blade edge highlights (layering effect) -->
+  <path d="M 620.00,512.00 A 108,108 0 0,1 566.00,605.53" stroke="#4A6888" stroke-width="1.5" stroke-opacity="0.4" fill="none"/>
+  <path d="M 566.00,605.53 A 108,108 0 0,1 458.00,605.53" stroke="#4A6888" stroke-width="1.5" stroke-opacity="0.4" fill="none"/>
+  <path d="M 458.00,605.53 A 108,108 0 0,1 404.00,512.00" stroke="#4A6888" stroke-width="1.5" stroke-opacity="0.4" fill="none"/>
+  <path d="M 404.00,512.00 A 108,108 0 0,1 458.00,418.47" stroke="#4A6888" stroke-width="1.5" stroke-opacity="0.4" fill="none"/>
+  <path d="M 458.00,418.47 A 108,108 0 0,1 566.00,418.47" stroke="#4A6888" stroke-width="1.5" stroke-opacity="0.4" fill="none"/>
+  <path d="M 566.00,418.47 A 108,108 0 0,1 620.00,512.00" stroke="#4A6888" stroke-width="1.5" stroke-opacity="0.4" fill="none"/>
+</g>
+
+<!-- Center aperture glow on top (filtered) -->
+<g clip-path="url(#hexClip)" filter="url(#cf)">
+  <circle cx="512" cy="512" r="200" fill="url(#apGlow)" opacity="0.95"/>
+</g>
+
+<!-- Specular lens highlight (top-left, subtle) -->
+<path d="M 240 310 A 310 310 0 0 1 510 175" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.09" fill="none"/>
+<ellipse cx="295" cy="330" rx="18" ry="7" fill="white" opacity="0.06" transform="rotate(-40 295 330)"/>
+</svg>
