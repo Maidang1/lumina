@@ -10,19 +10,24 @@ interface HeroSectionProps {
 
 const HeroSection: React.FC<HeroSectionProps> = ({ featuredPhotos }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    if (featuredPhotos.length <= 1) return;
+    if (featuredPhotos.length <= 1 || isPaused) return;
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % featuredPhotos.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, [featuredPhotos.length]);
+  }, [featuredPhotos.length, isPaused]);
 
   const currentPhoto = featuredPhotos[currentIndex];
 
   return (
-    <section className="relative h-screen w-full overflow-hidden">
+    <section
+      className="relative h-screen w-full overflow-hidden"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
       <AnimatePresence mode="wait">
         {currentPhoto && (
           <motion.div

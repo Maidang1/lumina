@@ -1,15 +1,17 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { NumberTicker } from "@/shared/magicui/number-ticker";
+import { Camera, MapPin, Images } from "lucide-react";
 
 interface HeaderProps {
   photoCount?: number;
   variant?: "default" | "transparent";
+  toolbar?: React.ReactNode;
 }
 
 const Header: React.FC<HeaderProps> = ({
   photoCount = 0,
   variant = "default",
+  toolbar,
 }) => {
   const location = useLocation();
   const currentPath = location.pathname;
@@ -17,55 +19,113 @@ const Header: React.FC<HeaderProps> = ({
   const isGallery = currentPath === "/gallery" || currentPath.startsWith("/gallery/");
   const isMap = currentPath === "/map" || currentPath.startsWith("/map/");
 
-  const navLinkClass = (active: boolean) =>
-    `cursor-pointer rounded-md px-3 py-1.5 transition-colors duration-200 ${
-      active ? "bg-white/12 text-white" : "text-white/45 hover:text-white/75"
-    }`;
-
   const headerBg =
     variant === "transparent"
-      ? "bg-transparent border-transparent"
-      : "border-white/[0.12] bg-[#080b10]/82 backdrop-blur-xl shadow-[var(--shadow-elevation-3)]";
+      ? "bg-transparent"
+      : "bg-gradient-to-b from-black/80 via-black/60 to-transparent backdrop-blur-sm";
 
   return (
-    <header className="sticky top-0 z-30 mx-auto w-full max-w-[1720px] px-2 sm:px-4">
-      <div
-        className={`mx-auto mt-2 flex h-16 items-center justify-between rounded-xl border px-4 sm:mt-3 sm:h-20 sm:px-8 ${headerBg}`}
-      >
-        <div className="flex items-center gap-3 sm:gap-6">
+    <header className={`sticky top-0 z-30 w-full ${headerBg}`}>
+      <div className="flex h-14 items-center justify-between px-4 sm:h-16 sm:px-8">
+        <div className="flex items-center gap-6">
           <Link
             to="/"
-            className="font-display text-2xl tracking-tight text-lumina-text sm:text-3xl hover:opacity-80 transition-opacity"
+            className="group flex items-center gap-2.5 transition-opacity hover:opacity-90"
           >
-            Lumina
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400/90 to-orange-500/90 shadow-lg shadow-amber-500/20">
+              <Camera size={16} className="text-black" strokeWidth={2.5} />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-display text-lg font-medium leading-none tracking-tight text-white sm:text-xl">
+                Lumina
+              </span>
+              <span className="hidden text-[9px] font-medium uppercase tracking-[0.2em] text-white/40 sm:block">
+                Photography
+              </span>
+            </div>
           </Link>
-          <div className="hidden h-3 w-px bg-lumina-border sm:block" />
-          <span className="hidden pt-0.5 font-mono text-xs tracking-wider text-lumina-muted uppercase sm:inline">
-            Portfolio
-          </span>
+
+          <nav className="hidden items-center gap-1 sm:flex">
+            <NavLink to="/gallery" active={isGallery} icon={<Images size={15} />}>
+              Gallery
+            </NavLink>
+            <NavLink to="/map" active={isMap} icon={<MapPin size={15} />}>
+              Map
+            </NavLink>
+          </nav>
         </div>
 
-        <div className="flex items-center gap-4 sm:gap-8">
+        <div className="flex items-center gap-4">
           {photoCount > 0 && (
-            <div className="hidden items-center gap-3 text-xs text-lumina-text-secondary sm:flex">
-              <span className="uppercase">Photos</span>
-              <NumberTicker
-                value={photoCount}
-                className="text-sm text-lumina-text"
-              />
+            <div className="hidden items-center gap-2 rounded-full bg-white/[0.08] px-3 py-1.5 sm:flex">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-white/50">
+                Collection
+              </span>
+              <span className="text-sm font-semibold tabular-nums text-white">
+                {photoCount}
+              </span>
             </div>
           )}
-          <nav className="flex items-center rounded-lg border border-white/[0.08] bg-white/[0.03] p-1 text-sm font-medium sm:gap-1">
-            <Link to="/gallery" className={navLinkClass(isGallery)}>
-              Gallery
-            </Link>
-            <Link to="/map" className={navLinkClass(isMap)}>
-              Map
-            </Link>
+
+          <nav className="flex items-center gap-1 sm:hidden">
+            <MobileNavLink to="/gallery" active={isGallery} icon={<Images size={18} />} />
+            <MobileNavLink to="/map" active={isMap} icon={<MapPin size={18} />} />
           </nav>
         </div>
       </div>
+
+      {toolbar && (
+        <div className="border-t border-white/[0.05] bg-black/20 px-4 py-2.5 backdrop-blur-md sm:px-8">
+          {toolbar}
+        </div>
+      )}
     </header>
+  );
+};
+
+interface NavLinkProps {
+  to: string;
+  active: boolean;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}
+
+const NavLink: React.FC<NavLinkProps> = ({ to, active, icon, children }) => {
+  return (
+    <Link
+      to={to}
+      className={`group flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+        active
+          ? "bg-white/[0.12] text-white shadow-sm"
+          : "text-white/60 hover:bg-white/[0.06] hover:text-white/90"
+      }`}
+    >
+      <span className={`transition-colors ${active ? "text-amber-400" : "text-white/40 group-hover:text-white/70"}`}>
+        {icon}
+      </span>
+      {children}
+    </Link>
+  );
+};
+
+interface MobileNavLinkProps {
+  to: string;
+  active: boolean;
+  icon: React.ReactNode;
+}
+
+const MobileNavLink: React.FC<MobileNavLinkProps> = ({ to, active, icon }) => {
+  return (
+    <Link
+      to={to}
+      className={`flex h-10 w-10 items-center justify-center rounded-full transition-all ${
+        active
+          ? "bg-white/[0.12] text-amber-400"
+          : "text-white/50 hover:bg-white/[0.06] hover:text-white/80"
+      }`}
+    >
+      {icon}
+    </Link>
   );
 };
 

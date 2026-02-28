@@ -9,14 +9,16 @@ import React, {
 } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { BlurFade } from "@/shared/magicui/blur-fade";
+import { ScrollProgress } from "@/shared/magicui/scroll-progress";
+import { AnimatedGridPattern } from "@/shared/magicui/animated-grid-pattern";
+import { Header } from "@/shared/components/Header";
 import PhotoGrid from "@/features/photos/components/PhotoGrid";
 import PhotoDetail from "@/features/photos/components/PhotoDetail";
 import { LoadingSpinner, EmptyState, ErrorState } from "@/shared/components";
 import { useLocalStorageState } from "@/shared/lib/useLocalStorageState";
 import { imagePrefetchService } from "@/features/photos/services/imagePrefetchService";
 import { useGalleryFilters } from "./hooks/useGalleryFilters";
-import FilterBar from "./components/FilterBar";
-import ViewModeToggle from "./components/ViewModeToggle";
+import GalleryToolbar from "./components/GalleryToolbar";
 import PhotoListView from "./components/PhotoListView";
 import PhotoGridView from "./components/PhotoGridView";
 import type { Photo, PhotoOpenTransition } from "@/features/photos/types";
@@ -29,7 +31,7 @@ const LazyPhotoMapView = lazy(
 
 type PageViewMode = "gallery" | "map";
 
-interface GalleryViewProps {
+interface GalleryPageProps {
   photos: Photo[];
   isLoading: boolean;
   isLoadingMore: boolean;
@@ -38,10 +40,9 @@ interface GalleryViewProps {
   loadMore: () => Promise<void>;
   refresh: () => Promise<void>;
   viewMode?: PageViewMode;
-  toolbar?: React.ReactNode;
 }
 
-const GalleryView: React.FC<GalleryViewProps> = ({
+const GalleryPage: React.FC<GalleryPageProps> = ({
   photos,
   isLoading,
   isLoadingMore,
@@ -175,8 +176,8 @@ const GalleryView: React.FC<GalleryViewProps> = ({
 
   const mainClass =
     pageViewMode === "map"
-      ? "mx-auto h-[calc(100svh-72px)] w-full max-w-[1720px] flex-grow overflow-hidden px-2 sm:h-[calc(100svh-96px)] sm:px-4"
-      : "mx-auto w-full flex-grow px-2 pt-3 sm:px-4 sm:pt-5";
+      ? "mx-auto h-[calc(100svh-120px)] w-full flex-grow overflow-hidden px-2 sm:h-[calc(100svh-130px)] sm:px-4"
+      : "mx-auto w-full flex-grow px-2 pt-2 sm:px-4 sm:pt-3";
 
   const renderPhotoContent = () => {
     switch (filters.viewMode) {
@@ -202,8 +203,32 @@ const GalleryView: React.FC<GalleryViewProps> = ({
     }
   };
 
+  const toolbar = pageViewMode === "gallery" && photos.length > 0 && !isLoading ? (
+    <GalleryToolbar
+      filters={filters}
+      availableFilters={availableFilters}
+      onFiltersChange={setFilters}
+      onClearFilters={clearFilters}
+      hasActiveFilters={hasActiveFilters}
+      filteredCount={filteredPhotos.length}
+      totalCount={totalCount}
+    />
+  ) : undefined;
+
   return (
-    <>
+    <div className="relative min-h-screen bg-lumina-bg text-lumina-text">
+      <ScrollProgress />
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <AnimatedGridPattern
+          className="opacity-25"
+          numSquares={35}
+          maxOpacity={0.35}
+          duration={5}
+          repeatDelay={1}
+        />
+      </div>
+      <Header photoCount={photos.length} toolbar={toolbar} />
+
       <main className={mainClass}>
         {isLoading ? (
           <div className="flex min-h-[50vh] items-center justify-center">
@@ -279,8 +304,8 @@ const GalleryView: React.FC<GalleryViewProps> = ({
           onNext={handleNext}
         />
       )}
-    </>
+    </div>
   );
 };
 
-export default GalleryView;
+export default GalleryPage;

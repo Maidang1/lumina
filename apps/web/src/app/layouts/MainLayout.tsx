@@ -6,9 +6,10 @@ import { AnimatedGridPattern } from "@/shared/magicui/animated-grid-pattern";
 
 interface MainLayoutProps {
   photoCount?: number;
+  toolbar?: React.ReactNode;
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ photoCount = 0 }) => {
+const MainLayout: React.FC<MainLayoutProps> = ({ photoCount = 0, toolbar }) => {
   return (
     <div className="relative min-h-screen bg-lumina-bg text-lumina-text">
       <ScrollProgress />
@@ -22,7 +23,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ photoCount = 0 }) => {
         />
       </div>
 
-      <Header photoCount={photoCount} />
+      <Header photoCount={photoCount} toolbar={toolbar} />
 
       <Outlet />
     </div>
