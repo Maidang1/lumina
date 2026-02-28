@@ -53,8 +53,11 @@ jobs:
             exit 1
           fi
 
-      - name: Build all workspace packages
-        run: pnpm build
+      - name: Build desktop prerequisites
+        run: pnpm --filter @luminafe/contracts build
+
+      - name: Build desktop app
+        run: pnpm --filter @luminafe/desktop build
 
       - name: Build and publish Tauri release
         uses: tauri-apps/tauri-action@v0
