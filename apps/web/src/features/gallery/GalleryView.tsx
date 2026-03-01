@@ -12,6 +12,7 @@ import { BlurFade } from "@/shared/magicui/blur-fade";
 import PhotoGrid from "@/features/photos/components/PhotoGrid";
 import PhotoDetail from "@/features/photos/components/PhotoDetail";
 import { LoadingSpinner, EmptyState, ErrorState } from "@/shared/components";
+import ScrollToTop from "@/shared/components/ScrollToTop";
 import { useLocalStorageState } from "@/shared/lib/useLocalStorageState";
 import { imagePrefetchService } from "@/features/photos/services/imagePrefetchService";
 import { useGalleryFilters } from "./hooks/useGalleryFilters";
@@ -19,6 +20,8 @@ import FilterBar from "./components/FilterBar";
 import ViewModeToggle from "./components/ViewModeToggle";
 import PhotoListView from "./components/PhotoListView";
 import PhotoGridView from "./components/PhotoGridView";
+import PhotoTimelineView from "./components/PhotoTimelineView";
+import ExifStatsPanel from "./components/ExifStatsPanel";
 import type { Photo, PhotoOpenTransition } from "@/features/photos/types";
 
 const TAG_STORAGE_KEY = "lumina.photo_tags";
@@ -61,6 +64,7 @@ const GalleryView: React.FC<GalleryViewProps> = ({
     {},
   );
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [showExifStats, setShowExifStats] = useState(false);
 
   const {
     filters,
@@ -194,6 +198,13 @@ const GalleryView: React.FC<GalleryViewProps> = ({
             onPhotoClick={handlePhotoClick}
           />
         );
+      case "timeline":
+        return (
+          <PhotoTimelineView
+            photos={displayPhotos}
+            onPhotoClick={handlePhotoClick}
+          />
+        );
       case "masonry":
       default:
         return (
@@ -242,6 +253,8 @@ const GalleryView: React.FC<GalleryViewProps> = ({
                     <span className="text-xs text-white/20">·</span>
                   ) : null}
                 </div>
+
+                <ScrollToTop />
               </>
             ) : (
               <Suspense

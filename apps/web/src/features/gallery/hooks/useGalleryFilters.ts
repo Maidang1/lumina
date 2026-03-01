@@ -4,7 +4,7 @@ import type { Photo } from "@/features/photos/types";
 
 export type SortBy = "date" | "name" | "size";
 export type SortOrder = "asc" | "desc";
-export type ViewMode = "masonry" | "grid" | "list";
+export type ViewMode = "masonry" | "grid" | "list" | "timeline";
 
 export interface GalleryFilters {
   timeRange?: { start: string; end: string };

@@ -15,12 +15,15 @@ import { Header } from "@/shared/components/Header";
 import PhotoGrid from "@/features/photos/components/PhotoGrid";
 import PhotoDetail from "@/features/photos/components/PhotoDetail";
 import { LoadingSpinner, EmptyState, ErrorState } from "@/shared/components";
+import ScrollToTop from "@/shared/components/ScrollToTop";
 import { useLocalStorageState } from "@/shared/lib/useLocalStorageState";
 import { imagePrefetchService } from "@/features/photos/services/imagePrefetchService";
 import { useGalleryFilters } from "./hooks/useGalleryFilters";
 import GalleryToolbar from "./components/GalleryToolbar";
 import PhotoListView from "./components/PhotoListView";
 import PhotoGridView from "./components/PhotoGridView";
+import PhotoTimelineView from "./components/PhotoTimelineView";
+import ExifStatsPanel from "./components/ExifStatsPanel";
 import type { Photo, PhotoOpenTransition } from "@/features/photos/types";
 
 const TAG_STORAGE_KEY = "lumina.photo_tags";
@@ -60,6 +63,7 @@ const GalleryPage: React.FC<GalleryPageProps> = ({
     {},
   );
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [showExifStats, setShowExifStats] = useState(false);
 
   const {
     filters,
@@ -187,6 +191,13 @@ const GalleryPage: React.FC<GalleryPageProps> = ({
             onPhotoClick={handlePhotoClick}
           />
         );
+      case "timeline":
+        return (
+          <PhotoTimelineView
+            photos={displayPhotos}
+            onPhotoClick={handlePhotoClick}
+          />
+        );
       case "masonry":
       default:
         return (
@@ -204,6 +215,7 @@ const GalleryPage: React.FC<GalleryPageProps> = ({
       hasActiveFilters={hasActiveFilters}
       filteredCount={filteredPhotos.length}
       totalCount={totalCount}
+      onOpenExifStats={() => setShowExifStats(true)}
     />
   ) : undefined;
 
@@ -291,6 +303,13 @@ const GalleryPage: React.FC<GalleryPageProps> = ({
           onNext={handleNext}
         />
       )}
+
+      <ScrollToTop />
+      <ExifStatsPanel
+        photos={displayPhotos}
+        open={showExifStats}
+        onClose={() => setShowExifStats(false)}
+      />
     </div>
   );
 };

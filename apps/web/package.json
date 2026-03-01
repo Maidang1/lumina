@@ -4,10 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "rsbuild dev",
     "check:devvars": "node -e \"const fs=require('fs');if(!fs.existsSync('.dev.vars')){console.error('Missing apps/web/.dev.vars. Copy apps/web/.dev.vars.example and fill GITHUB_TOKEN.');process.exit(1)}\"",
     "dev:pages": "pnpm run check:devvars && wrangler pages dev dist",
-    "dev:full": "pnpm run check:devvars && concurrently \"rsbuild build --watch\" \"sleep 5 && wrangler pages dev dist\"",
+    "dev": "pnpm run check:devvars && concurrently \"rsbuild build --watch\" \"sleep 5 && wrangler pages dev dist\"",
     "build": "rsbuild build",
     "preview": "rsbuild preview",
     "deploy": "wrangler pages deploy dist",

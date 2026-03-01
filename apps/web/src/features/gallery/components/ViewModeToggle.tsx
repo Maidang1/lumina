@@ -1,5 +1,5 @@
 import React from "react";
-import { LayoutGrid, List, Rows3 } from "lucide-react";
+import { LayoutGrid, List, Rows3, CalendarDays } from "lucide-react";
 import type { ViewMode } from "../hooks/useGalleryFilters";
 
 interface ViewModeToggleProps {
@@ -15,6 +15,7 @@ const ViewModeToggle: React.FC<ViewModeToggleProps> = ({
     { value: "masonry", icon: <Rows3 size={14} />, label: "Masonry" },
     { value: "grid", icon: <LayoutGrid size={14} />, label: "Grid" },
     { value: "list", icon: <List size={14} />, label: "List" },
+    { value: "timeline", icon: <CalendarDays size={14} />, label: "Timeline" },
   ];
 
   return (

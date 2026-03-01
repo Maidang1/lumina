@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Photo } from "@/features/photos/types";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
@@ -6,6 +6,7 @@ import { InfoPanel } from "@/features/photos/components/photo-detail/InfoPanel";
 import PhotoDetailOverlay from "@/features/photos/components/photo-detail/PhotoDetailOverlay";
 import PhotoDetailControls from "@/features/photos/components/photo-detail/PhotoDetailControls";
 import PhotoDetailMediaStage from "@/features/photos/components/photo-detail/PhotoDetailMediaStage";
+import KeyboardShortcutsHelp from "@/features/photos/components/photo-detail/KeyboardShortcutsHelp";
 import { usePhotoDetailMedia } from "@/features/photos/components/photo-detail/usePhotoDetailMedia";
 import { usePhotoDetailKeyboardNav } from "@/features/photos/components/photo-detail/usePhotoDetailKeyboardNav";
 import { usePhotoDetailTransition } from "@/features/photos/components/photo-detail/usePhotoDetailTransition";
@@ -59,6 +60,19 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     disabled: transitionState === "closing",
   });
 
+  const [showHelp, setShowHelp] = useState(false);
+
+  useEffect(() => {
+    const handleHelpKey = (e: KeyboardEvent) => {
+      if (e.key === "?" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setShowHelp((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleHelpKey);
+    return () => window.removeEventListener("keydown", handleHelpKey);
+  }, []);
+
   // No flip morph - instant mount
   const springTransition = {
     type: "spring" as const,
@@ -68,6 +82,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   };
 
   return (
+    <>
     <Dialog
       open={true}
       onOpenChange={(open) => {
@@ -126,6 +141,9 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
         </motion.div>
       </DialogContent>
     </Dialog>
+
+    <KeyboardShortcutsHelp open={showHelp} onClose={() => setShowHelp(false)} />
+    </>
   );
 };
 

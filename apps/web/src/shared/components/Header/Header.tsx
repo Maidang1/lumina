@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Camera, MapPin, Images } from "lucide-react";
+import { MapPin, Images } from "lucide-react";
 
 interface HeaderProps {
   photoCount?: number;
@@ -32,8 +32,8 @@ const Header: React.FC<HeaderProps> = ({
             to="/"
             className="group flex items-center gap-2.5 transition-opacity hover:opacity-90"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400/90 to-orange-500/90 shadow-lg shadow-amber-500/20">
-              <Camera size={16} className="text-black" strokeWidth={2.5} />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400/90 to-orange-500/90 text-base font-bold text-black shadow-lg shadow-amber-500/20">
+              L
             </div>
             <div className="flex flex-col">
               <span className="font-display text-lg font-medium leading-none tracking-tight text-white sm:text-xl">
