@@ -5,7 +5,6 @@ const CLOSE_FALLBACK_DELAY_MS = 250;
 
 interface UsePhotoDetailTransitionParams {
   photo: Photo;
-  openingTransition: PhotoOpenTransition | null;
   onClose: () => void;
   stopVideo: () => void;
 }
@@ -20,7 +19,6 @@ interface UsePhotoDetailTransitionResult {
 
 export const usePhotoDetailTransition = ({
   photo,
-  openingTransition,
   onClose,
   stopVideo,
 }: UsePhotoDetailTransitionParams): UsePhotoDetailTransitionResult => {
@@ -49,7 +47,7 @@ export const usePhotoDetailTransition = ({
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [photo.id, openingTransition, prefersReducedMotion]);
+  }, [photo.id, prefersReducedMotion]);
 
   useEffect(() => {
     return () => {

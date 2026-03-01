@@ -55,8 +55,6 @@ const GalleryPage: React.FC<GalleryPageProps> = ({
   const { photoId } = useParams<{ photoId?: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [openTransition, setOpenTransition] =
-    useState<PhotoOpenTransition | null>(null);
   const [photoTags] = useLocalStorageState<Record<string, string[]>>(
     TAG_STORAGE_KEY,
     {},
@@ -127,15 +125,11 @@ const GalleryPage: React.FC<GalleryPageProps> = ({
     const basePath = pageViewMode === "map" ? "/map" : "/gallery";
     const query = searchParams.toString();
     navigate(query ? `${basePath}?${query}` : basePath);
-    setOpenTransition(null);
   }, [navigate, searchParams, pageViewMode]);
 
   const handlePhotoClick = useCallback(
-    (photo: Photo, transitionSource?: PhotoOpenTransition) => {
+    (photo: Photo, _transitionSource?: PhotoOpenTransition) => {
       imagePrefetchService.prefetch(photo.url, { priority: "high" });
-      if (transitionSource) {
-        setOpenTransition(transitionSource);
-      }
       const basePath = pageViewMode === "map" ? "/map" : "/gallery";
       const query = searchParams.toString();
       navigate(
@@ -150,7 +144,6 @@ const GalleryPage: React.FC<GalleryPageProps> = ({
   const handlePrev = useCallback(() => {
     if (selectedPhotoIndex <= 0) return;
     const prevPhoto = displayPhotos[selectedPhotoIndex - 1];
-    setOpenTransition(null);
     const basePath = pageViewMode === "map" ? "/map" : "/gallery";
     const query = searchParams.toString();
     navigate(
@@ -164,7 +157,6 @@ const GalleryPage: React.FC<GalleryPageProps> = ({
     if (selectedPhotoIndex < 0 || selectedPhotoIndex >= displayPhotos.length - 1)
       return;
     const nextPhoto = displayPhotos[selectedPhotoIndex + 1];
-    setOpenTransition(null);
     const basePath = pageViewMode === "map" ? "/map" : "/gallery";
     const query = searchParams.toString();
     navigate(
@@ -290,11 +282,6 @@ const GalleryPage: React.FC<GalleryPageProps> = ({
         <PhotoDetail
           photo={selectedPhoto}
           onClose={closeDetail}
-          openingTransition={
-            openTransition && openTransition.photoId === selectedPhoto.id
-              ? openTransition
-              : null
-          }
           tags={photoTags[selectedPhoto.id] ?? []}
           canPrev={selectedPhotoIndex > 0}
           canNext={

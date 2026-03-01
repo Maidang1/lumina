@@ -9,7 +9,6 @@ import PhotoDetailMediaStage from "@/features/photos/components/photo-detail/Pho
 import { usePhotoDetailMedia } from "@/features/photos/components/photo-detail/usePhotoDetailMedia";
 import { usePhotoDetailKeyboardNav } from "@/features/photos/components/photo-detail/usePhotoDetailKeyboardNav";
 import { usePhotoDetailTransition } from "@/features/photos/components/photo-detail/usePhotoDetailTransition";
-import type { PhotoOpenTransition } from "@/features/photos/types";
 
 interface PhotoDetailProps {
   photo: Photo;
@@ -19,7 +18,6 @@ interface PhotoDetailProps {
   canNext?: boolean;
   onPrev?: () => void;
   onNext?: () => void;
-  openingTransition?: PhotoOpenTransition | null;
 }
 
 const PhotoDetail: React.FC<PhotoDetailProps> = ({
@@ -30,7 +28,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
   canNext = false,
   onPrev,
   onNext,
-  openingTransition = null,
 }) => {
   const {
     loadState,
@@ -50,7 +47,6 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     handleRequestClose,
   } = usePhotoDetailTransition({
     photo,
-    openingTransition,
     onClose,
     stopVideo: () => undefined,
   });
@@ -63,35 +59,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     disabled: transitionState === "closing",
   });
 
-  // FLIP morph: compute initial transform from source card position
-  const hasFlipSource = openingTransition != null;
-  const vw = typeof window !== "undefined" ? window.innerWidth : 1920;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 1080;
-
-  // Calculate the info panel width to determine the media stage target area
-  const infoPanelWidth = vw >= 1024 ? 420 : vw >= 768 ? 360 : 0;
-  const mediaTargetWidth = vw - infoPanelWidth;
-  const mediaTargetHeight = vh;
-
-  // Calculate initial scale and offset for the morph
-  const flipInitial = hasFlipSource
-    ? {
-        // Scale the entire media stage from the card's size
-        scaleX: openingTransition.width / mediaTargetWidth,
-        scaleY: openingTransition.height / mediaTargetHeight,
-        // Position offset: card center vs media stage center
-        x:
-          openingTransition.left +
-          openingTransition.width / 2 -
-          mediaTargetWidth / 2,
-        y:
-          openingTransition.top +
-          openingTransition.height / 2 -
-          mediaTargetHeight / 2,
-        borderRadius: openingTransition.borderRadius,
-      }
-    : null;
-
+  // No flip morph - instant mount
   const springTransition = {
     type: "spring" as const,
     stiffness: 340,
@@ -125,44 +93,16 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           className={`absolute inset-0 flex h-full w-full overflow-hidden will-change-transform ${
             transitionState === "closing" ? "pointer-events-none" : ""
           }`}
-          initial={
-            flipInitial
-              ? {
-                  opacity: 0.85,
-                  scaleX: flipInitial.scaleX,
-                  scaleY: flipInitial.scaleY,
-                  x: flipInitial.x,
-                  y: flipInitial.y,
-                  borderRadius: flipInitial.borderRadius,
-                }
-              : { opacity: 0 }
-          }
-          animate={
-            isClosing
-              ? flipInitial
-                ? {
-                    opacity: 0,
-                    scaleX: flipInitial.scaleX * 0.85,
-                    scaleY: flipInitial.scaleY * 0.85,
-                    x: flipInitial.x,
-                    y: flipInitial.y,
-                    borderRadius: flipInitial.borderRadius,
-                  }
-                : { opacity: 0 }
-              : {
-                  opacity: 1,
-                  scaleX: 1,
-                  scaleY: 1,
-                  x: 0,
-                  y: 0,
-                  borderRadius: 0,
-                }
-          }
-          transition={
-            flipInitial
-              ? springTransition
-              : { duration: 0.2 }
-          }
+          initial={{ opacity: 0 }}
+          animate={{
+            opacity: isClosing ? 0 : 1,
+            scaleX: 1,
+            scaleY: 1,
+            x: 0,
+            y: 0,
+            borderRadius: 0,
+          }}
+          transition={{ duration: 0.2 }}
         >
           <PhotoDetailMediaStage
             photo={photo}
