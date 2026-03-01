@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import { Upload, ImagePlus, FolderOpen } from "lucide-react";
 import { DEFAULT_UPLOAD_CONFIG } from "@/types/photo";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "motion/react";
 
 interface UploadDropzoneProps {
   isRepoConfigured: boolean;
@@ -41,31 +42,35 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
       <div
         className={cn(
           "relative w-full max-w-xl transition-all duration-300",
-          isDragOver && "scale-[1.02]",
         )}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <div
+        <motion.div
+          animate={{ scale: isDragOver ? 1.02 : 1 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
           className={cn(
-            "flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-12 transition-all duration-200",
+            "flex flex-col items-center justify-center rounded-3xl border border-[var(--lumina-border-subtle)] p-12 transition-all duration-500",
             isDragOver
-              ? "border-[var(--lumina-text)]/30 bg-[var(--lumina-accent-muted)]"
-              : "border-[var(--lumina-border)] bg-[var(--lumina-surface)]/50 hover:border-[var(--lumina-text)]/20 hover:bg-[var(--lumina-surface)]",
+              ? "bg-[var(--lumina-surface)]/60 shadow-2xl backdrop-blur-2xl ring-2 ring-[var(--lumina-border-subtle)]"
+              : "bg-[var(--lumina-surface)]/20 shadow-xl backdrop-blur-md hover:border-white/10 hover:bg-[var(--lumina-surface)]/30 hover:shadow-2xl",
             !isRepoConfigured && "pointer-events-none opacity-50",
           )}
         >
-          <div
+          <motion.div
+            animate={{ 
+              backgroundColor: isDragOver ? "rgba(255, 255, 255, 0.15)" : "rgba(255, 255, 255, 0.03)",
+              color: isDragOver ? "#ffffff" : "var(--lumina-muted)",
+              y: isDragOver ? -8 : 0,
+            }}
             className={cn(
-              "mb-6 flex h-20 w-20 items-center justify-center rounded-2xl transition-all duration-200",
-              isDragOver
-                ? "bg-[var(--lumina-accent-muted)] text-[var(--lumina-text)]"
-                : "bg-[var(--lumina-border-subtle)] text-[var(--lumina-muted)]",
+              "mb-8 flex h-24 w-24 items-center justify-center rounded-full transition-all duration-500",
+              "border border-[var(--lumina-border-subtle)] shadow-inner",
             )}
           >
-            <Upload size={40} strokeWidth={1.5} />
-          </div>
+            <Upload size={36} strokeWidth={1} />
+          </motion.div>
 
           <h2 className="mb-2 text-lg font-medium text-[var(--lumina-text)]">
             拖放照片到这里
@@ -104,7 +109,7 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
               </button>
             )}
           </div>
-        </div>
+        </motion.div>
 
         <p className="mt-4 text-center text-xs text-[var(--lumina-muted)]">
           支持 JPG、PNG、WebP、HEIC · 单文件最大{" "}

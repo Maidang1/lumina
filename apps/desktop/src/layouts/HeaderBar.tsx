@@ -24,7 +24,7 @@ export function HeaderBar({
   changesCount = 0,
 }: HeaderBarProps): React.ReactElement {
   return (
-    <header className="flex h-12 items-center justify-between border-b border-[var(--lumina-border)] bg-[var(--lumina-surface)]/50 px-4">
+    <header className="flex h-12 items-center justify-between border-b border-[var(--lumina-border-subtle)] bg-transparent backdrop-blur-md px-4">
       <div className="flex items-center gap-3">
         {repoHint && (
           <span className="text-xs text-[var(--lumina-muted)]">
@@ -39,7 +39,7 @@ export function HeaderBar({
           onClick={onOpenCommandPalette}
           className={cn(
             "flex items-center gap-2 rounded-lg px-3 py-1.5",
-            "border border-[var(--lumina-border)] bg-[var(--lumina-surface)]",
+            "bg-[var(--lumina-surface)]/50",
             "text-[var(--lumina-muted)] transition-colors",
             "hover:bg-[var(--lumina-surface-elevated)] hover:text-[var(--lumina-text-secondary)]",
           )}

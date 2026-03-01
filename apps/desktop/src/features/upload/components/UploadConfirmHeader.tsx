@@ -1,6 +1,7 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion } from "motion/react";
 
 interface UploadConfirmHeaderProps {
   queueLength: number;
@@ -18,7 +19,11 @@ const UploadConfirmHeader: React.FC<UploadConfirmHeaderProps> = ({
   onSubmit,
 }) => {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+    <motion.div 
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex items-center justify-between rounded-xl border border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)]/30 backdrop-blur-xl px-4 py-3 shadow-lg"
+    >
       <div>
         <h2 className="text-lg font-medium text-[var(--foreground)]">准备写入仓库</h2>
         <p className="text-sm text-[var(--muted-foreground)]">
@@ -39,7 +44,7 @@ const UploadConfirmHeader: React.FC<UploadConfirmHeaderProps> = ({
           "开始写入"
         )}
       </Button>
-    </div>
+    </motion.div>
   );
 };
 

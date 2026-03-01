@@ -153,7 +153,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
   return (
     <motion.div
       ref={cardRef}
-      className={`group relative mb-3 break-inside-avoid overflow-hidden rounded-xl border border-white/8 bg-white/[0.03] shadow-[var(--shadow-elevation-1)] transition-[border-color,background-color] duration-200 ${canActivate ? "cursor-pointer hover:border-white/15 hover:bg-white/[0.04]" : "cursor-default"}`}
+      className={`group relative mb-4 break-inside-avoid overflow-hidden rounded-2xl border border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)]/20 shadow-md transition-all duration-500 will-change-transform ${canActivate ? "cursor-pointer hover:border-white/10 hover:shadow-2xl" : "cursor-default"}`}
       role={canActivate ? "button" : undefined}
       tabIndex={canActivate ? 0 : -1}
       aria-label={
@@ -163,12 +163,12 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
             ? `Select photo ${photo.title}`
             : undefined
       }
-      initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 24, scale: prefersReducedMotion ? 1 : 0.97 }}
-      animate={{ opacity: isVisible ? 1 : 0, y: isVisible ? 0 : prefersReducedMotion ? 0 : 12, scale: isHovered && !prefersReducedMotion ? 1.008 : 1 }}
+      initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 30, scale: prefersReducedMotion ? 1 : 0.95 }}
+      animate={{ opacity: isVisible ? 1 : 0, y: isVisible ? 0 : prefersReducedMotion ? 0 : 15, scale: isHovered && !prefersReducedMotion ? 1.015 : 1 }}
       transition={{
-        opacity: { duration: 0.35, delay: prefersReducedMotion ? 0 : Math.min(index, 20) * 0.05 },
-        y: { duration: 0.35, delay: prefersReducedMotion ? 0 : Math.min(index, 20) * 0.05 },
-        scale: { duration: 0.18 },
+        opacity: { duration: 0.5, delay: prefersReducedMotion ? 0 : Math.min(index, 20) * 0.05 },
+        y: { duration: 0.6, ease: [0.23, 1, 0.32, 1], delay: prefersReducedMotion ? 0 : Math.min(index, 20) * 0.05 },
+        scale: { duration: 0.3, ease: "easeOut" },
       }}
       onClick={handleActivate}
       onKeyDown={(event) => {
@@ -200,7 +200,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
       }}
     >
       {!compact && (
-        <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-black/75 opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100" />
+        <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent/50 to-black/90 opacity-0 transition-opacity duration-500 group-hover:opacity-100 group-focus-visible:opacity-100" />
       )}
 
       {selectionMode && (
@@ -232,7 +232,7 @@ const PhotoCard: React.FC<PhotoCardProps> = ({
             srcSet={photo.thumbnailSrcSet}
             sizes={photo.thumbnailSizes}
             alt={photo.title}
-            className={`h-full w-full object-cover transition-all duration-500 ease-out ${isLoaded ? "opacity-100" : "opacity-0"} ${compact ? "" : "group-hover:scale-[1.025]"}`}
+            className={`h-full w-full object-cover transition-transform duration-700 ease-out ${isLoaded ? "opacity-100" : "opacity-0"} ${compact ? "" : "group-hover:scale-[1.04]"}`}
             onLoad={() => setIsLoaded(true)}
           />
         )}

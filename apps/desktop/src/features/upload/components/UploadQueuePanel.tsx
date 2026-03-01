@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { motion, AnimatePresence } from "motion/react";
 
 interface UploadQueuePanelProps {
   queue: UploadQueueItem[];
@@ -292,8 +293,12 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] shadow-[var(--shadow-elevation-1)] backdrop-blur-sm">
-      <div className="border-b border-white/8 px-4 py-3">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-xl border border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)]/30 shadow-xl backdrop-blur-xl"
+    >
+      <div className="border-b border-[var(--lumina-border-subtle)] px-4 py-3">
         <div className="flex flex-wrap items-center gap-4 text-xs text-[var(--muted-foreground)]">
           <span>Queue {queue.length}</span>
           <span>
@@ -309,7 +314,7 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
       </div>
 
       {failedCount > 0 && failedReasonStats.length > 0 && (
-        <div className="border-b border-white/8 bg-rose-500/5 px-4 py-3">
+        <div className="border-b border-rose-500/20 bg-rose-500/10 px-4 py-3">
           <div className="mb-2 inline-flex items-center gap-2 text-xs text-rose-300">
             <AlertTriangle size={12} />
             {failedCount} failure(s)
@@ -351,7 +356,8 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
         </div>
       )}
 
-      <div className="flex flex-col divide-y divide-white/5">
+      <div className="flex flex-col divide-y divide-[var(--lumina-border-subtle)]">
+        <AnimatePresence initial={false}>
         {queue.map((item) => {
           const isProcessing =
             item.status === "processing" || item.status === "parsing";
@@ -390,9 +396,14 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
             : undefined;
 
           return (
-            <div
+            <motion.div
               key={item.id}
-              className="group flex items-center justify-between gap-4 p-4 hover:bg-white/[0.03]"
+              layout
+              initial={{ opacity: 0, scale: 0.98, maxHeight: 0 }}
+              animate={{ opacity: 1, scale: 1, maxHeight: 120 }}
+              exit={{ opacity: 0, scale: 0.95, maxHeight: 0, margin: 0, padding: 0 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="group flex items-center justify-between gap-4 p-4 hover:bg-[var(--lumina-surface-elevated)]/50"
             >
               <div className="flex items-center gap-4 overflow-hidden">
                 <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded bg-white/5">
@@ -679,11 +690,12 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                   </Button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           );
         })}
+        </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

@@ -20,7 +20,7 @@ const ManageToolbar: React.FC<ManageToolbarProps> = ({
   onToggleBatchMode,
 }) => {
   return (
-    <div className="space-y-3 rounded-xl border border-[var(--lumina-border)] bg-[var(--lumina-surface)]/50 px-4 py-4 backdrop-blur-sm">
+    <div className="space-y-3 rounded-xl border border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)]/30 px-4 py-4 backdrop-blur-xl">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-medium text-[var(--lumina-muted)]">照片库</h2>
         <div className="flex items-center gap-2">
@@ -37,7 +37,7 @@ const ManageToolbar: React.FC<ManageToolbarProps> = ({
           >
             {isBatchMode ? "退出批量" : "批量选择"}
           </Button>
-          <div className="flex items-center gap-1 rounded-lg border border-[var(--lumina-border)] bg-[var(--lumina-surface)] p-1">
+          <div className="flex items-center gap-1 rounded-lg border border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)]/40 p-1">
             <Button
               type="button"
               variant="ghost"

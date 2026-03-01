@@ -12,7 +12,6 @@ import { Sidebar } from "./Sidebar";
 import { HeaderBar } from "./HeaderBar";
 import { StatusBar } from "./StatusBar";
 import { DetailsPanel } from "./DetailsPanel";
-import { AnimatedGridPattern } from "@/components/magicui/animated-grid-pattern";
 import { CommandPalette } from "@/features/command-palette/CommandPalette";
 import { GitSidebarPanel } from "@/features/git-sidebar";
 
@@ -153,15 +152,6 @@ export function AppShell({
         theme,
       )}
     >
-      <div
-        className={cn(
-          "pointer-events-none absolute inset-0 transition-opacity duration-300",
-          theme === "dark" ? "opacity-30" : "opacity-10",
-        )}
-      >
-        <AnimatedGridPattern numSquares={30} maxOpacity={0.35} duration={6} />
-      </div>
-
       <div className="relative z-10 flex flex-1 overflow-hidden">
         <Sidebar
           currentView={currentView}

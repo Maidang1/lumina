@@ -47,7 +47,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "relative flex flex-col border-r border-[var(--lumina-border)] bg-[var(--lumina-surface)]/80 p-3 backdrop-blur-xl transition-all duration-300",
+        "relative flex flex-col border-r border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)]/40 p-3 backdrop-blur-2xl transition-all duration-300",
         collapsed ? "w-16" : "w-56",
       )}
     >
@@ -59,11 +59,11 @@ export function Sidebar({
       >
         <h1
           className={cn(
-            "font-semibold text-[var(--lumina-text)] transition-all",
+            "font-medium tracking-widest text-[var(--lumina-text)] transition-all",
             collapsed ? "text-sm" : "text-lg",
           )}
         >
-          {collapsed ? "L" : "Lumina"}
+          {collapsed ? "L" : "LUMINA"}
         </h1>
       </div>
 
