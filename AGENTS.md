@@ -52,7 +52,10 @@ pnpm run cli:publish
 
 - Workflow: `.github/workflows/release-desktop.yml`
 - Trigger: push tag `desktop-vX.Y.Z` (for example `desktop-v0.1.0`)
-- Current platform target: macOS
+- Supported platforms:
+  - macOS (ARM64 / x86_64) → `.dmg`
+  - Windows (x64) → `.exe` (NSIS installer)
+  - Linux (x64) → `.AppImage`, `.deb`
 - Signing/notarization: currently disabled
 - Version rule: tag version must match `apps/desktop/src-tauri/tauri.conf.json` `version`
 

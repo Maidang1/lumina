@@ -68,7 +68,10 @@ Desktop release is automated by GitHub Actions on tag push.
 
 - Workflow file: `.github/workflows/release-desktop.yml`
 - Trigger tag format: `desktop-vX.Y.Z` (example: `desktop-v0.1.0`)
-- Current target: macOS (`dmg` / `app`)
+- Supported platforms:
+  - macOS (ARM64 / x86_64) → `.dmg`
+  - Windows (x64) → `.exe` (NSIS installer)
+  - Linux (x64) → `.AppImage`, `.deb`
 - Signing/notarization: not enabled yet
 
 Before pushing a release tag, ensure `apps/desktop/src-tauri/tauri.conf.json` `version`
