@@ -14,8 +14,4 @@ export type SortOption =
   | "size-desc"
   | "size-asc";
 
-export interface FilterOption {
-  label: string;
-  value: string;
-  count?: number;
-}
+

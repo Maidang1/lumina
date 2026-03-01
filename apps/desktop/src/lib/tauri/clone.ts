@@ -12,7 +12,7 @@ export interface CloneProgress {
   percent?: number;
 }
 
-export interface CloneResult {
+interface CloneResult {
   success: boolean;
   repo_path: string;
   message?: string;
@@ -20,13 +20,6 @@ export interface CloneResult {
 
 export async function parseGitHubUrl(url: string): Promise<GitHubRepoInfo> {
   return invoke<GitHubRepoInfo>('parse_github_url', { url });
-}
-
-export async function getDefaultCloneDirectory(
-  owner: string,
-  repo: string
-): Promise<string> {
-  return invoke<string>('get_default_clone_directory', { owner, repo });
 }
 
 export async function cloneGitHubRepo(

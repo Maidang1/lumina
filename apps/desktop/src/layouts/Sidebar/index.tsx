@@ -99,4 +99,4 @@ export function Sidebar({
   );
 }
 
-export type { View };
+

@@ -53,9 +53,3 @@ export function useGlobalShortcuts(options: UseGlobalShortcutsOptions = {}): voi
     },
   );
 }
-
-export const VIEW_SHORTCUTS: Record<View, string> = {
-  upload: "⌘1",
-  manage: "⌘2",
-  settings: "⌘3",
-};

@@ -10,7 +10,7 @@ import { motion } from "motion/react";
 
 import { cn } from "@/shared/lib/utils";
 
-export interface AnimatedGridPatternProps extends ComponentPropsWithoutRef<"svg"> {
+interface AnimatedGridPatternProps extends ComponentPropsWithoutRef<"svg"> {
   width?: number;
   height?: number;
   x?: number;

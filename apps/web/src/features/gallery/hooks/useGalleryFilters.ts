@@ -30,7 +30,7 @@ export interface AvailableFilters {
   timeRange: { min: string; max: string };
 }
 
-export interface UseGalleryFiltersResult {
+interface UseGalleryFiltersResult {
   filters: GalleryFilters;
   setFilters: (filters: Partial<GalleryFilters>) => void;
   clearFilters: () => void;

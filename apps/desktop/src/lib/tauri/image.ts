@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { ImageMetadata, ProcessingTaskMetric } from '@/types/photo';
 
-export type ParseProfile = 'quality' | 'turbo';
+type ParseProfile = 'quality' | 'turbo';
 
 interface ParseImageConfig {
   maxThumbSize?: number;

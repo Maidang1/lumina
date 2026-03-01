@@ -2,16 +2,7 @@ import type { GitChangesSnapshot, GitFileState } from "@/lib/tauri/github";
 
 export type GitChangeSource = "staged" | "unstaged";
 
-export interface GitChangeRow {
-  key: string;
-  source: GitChangeSource;
-  path: string;
-  oldPath?: string;
-  status: string;
-  untracked: boolean;
-}
-
-export interface GitChangeCounts {
+interface GitChangeCounts {
   total: number;
   staged: number;
   unstaged: number;
@@ -24,10 +15,19 @@ export interface GitChangeCounts {
   untracked: number;
 }
 
-export interface DerivedGitChanges {
+interface DerivedGitChanges {
   stagedRows: GitChangeRow[];
   unstagedRows: GitChangeRow[];
   counts: GitChangeCounts;
+}
+
+export interface GitChangeRow {
+  key: string;
+  source: GitChangeSource;
+  path: string;
+  oldPath?: string;
+  status: string;
+  untracked: boolean;
 }
 
 function updateCounts(counts: GitChangeCounts, status: string, untracked: boolean): void {
