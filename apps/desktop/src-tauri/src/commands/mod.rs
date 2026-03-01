@@ -1,3 +1,4 @@
+pub mod clone;
 pub mod events;
 pub mod fs;
 pub mod github;
