@@ -35,6 +35,7 @@ const MapSharePosterModal: React.FC<MapSharePosterModalProps> = ({
         cacheBust: true,
         pixelRatio: 2,
         quality: 0.9,
+        backgroundColor: '#0a0a0a',
       });
 
       const link = document.createElement("a");
@@ -59,7 +60,7 @@ const MapSharePosterModal: React.FC<MapSharePosterModalProps> = ({
           {/* Poster Container */}
           <div 
             ref={posterRef}
-            className="flex w-full flex-col overflow-hidden rounded-[1.5rem] bg-[#121212] shadow-[0_0_40px_rgba(0,0,0,0.5)] ring-1 ring-white/10"
+            className="flex w-full flex-col overflow-hidden rounded-[1.5rem] bg-[#121212] shadow-[0_0_40px_rgba(0,0,0,0.5)] border border-white/10"
           >
             {/* Header Content */}
             <div className="flex flex-col gap-6 p-6 sm:p-7 shrink-0">
