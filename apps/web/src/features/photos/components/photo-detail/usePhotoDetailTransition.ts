@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Photo, PhotoOpenTransition } from "@/features/photos/types";
 
-const CLOSE_FALLBACK_DELAY_MS = 280;
+const CLOSE_FALLBACK_DELAY_MS = 250;
 
 interface UsePhotoDetailTransitionParams {
   photo: Photo;
@@ -77,8 +77,8 @@ export const usePhotoDetailTransition = ({
   return {
     transitionState,
     isClosing: transitionState === "closing",
-    controlsDelay: prefersReducedMotion ? 0 : 0.05,
-    infoPanelDelay: prefersReducedMotion ? 0 : 0.08,
+    controlsDelay: prefersReducedMotion ? 0 : 0.03,
+    infoPanelDelay: prefersReducedMotion ? 0 : 0.05,
     handleRequestClose,
   };
 };

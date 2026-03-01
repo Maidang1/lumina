@@ -63,6 +63,42 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
     disabled: transitionState === "closing",
   });
 
+  // FLIP morph: compute initial transform from source card position
+  const hasFlipSource = openingTransition != null;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1920;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 1080;
+
+  // Calculate the info panel width to determine the media stage target area
+  const infoPanelWidth = vw >= 1024 ? 420 : vw >= 768 ? 360 : 0;
+  const mediaTargetWidth = vw - infoPanelWidth;
+  const mediaTargetHeight = vh;
+
+  // Calculate initial scale and offset for the morph
+  const flipInitial = hasFlipSource
+    ? {
+        // Scale the entire media stage from the card's size
+        scaleX: openingTransition.width / mediaTargetWidth,
+        scaleY: openingTransition.height / mediaTargetHeight,
+        // Position offset: card center vs media stage center
+        x:
+          openingTransition.left +
+          openingTransition.width / 2 -
+          mediaTargetWidth / 2,
+        y:
+          openingTransition.top +
+          openingTransition.height / 2 -
+          mediaTargetHeight / 2,
+        borderRadius: openingTransition.borderRadius,
+      }
+    : null;
+
+  const springTransition = {
+    type: "spring" as const,
+    stiffness: 340,
+    damping: 36,
+    mass: 0.8,
+  };
+
   return (
     <Dialog
       open={true}
@@ -86,12 +122,47 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
         />
 
         <motion.div
-          className={`absolute inset-0 flex h-full w-full overflow-hidden ${
+          className={`absolute inset-0 flex h-full w-full overflow-hidden will-change-transform ${
             transitionState === "closing" ? "pointer-events-none" : ""
           }`}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: isClosing ? 0 : 1 }}
-          transition={{ duration: 0.2 }}
+          initial={
+            flipInitial
+              ? {
+                  opacity: 0.85,
+                  scaleX: flipInitial.scaleX,
+                  scaleY: flipInitial.scaleY,
+                  x: flipInitial.x,
+                  y: flipInitial.y,
+                  borderRadius: flipInitial.borderRadius,
+                }
+              : { opacity: 0 }
+          }
+          animate={
+            isClosing
+              ? flipInitial
+                ? {
+                    opacity: 0,
+                    scaleX: flipInitial.scaleX * 0.85,
+                    scaleY: flipInitial.scaleY * 0.85,
+                    x: flipInitial.x,
+                    y: flipInitial.y,
+                    borderRadius: flipInitial.borderRadius,
+                  }
+                : { opacity: 0 }
+              : {
+                  opacity: 1,
+                  scaleX: 1,
+                  scaleY: 1,
+                  x: 0,
+                  y: 0,
+                  borderRadius: 0,
+                }
+          }
+          transition={
+            flipInitial
+              ? springTransition
+              : { duration: 0.2 }
+          }
         >
           <PhotoDetailMediaStage
             photo={photo}
@@ -105,7 +176,7 @@ const PhotoDetail: React.FC<PhotoDetailProps> = ({
           />
 
           <motion.div
-            className="absolute inset-x-0 bottom-0 h-[44svh] w-full shrink-0 border-t border-white/10 bg-black/70 backdrop-blur-xl will-change-transform md:static md:h-full md:w-[360px] md:border-t-0 md:border-l md:bg-black/40 lg:w-[420px]"
+            className="absolute inset-x-0 bottom-0 h-[44svh] w-full shrink-0 border-t border-white/10 bg-black/70 backdrop-blur-md will-change-transform md:static md:h-full md:w-[360px] md:border-t-0 md:border-l md:bg-black/40 lg:w-[420px]"
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: isClosing ? 0 : 1, x: isClosing ? 24 : 0 }}
             transition={{ duration: 0.2, delay: infoPanelDelay }}

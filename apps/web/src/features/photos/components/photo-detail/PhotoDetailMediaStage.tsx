@@ -29,7 +29,7 @@ const PhotoDetailMediaStage: React.FC<PhotoDetailMediaStageProps> = ({
   return (
     <div
       ref={imageContainerRef}
-      className="relative flex h-full min-w-0 flex-1 items-center justify-center overflow-hidden bg-transparent"
+      className="relative flex h-full min-w-0 flex-1 items-center justify-center overflow-hidden bg-transparent will-change-transform"
     >
       <DialogTitle className="sr-only">{photo.title}</DialogTitle>
 
@@ -40,7 +40,7 @@ const PhotoDetailMediaStage: React.FC<PhotoDetailMediaStageProps> = ({
               src={photo.thumbnail}
               alt=""
               aria-hidden
-              className="h-full w-full scale-110 object-cover blur-2xl"
+              className="h-full w-full scale-110 object-cover blur-lg"
             />
             <div className="absolute inset-0 bg-black/25" />
           </div>
