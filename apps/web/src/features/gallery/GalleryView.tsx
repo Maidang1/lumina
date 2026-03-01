@@ -278,11 +278,6 @@ const GalleryView: React.FC<GalleryViewProps> = ({
         <PhotoDetail
           photo={selectedPhoto}
           onClose={closeDetail}
-          openingTransition={
-            openTransition && openTransition.photoId === selectedPhoto.id
-              ? openTransition
-              : null
-          }
           tags={photoTags[selectedPhoto.id] ?? []}
           canPrev={selectedPhotoIndex > 0}
           canNext={
