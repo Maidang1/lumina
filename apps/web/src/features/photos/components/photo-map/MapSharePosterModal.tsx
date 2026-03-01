@@ -63,9 +63,10 @@ const MapSharePosterModal: React.FC<MapSharePosterModalProps> = ({
           >
             {/* Header Content */}
             <div className="flex flex-col gap-6 p-6 sm:p-7 shrink-0">
-              {/* Top Area: Logo & Subtitle */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-1 drop-shadow-md">
+              {/* Top Area: Logo & Stats */}
+              <div className="flex items-start sm:items-center justify-between w-full gap-4">
+                {/* Logo */}
+                <div className="space-y-1 drop-shadow-md shrink-0">
                   <h2 className="font-serif text-2xl font-bold italic tracking-wider text-white">
                     Lumina
                   </h2>
@@ -73,30 +74,26 @@ const MapSharePosterModal: React.FC<MapSharePosterModalProps> = ({
                     My Footprint
                   </p>
                 </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-[#0a0a0a] text-lg font-black text-white shadow-lg">
-                  L
-                </div>
-              </div>
 
-              {/* Catchphrase & Stats */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 border-t border-white/20 pt-4">
-                  <div>
-                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-white/60">
+                {/* Stats */}
+                <div className="flex items-center gap-5 sm:gap-6 mt-1 sm:mt-0">
+                  <div className="text-right">
+                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-white/60 whitespace-nowrap">
                       Captured
                     </p>
-                    <div className="flex items-baseline gap-1">
+                    <div className="flex items-baseline justify-end gap-1">
                       <p className="text-xl font-bold text-white drop-shadow-sm">{photosCount}</p>
-                      <p className="text-xs text-white/50">Photos</p>
+                      <p className="text-[10px] sm:text-xs text-white/50 uppercase">Photos</p>
                     </div>
                   </div>
-                  <div>
-                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-white/60">
+                  <div className="w-[1px] h-8 bg-white/20"></div>
+                  <div className="text-right">
+                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-widest text-white/60 whitespace-nowrap">
                       Visited
                     </p>
-                    <div className="flex items-baseline gap-1">
+                    <div className="flex items-baseline justify-end gap-1">
                       <p className="text-xl font-bold text-white drop-shadow-sm">{regionsCount}</p>
-                      <p className="text-xs text-white/50">Regions</p>
+                      <p className="text-[10px] sm:text-xs text-white/50 uppercase">Regions</p>
                     </div>
                   </div>
                 </div>
