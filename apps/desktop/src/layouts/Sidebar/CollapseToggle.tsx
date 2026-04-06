@@ -17,7 +17,7 @@ export function CollapseToggle({
       onClick={onToggle}
       className={cn(
         "flex h-6 w-6 items-center justify-center rounded-full",
-        "border border-[var(--lumina-border)] bg-[var(--lumina-surface)] text-[var(--lumina-muted)]",
+        "border border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)] text-[var(--lumina-muted)]",
         "transition-all hover:bg-[var(--lumina-surface-elevated)] hover:text-[var(--lumina-text-secondary)]",
         "absolute -right-3 top-1/2 -translate-y-1/2",
       )}

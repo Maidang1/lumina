@@ -2,7 +2,7 @@ import React, { useState, useCallback } from "react";
 import { Upload, ImagePlus, FolderOpen } from "lucide-react";
 import { DEFAULT_UPLOAD_CONFIG } from "@/types/photo";
 import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 
 interface UploadDropzoneProps {
   isRepoConfigured: boolean;
@@ -38,11 +38,9 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
   }, []);
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">
+    <div className="flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center px-6 py-10">
       <div
-        className={cn(
-          "relative w-full max-w-xl transition-all duration-300",
-        )}
+        className="relative w-full max-w-4xl transition-all duration-300"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -51,46 +49,56 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
           animate={{ scale: isDragOver ? 1.02 : 1 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
           className={cn(
-            "flex flex-col items-center justify-center rounded-3xl border border-[var(--lumina-border-subtle)] p-12 transition-all duration-500",
+            "flex flex-col items-center justify-center rounded-[28px] border border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)]/94 px-10 py-16 transition-all duration-500",
             isDragOver
-              ? "bg-[var(--lumina-surface)]/60 shadow-2xl backdrop-blur-2xl ring-2 ring-[var(--lumina-border-subtle)]"
-              : "bg-[var(--lumina-surface)]/20 shadow-xl backdrop-blur-md hover:border-white/10 hover:bg-[var(--lumina-surface)]/30 hover:shadow-2xl",
+              ? "shadow-[var(--shadow-elevation-3)] ring-2 ring-[var(--lumina-border-subtle)]"
+              : "shadow-[var(--shadow-elevation-1)] hover:shadow-[var(--shadow-elevation-2)]",
             !isRepoConfigured && "pointer-events-none opacity-50",
           )}
         >
           <motion.div
-            animate={{ 
-              backgroundColor: isDragOver ? "rgba(255, 255, 255, 0.15)" : "rgba(255, 255, 255, 0.03)",
-              color: isDragOver ? "#ffffff" : "var(--lumina-muted)",
+            animate={{
+              backgroundColor: isDragOver ? "rgba(0, 0, 0, 0.06)" : "rgba(0, 0, 0, 0.02)",
+              color: isDragOver ? "var(--lumina-text)" : "var(--lumina-muted)",
               y: isDragOver ? -8 : 0,
             }}
             className={cn(
-              "mb-8 flex h-24 w-24 items-center justify-center rounded-full transition-all duration-500",
-              "border border-[var(--lumina-border-subtle)] shadow-inner",
+              "mb-8 flex h-20 w-20 items-center justify-center rounded-2xl transition-all duration-500",
+              "border border-[var(--lumina-border-subtle)]",
             )}
           >
-            <Upload size={36} strokeWidth={1} />
+            <Upload size={30} strokeWidth={1.25} />
           </motion.div>
 
-          <h2 className="mb-2 text-lg font-medium text-[var(--lumina-text)]">
+          <h2 className="mb-2 text-3xl font-semibold tracking-tight text-[var(--lumina-text)]">
             拖放照片到这里
           </h2>
-          <p className="mb-6 text-sm text-[var(--lumina-muted)]">或者使用下方按钮选择</p>
+          <p className="mb-10 max-w-lg text-center text-sm leading-6 text-[var(--lumina-muted)]">
+            像在 Codex 里开始一个新线程一样，直接把素材丢进来，或者从下方选择文件与文件夹开始整理。
+          </p>
 
-          <div className="flex gap-3">
+          <div className="grid w-full max-w-2xl gap-3 md:grid-cols-2">
             <button
               type="button"
               onClick={onSelectFilesFromDialog}
               disabled={!isRepoConfigured}
               className={cn(
-                "flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-all",
-                "bg-[var(--lumina-text)] text-[var(--lumina-bg)]",
-                "hover:opacity-90",
+                "flex min-h-28 flex-col items-start justify-between rounded-2xl border border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)] px-5 py-4 text-left transition-all",
+                "hover:bg-[var(--lumina-surface-elevated)]",
                 "disabled:cursor-not-allowed disabled:opacity-50",
               )}
             >
-              <ImagePlus size={16} />
-              选择文件
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--lumina-border-subtle)] bg-[var(--lumina-accent-muted)] text-[var(--lumina-text)]">
+                <ImagePlus size={16} />
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-[var(--lumina-text)]">
+                  选择文件
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-[var(--lumina-muted)]">
+                  适合快速添加少量照片，立即进入上传队列。
+                </span>
+              </span>
             </button>
             {onSelectFolderFromDialog && (
               <button
@@ -98,23 +106,35 @@ const UploadDropzone: React.FC<UploadDropzoneProps> = ({
                 onClick={onSelectFolderFromDialog}
                 disabled={!isRepoConfigured}
                 className={cn(
-                  "flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-all",
-                  "border border-[var(--lumina-border)] bg-[var(--lumina-surface)] text-[var(--lumina-text-secondary)]",
-                  "hover:bg-[var(--lumina-surface-elevated)] hover:text-[var(--lumina-text)]",
+                  "flex min-h-28 flex-col items-start justify-between rounded-2xl border border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)] px-5 py-4 text-left transition-all",
+                  "hover:bg-[var(--lumina-surface-elevated)]",
                   "disabled:cursor-not-allowed disabled:opacity-50",
                 )}
               >
-                <FolderOpen size={16} />
-                选择文件夹
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--lumina-border-subtle)] bg-[var(--lumina-accent-muted)] text-[var(--lumina-text)]">
+                  <FolderOpen size={16} />
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold text-[var(--lumina-text)]">
+                    选择文件夹
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-[var(--lumina-muted)]">
+                    扫描整个目录，预览后批量挑选要写入仓库的照片。
+                  </span>
+                </span>
               </button>
             )}
           </div>
         </motion.div>
 
-        <p className="mt-4 text-center text-xs text-[var(--lumina-muted)]">
-          支持 JPG、PNG、WebP、HEIC · 单文件最大{" "}
-          {DEFAULT_UPLOAD_CONFIG.maxFileSize / 1024 / 1024}MB
-        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs text-[var(--lumina-muted)]">
+          <span className="rounded-full border border-[var(--lumina-border-subtle)] px-2.5 py-1">
+            支持 JPG / PNG / WebP / HEIC
+          </span>
+          <span className="rounded-full border border-[var(--lumina-border-subtle)] px-2.5 py-1">
+            单文件最大 {DEFAULT_UPLOAD_CONFIG.maxFileSize / 1024 / 1024}MB
+          </span>
+        </div>
       </div>
     </div>
   );

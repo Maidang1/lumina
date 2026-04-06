@@ -42,9 +42,9 @@ export function StatusBar({
     : 0;
 
   return (
-    <footer className="flex h-7 items-center justify-between border-t border-[var(--lumina-border)] bg-[var(--lumina-surface)]/50 px-3 text-[11px] text-[var(--lumina-muted)]">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1.5">
+    <footer className="flex h-8 items-center justify-between border-t border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)]/88 px-3 text-[11px] text-[var(--lumina-muted)] backdrop-blur-xl">
+      <div className="flex items-center gap-3">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-[var(--lumina-border-subtle)] px-2 py-1">
           {isRepoReady ? (
             <>
               <Cloud size={12} className="text-emerald-500" />

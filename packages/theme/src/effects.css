@@ -23,17 +23,17 @@
 }
 
 .lumina-glass {
-  background: color-mix(in srgb, var(--card) 80%, transparent);
+  background: color-mix(in srgb, var(--card) 75%, transparent);
   border: 1px solid var(--lumina-border-subtle);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .lumina-glass-strong {
-  background: color-mix(in srgb, var(--card) 92%, transparent);
-  border: 1px solid var(--lumina-border);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border: 1px solid var(--lumina-border-subtle);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 .lumina-noise {

@@ -20,11 +20,11 @@ export function DetailsPanel({
   return (
     <aside
       className={cn(
-        "flex h-full w-80 flex-col border-l border-[var(--lumina-border)] bg-[var(--lumina-surface)]",
+        "flex h-full w-80 flex-col border-l border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)]",
         "animate-in slide-in-from-right-4 duration-200",
       )}
     >
-      <header className="flex h-12 items-center justify-between border-b border-[var(--lumina-border)] px-4">
+      <header className="flex h-12 items-center justify-between border-b border-[var(--lumina-border-subtle)] px-4">
         <h3 className="text-sm font-medium text-[var(--lumina-text)]">
           {title || "Details"}
         </h3>

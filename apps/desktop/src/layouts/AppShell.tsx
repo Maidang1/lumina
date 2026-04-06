@@ -21,6 +21,13 @@ interface AppShellProps {
   detailsTitle?: string;
 }
 
+const VIEW_TITLES: Record<string, string> = {
+  upload: "Upload",
+  manage: "Library",
+  metadata: "Metadata",
+  settings: "Settings",
+};
+
 export function AppShell({
   children,
   detailsContent,
@@ -169,6 +176,7 @@ export function AppShell({
 
         <div className="flex flex-1 flex-col overflow-hidden">
           <HeaderBar
+            title={VIEW_TITLES[currentView] ?? "Lumina"}
             repoHint={repoHint}
             onOpenCommandPalette={() => setCommandPaletteOpen(true)}
             theme={theme}
@@ -179,7 +187,7 @@ export function AppShell({
           />
 
           <main className="flex flex-1 overflow-hidden">
-            <div className="flex-1 overflow-auto p-4">
+            <div className="flex-1 overflow-auto p-6">
               <div className="mx-auto max-w-7xl">{children}</div>
             </div>
 

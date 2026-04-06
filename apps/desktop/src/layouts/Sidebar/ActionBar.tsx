@@ -30,7 +30,7 @@ export function ActionBar({
           onClick={onSyncRepo}
           disabled={syncDisabled || syncLoading}
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-lg border transition-colors",
+            "flex h-9 w-9 items-center justify-center rounded-xl border transition-colors",
             syncDisabled || syncLoading
               ? "border-[var(--lumina-border-subtle)] bg-transparent text-[var(--lumina-muted)]"
               : "border-[var(--lumina-border)] bg-[var(--lumina-surface)] text-[var(--lumina-text-secondary)] hover:bg-[var(--lumina-surface-elevated)] hover:text-[var(--lumina-text)]",
@@ -56,10 +56,10 @@ export function ActionBar({
           onClick={onCommitPush}
           disabled={commitDisabled || commitLoading || changesCount === 0}
           className={cn(
-            "relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+            "relative flex h-9 w-9 items-center justify-center rounded-xl border transition-colors",
             commitDisabled || commitLoading || changesCount === 0
-              ? "bg-[var(--lumina-border-subtle)] text-[var(--lumina-muted)]"
-              : "bg-[var(--lumina-text)] text-[var(--lumina-bg)] hover:opacity-90",
+              ? "border-[var(--lumina-border-subtle)] bg-[var(--lumina-border-subtle)] text-[var(--lumina-muted)]"
+              : "border-[var(--lumina-border)] bg-[var(--lumina-surface)] text-[var(--lumina-text-secondary)] hover:bg-[var(--lumina-surface-elevated)] hover:text-[var(--lumina-text)]",
           )}
           title={commitLoading ? "Committing..." : "Commit & Push"}
         >
@@ -88,13 +88,16 @@ export function ActionBar({
         onClick={onSyncRepo}
         disabled={syncDisabled || syncLoading}
         className={cn(
-          "w-full rounded-lg border px-3 py-2 text-sm transition-colors",
+          "flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm transition-colors",
           syncDisabled || syncLoading
             ? "border-[var(--lumina-border-subtle)] bg-transparent text-[var(--lumina-muted)]"
             : "border-[var(--lumina-border)] bg-[var(--lumina-surface)] text-[var(--lumina-text-secondary)] hover:bg-[var(--lumina-surface-elevated)] hover:text-[var(--lumina-text)]",
         )}
       >
-        {syncLoading ? "Syncing..." : "Sync Remote"}
+        <span>{syncLoading ? "Syncing..." : "Sync Remote"}</span>
+        <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--lumina-muted)]">
+          Repo
+        </span>
       </button>
 
       <button
@@ -102,13 +105,16 @@ export function ActionBar({
         onClick={onCommitPush}
         disabled={commitDisabled || commitLoading || changesCount === 0}
         className={cn(
-          "relative w-full rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+          "relative flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
           commitDisabled || commitLoading || changesCount === 0
-            ? "bg-[var(--lumina-border-subtle)] text-[var(--lumina-muted)]"
-            : "bg-[var(--lumina-text)] text-[var(--lumina-bg)] hover:opacity-90",
+            ? "border-[var(--lumina-border-subtle)] bg-[var(--lumina-border-subtle)] text-[var(--lumina-muted)]"
+            : "border-[var(--lumina-border)] bg-[var(--lumina-surface)] text-[var(--lumina-text)] hover:bg-[var(--lumina-surface-elevated)]",
         )}
       >
-        {commitLoading ? "Committing..." : "Commit & Push"}
+        <span>{commitLoading ? "Committing..." : "Commit & Push"}</span>
+        <span className="rounded-full bg-[var(--lumina-accent-muted)] px-2 py-0.5 text-[10px] font-medium text-[var(--lumina-muted)]">
+          {changesCount}
+        </span>
       </button>
     </div>
   );

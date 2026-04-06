@@ -20,7 +20,7 @@ interface SidebarProps {
   changesCount?: number;
 }
 
-const NAV_ITEMS: Array<{
+const PRIMARY_NAV_ITEMS: Array<{
   view: View;
   label: string;
   icon: React.ReactNode;
@@ -29,8 +29,14 @@ const NAV_ITEMS: Array<{
   { view: "upload", label: "上传", icon: <Upload size={18} />, shortcut: "⌘1" },
   { view: "manage", label: "管理", icon: <FolderOpen size={18} />, shortcut: "⌘2" },
   { view: "metadata", label: "Metadata", icon: <FileText size={18} />, shortcut: "⌘3" },
-  { view: "settings", label: "设置", icon: <Settings size={18} />, shortcut: "⌘4" },
 ];
+
+const SECONDARY_NAV_ITEMS: Array<{
+  view: View;
+  label: string;
+  icon: React.ReactNode;
+  shortcut: string;
+}> = [{ view: "settings", label: "设置", icon: <Settings size={18} />, shortcut: "⌘4" }];
 
 export function Sidebar({
   currentView,
@@ -48,28 +54,20 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "relative flex flex-col border-r border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)]/40 p-3 backdrop-blur-2xl transition-all duration-300",
+        "relative flex flex-col border-r border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)]/92 p-3 backdrop-blur-2xl transition-all duration-300",
         collapsed ? "w-16" : "w-56",
       )}
     >
-      <div
-        className={cn(
-          "mb-3 border-b border-[var(--lumina-border-subtle)] px-2 pb-3",
-          collapsed && "px-0 text-center",
-        )}
-      >
-        <h1
-          className={cn(
-            "font-medium tracking-widest text-[var(--lumina-text)] transition-all",
-            collapsed ? "text-sm" : "text-lg",
-          )}
-        >
-          {collapsed ? "L" : "LUMINA"}
-        </h1>
-      </div>
+      <div data-tauri-drag-region className="mb-4 h-9 shrink-0" />
 
-      <nav className="flex-1 space-y-1 py-2">
-        {NAV_ITEMS.map((item) => (
+      {!collapsed && (
+        <div className="px-3 pb-2 text-[11px] font-medium text-[var(--lumina-muted)]">
+          Workspace
+        </div>
+      )}
+
+      <nav className="space-y-1 py-1">
+        {PRIMARY_NAV_ITEMS.map((item) => (
           <NavItem
             key={item.view}
             icon={item.icon}
@@ -82,7 +80,14 @@ export function Sidebar({
         ))}
       </nav>
 
-      <div className="mt-4 border-t border-[var(--lumina-border-subtle)] pt-3">
+      <div className="flex-1" />
+
+      <div className="mt-4 border-t border-[var(--lumina-border-subtle)] pt-4">
+        {!collapsed && (
+          <div className="px-3 pb-2 text-[11px] font-medium text-[var(--lumina-muted)]">
+            Repository
+          </div>
+        )}
         <ActionBar
           collapsed={collapsed}
           onSyncRepo={onSyncRepo}
@@ -95,8 +100,28 @@ export function Sidebar({
         />
       </div>
 
+      <div className="mt-4 pt-1">
+        {!collapsed && (
+          <div className="px-3 pb-2 text-[11px] font-medium text-[var(--lumina-muted)]">
+            Preferences
+          </div>
+        )}
+        <nav className="space-y-1">
+          {SECONDARY_NAV_ITEMS.map((item) => (
+            <NavItem
+              key={item.view}
+              icon={item.icon}
+              label={item.label}
+              isActive={currentView === item.view}
+              collapsed={collapsed}
+              onClick={() => onViewChange(item.view)}
+              shortcut={item.shortcut}
+            />
+          ))}
+        </nav>
+      </div>
+
       <CollapseToggle collapsed={collapsed} onToggle={onToggleCollapse} />
     </aside>
   );
 }
-

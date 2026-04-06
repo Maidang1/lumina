@@ -3,6 +3,7 @@ import { Search, Command, Bell, Sun, Moon, GitBranch } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface HeaderBarProps {
+  title: string;
   onOpenCommandPalette?: () => void;
   repoHint?: string;
   notificationCount?: number;
@@ -14,6 +15,7 @@ interface HeaderBarProps {
 }
 
 export function HeaderBar({
+  title,
   onOpenCommandPalette,
   repoHint,
   notificationCount = 0,
@@ -24,22 +26,31 @@ export function HeaderBar({
   changesCount = 0,
 }: HeaderBarProps): React.ReactElement {
   return (
-    <header className="flex h-12 items-center justify-between border-b border-[var(--lumina-border-subtle)] bg-transparent backdrop-blur-md px-4">
-      <div className="flex items-center gap-3">
-        {repoHint && (
-          <span className="text-xs text-[var(--lumina-muted)]">
-            <span className="text-emerald-500">●</span> {repoHint}
-          </span>
-        )}
+    <header className="flex h-14 items-center gap-4 border-b border-[var(--lumina-border-subtle)] bg-[var(--lumina-bg)]/92 px-5 backdrop-blur-xl">
+      <div
+        data-tauri-drag-region
+        className="flex h-full min-w-0 flex-1 items-center gap-4"
+      >
+        <div className="min-w-0">
+          <h1 className="text-sm font-semibold tracking-tight text-[var(--lumina-text)]">
+            {title}
+          </h1>
+        </div>
+        {repoHint ? (
+          <div className="hidden min-w-0 items-center gap-2 text-xs text-[var(--lumina-muted)] md:flex">
+            <span className="text-emerald-500">●</span>
+            <span className="truncate">{repoHint}</span>
+          </div>
+        ) : null}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1.5">
         <button
           type="button"
           onClick={onOpenCommandPalette}
           className={cn(
-            "flex items-center gap-2 rounded-lg px-3 py-1.5",
-            "bg-[var(--lumina-surface)]/50",
+            "flex items-center gap-2 rounded-full border border-[var(--lumina-border-subtle)] px-3 py-1.5",
+            "bg-[var(--lumina-surface)]/80",
             "text-[var(--lumina-muted)] transition-colors",
             "hover:bg-[var(--lumina-surface-elevated)] hover:text-[var(--lumina-text-secondary)]",
           )}
@@ -55,10 +66,10 @@ export function HeaderBar({
           type="button"
           onClick={onToggleGitSidebar}
           className={cn(
-            "relative flex h-8 w-8 items-center justify-center rounded-lg transition-all",
+            "relative flex h-8 w-8 items-center justify-center rounded-full border border-transparent transition-all",
             gitSidebarOpen
-              ? "bg-[var(--lumina-accent-muted)] text-[var(--lumina-text)]"
-              : "text-[var(--lumina-muted)] hover:bg-[var(--lumina-surface-elevated)] hover:text-[var(--lumina-text-secondary)]",
+              ? "border-[var(--lumina-border-subtle)] bg-[var(--lumina-surface)] text-[var(--lumina-text)]"
+              : "text-[var(--lumina-muted)] hover:bg-[var(--lumina-accent-muted)] hover:text-[var(--lumina-text-secondary)]",
           )}
           title="源代码管理 (⌘⇧G)"
         >
@@ -74,9 +85,9 @@ export function HeaderBar({
           type="button"
           onClick={onToggleTheme}
           className={cn(
-            "relative flex h-8 w-8 items-center justify-center rounded-lg",
+            "relative flex h-8 w-8 items-center justify-center rounded-full border border-transparent",
             "text-[var(--lumina-muted)] transition-all",
-            "hover:bg-[var(--lumina-surface-elevated)] hover:text-[var(--lumina-text-secondary)]",
+            "hover:bg-[var(--lumina-accent-muted)] hover:text-[var(--lumina-text-secondary)]",
           )}
           title={theme === "dark" ? "切换到亮色模式" : "切换到暗色模式"}
         >
@@ -90,9 +101,9 @@ export function HeaderBar({
         <button
           type="button"
           className={cn(
-            "relative flex h-8 w-8 items-center justify-center rounded-lg",
+            "relative flex h-8 w-8 items-center justify-center rounded-full border border-transparent",
             "text-[var(--lumina-muted)] transition-colors",
-            "hover:bg-[var(--lumina-surface-elevated)] hover:text-[var(--lumina-text-secondary)]",
+            "hover:bg-[var(--lumina-accent-muted)] hover:text-[var(--lumina-text-secondary)]",
           )}
         >
           <Bell size={16} />
