@@ -7,7 +7,7 @@ export interface GitHubRepoInfo {
 }
 
 export interface CloneProgress {
-  stage: 'preparing' | 'cloning' | 'checking' | 'done' | 'error';
+  stage: 'preparing' | 'cloning' | 'checking' | 'reusing' | 'syncing' | 'done' | 'error';
   message: string;
   percent?: number;
 }

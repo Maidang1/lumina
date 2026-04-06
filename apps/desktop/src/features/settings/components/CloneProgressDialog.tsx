@@ -37,9 +37,9 @@ export function CloneProgressDialog({
   };
 
   const getTitle = () => {
-    if (isDone) return "克隆完成";
-    if (isError) return "克隆失败";
-    return "克隆仓库";
+    if (isDone) return "仓库已就绪";
+    if (isError) return "连接失败";
+    return "连接仓库";
   };
 
   return (
@@ -49,7 +49,7 @@ export function CloneProgressDialog({
         onClick={canClose ? onClose : undefined}
       />
 
-      <div className="relative z-10 w-full max-w-md rounded-xl border border-white/10 bg-zinc-900 p-6 shadow-2xl">
+      <div className="relative z-10 max-h-[80vh] w-full max-w-md overflow-y-auto rounded-xl border border-white/10 bg-zinc-900 p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {getStageIcon()}

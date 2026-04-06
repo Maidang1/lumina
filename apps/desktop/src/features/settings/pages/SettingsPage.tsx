@@ -1,7 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useSettingsStore } from "@/features/settings/hooks/useSettingsStore";
-import { Loader2, FolderOpen, Download } from "lucide-react";
-import { selectDirectory } from "@/lib/tauri/dialog";
+import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CloneProgressDialog } from "@/features/settings/components/CloneProgressDialog";
@@ -21,7 +20,6 @@ export function SettingsPage(): React.ReactElement {
     parseProfile,
     repoStatusMessage,
     isRepoReady,
-    updateRepoPath,
     updateConcurrency,
     updateParseProfile,
     refreshRepoStatus,
@@ -37,8 +35,7 @@ export function SettingsPage(): React.ReactElement {
 
   const { progress, startListening, reset: resetProgress } = useCloneProgress();
 
-  const inputValue = urlInput || repoPath;
-  const isUrlMode = useMemo(() => isGitHubUrl(inputValue), [inputValue]);
+  const isUrlMode = useMemo(() => isGitHubUrl(urlInput), [urlInput]);
 
   const handleSave = async (): Promise<void> => {
     setIsSaving(true);
@@ -52,22 +49,9 @@ export function SettingsPage(): React.ReactElement {
     }
   };
 
-  const handleSelectRepo = async (): Promise<void> => {
-    const selected = await selectDirectory();
-    if (!selected) {
-      return;
-    }
-    setUrlInput("");
-    await updateRepoPath(selected);
-    await refreshRepoStatus(selected);
-  };
-
   const handleInputChange = (value: string): void => {
     setUrlInput(value);
     setCloneError(null);
-    if (!isGitHubUrl(value)) {
-      void updateRepoPath(value);
-    }
   };
 
   const handleClone = async (): Promise<void> => {
@@ -78,21 +62,26 @@ export function SettingsPage(): React.ReactElement {
     setCloneDialogOpen(true);
 
     try {
-      const repoInfo = await parseGitHubUrl(inputValue);
+      const repoInfo = await parseGitHubUrl(urlInput.trim());
       setCloneRepoInfo(repoInfo);
 
       await startListening();
-      const result = await cloneGitHubRepo(inputValue);
+      const result = await cloneGitHubRepo(urlInput.trim());
 
       if (result.success) {
         setUrlInput("");
-        await updateRepoPath(result.repo_path);
-        await refreshRepoStatus(result.repo_path);
+        await refreshRepoStatus();
       } else {
+        setCloneDialogOpen(false);
+        setCloneRepoInfo(null);
+        resetProgress();
         setCloneError(result.message ?? "克隆失败");
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "克隆失败";
+      setCloneDialogOpen(false);
+      setCloneRepoInfo(null);
+      resetProgress();
       setCloneError(message);
     } finally {
       setIsCloning(false);
@@ -126,48 +115,37 @@ export function SettingsPage(): React.ReactElement {
           <h2 className="mb-4 text-lg font-semibold text-[var(--foreground)]">仓库配置</h2>
           <div className="space-y-4">
             <div>
-              <label className="mb-2 block text-sm font-medium text-zinc-300">
-                {isUrlMode ? "GitHub 仓库链接" : "本地 Git 仓库"}
-              </label>
+              <label className="mb-2 block text-sm font-medium text-zinc-300">GitHub 仓库链接</label>
               <div className="flex gap-2">
                 <Input
                   type="text"
                   className="flex-1"
-                  placeholder="https://github.com/user/repo 或 /path/to/repository"
-                  value={inputValue}
+                  placeholder="https://github.com/user/repo"
+                  value={urlInput}
                   onChange={(e) => handleInputChange(e.target.value)}
                 />
-                {isUrlMode ? (
-                  <Button
-                    type="button"
-                    onClick={() => void handleClone()}
-                    disabled={isCloning}
-                    className="gap-2"
-                  >
-                    {isCloning ? (
-                      <Loader2 className="animate-spin" size={16} />
-                    ) : (
-                      <Download size={16} />
-                    )}
-                    克隆
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void handleSelectRepo()}
-                    className="gap-2"
-                  >
-                    <FolderOpen size={16} />
-                    选择
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  onClick={() => void handleClone()}
+                  disabled={!isUrlMode || isCloning}
+                  className="gap-2"
+                >
+                  {isCloning ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : (
+                    <Download size={16} />
+                  )}
+                  连接仓库
+                </Button>
               </div>
               <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                {isUrlMode
-                  ? "输入 GitHub 仓库链接，点击克隆自动下载到本地"
-                  : "选择图片对象仓库根目录（必须包含 .git），或粘贴 GitHub 链接"}
+                输入 GitHub 仓库链接，应用会自动克隆到缓存目录并持续复用。
               </p>
+              {repoPath && (
+                <p className="mt-2 truncate text-xs text-[var(--muted-foreground)]">
+                  本地缓存路径: <span className="font-mono">{repoPath}</span>
+                </p>
+              )}
               {cloneError && (
                 <p className="mt-2 text-sm text-red-400">{cloneError}</p>
               )}

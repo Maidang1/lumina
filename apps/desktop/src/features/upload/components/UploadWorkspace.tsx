@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { FolderOpen } from "lucide-react";
+import { Link2 } from "lucide-react";
 import { uploadService } from "@/services/uploadService";
 import UploadDropzone from "@/features/upload/components/UploadDropzone";
 import UploadQueuePanel from "@/features/upload/components/UploadQueuePanel";
@@ -8,7 +8,7 @@ import { useUploadQueueStore } from "@/features/upload/hooks/useUploadQueueStore
 import { useParseScheduler } from "@/features/upload/hooks/useParseScheduler";
 import { useSubmitScheduler } from "@/features/upload/hooks/useSubmitScheduler";
 import { useEventDrivenSubmitScheduler } from "@/features/upload/hooks/useEventDrivenSubmitScheduler";
-import { selectDirectory, selectFiles } from "@/lib/tauri/dialog";
+import { selectFiles } from "@/lib/tauri/dialog";
 import { getFileInfo } from "@/lib/tauri/fs";
 import { tauriStorage } from "@/lib/tauri/storage";
 import { DEFAULT_UPLOAD_CONFIG, UploadParseProfile } from "@/types/photo";
@@ -25,7 +25,6 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
   onNavigateToSettings,
 }) => {
   const [isRepoConfigured, setIsRepoConfigured] = useState(false);
-  const [repoHint, setRepoHint] = useState("");
   const [parseProfile, setParseProfile] = useState<UploadParseProfile>(
     DEFAULT_UPLOAD_CONFIG.parseProfile,
   );
@@ -34,16 +33,6 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
     const refreshRepoState = async (): Promise<void> => {
       const configured = await uploadService.hasRepoPath();
       setIsRepoConfigured(configured);
-      if (configured) {
-        try {
-          const status = await uploadService.getRepoStatus();
-          setRepoHint(`${status.owner}/${status.repo}@${status.branch}`);
-        } catch {
-          setRepoHint("");
-        }
-      } else {
-        setRepoHint("");
-      }
     };
     void refreshRepoState();
   }, []);
@@ -118,53 +107,27 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
   }, [handleSubmitAll, isRepoConfigured]);
 
   if (!isRepoConfigured) {
-    const handleChooseRepo = async (): Promise<void> => {
-      const selected = await selectDirectory();
-      if (!selected) return;
-
-      await tauriStorage.setItem("lumina.git_repo_path", selected);
-      const ready = await uploadService.hasRepoPath();
-      setIsRepoConfigured(ready);
-      if (ready) {
-        try {
-          const status = await uploadService.getRepoStatus();
-          setRepoHint(`${status.owner}/${status.repo}@${status.branch}`);
-        } catch {
-          setRepoHint("");
-        }
-      }
-    };
-
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">
         <div className="flex max-w-md flex-col items-center text-center">
           <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--lumina-border-subtle)] text-[var(--lumina-muted)]">
-            <FolderOpen size={40} strokeWidth={1.5} />
+            <Link2 size={40} strokeWidth={1.5} />
           </div>
 
           <h2 className="mb-2 text-lg font-medium text-[var(--lumina-text)]">
-            选择照片仓库
+            先连接 GitHub 仓库
           </h2>
           <p className="mb-6 text-sm text-[var(--lumina-muted)]">
-            请先选择一个本地 Git 仓库作为照片存储目录
+            请在设置页输入 GitHub 仓库链接，应用会自动克隆到缓存目录并维护同步。
           </p>
-
-          <button
-            type="button"
-            onClick={() => void handleChooseRepo()}
-            className="flex items-center gap-2 rounded-lg bg-[var(--lumina-text)] px-6 py-2.5 text-sm font-medium text-[var(--lumina-bg)] transition-all hover:opacity-90"
-          >
-            <FolderOpen size={16} />
-            选择仓库目录
-          </button>
 
           {onNavigateToSettings && (
             <button
               type="button"
               onClick={onNavigateToSettings}
-              className="mt-4 text-sm text-[var(--lumina-muted)] transition-colors hover:text-[var(--lumina-text-secondary)]"
+              className="rounded-lg bg-[var(--lumina-text)] px-6 py-2.5 text-sm font-medium text-[var(--lumina-bg)] transition-all hover:opacity-90"
             >
-              或在设置中配置 →
+              前往设置连接仓库
             </button>
           )}
         </div>

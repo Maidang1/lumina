@@ -13,10 +13,9 @@ interface UseSettingsStoreResult extends SettingsState {
   isLoading: boolean;
   repoStatusMessage: string;
   isRepoReady: boolean;
-  updateRepoPath: (repoPath: string) => Promise<void>;
   updateConcurrency: (concurrency: number) => Promise<void>;
   updateParseProfile: (profile: UploadParseProfile) => Promise<void>;
-  refreshRepoStatus: (pathOverride?: string) => Promise<void>;
+  refreshRepoStatus: () => Promise<void>;
   saveAll: () => Promise<void>;
 }
 
@@ -31,28 +30,26 @@ export function useSettingsStore(): UseSettingsStoreResult {
   const [repoPath, setRepoPath] = useState('');
   const [concurrency, setConcurrency] = useState(3);
   const [parseProfile, setParseProfile] = useState<UploadParseProfile>('quality');
-  const [repoStatusMessage, setRepoStatusMessage] = useState('未选择仓库');
+  const [repoStatusMessage, setRepoStatusMessage] = useState('未连接仓库');
   const [isRepoReady, setIsRepoReady] = useState(false);
 
-  const refreshRepoStatus = useCallback(async (pathOverride?: string): Promise<void> => {
-    const targetPath = (pathOverride ?? repoPath).trim();
-    if (!targetPath) {
-      setIsRepoReady(false);
-      setRepoStatusMessage('未选择仓库');
-      return;
-    }
-
+  const refreshRepoStatus = useCallback(async (): Promise<void> => {
     try {
       const status = await getRepoStatus();
+      setRepoPath(status.repo_path);
       setIsRepoReady(true);
       setRepoStatusMessage(
         `已连接: ${status.owner}/${status.repo}@${status.branch}，未提交变更 ${status.dirty_files} 项`
       );
     } catch (error) {
       setIsRepoReady(false);
-      setRepoStatusMessage(
-        error instanceof Error ? error.message : '仓库校验失败'
-      );
+      if (!repoPath.trim()) {
+        setRepoStatusMessage('未连接仓库');
+      } else {
+        setRepoStatusMessage(
+          error instanceof Error ? error.message : '仓库校验失败'
+        );
+      }
     }
   }, [repoPath]);
 
@@ -82,11 +79,6 @@ export function useSettingsStore(): UseSettingsStoreResult {
     void refreshRepoStatus();
   }, [refreshRepoStatus]);
 
-  const updateRepoPath = useCallback(async (path: string): Promise<void> => {
-    setRepoPath(path);
-    await tauriStorage.setItem(STORAGE_KEYS.REPO_PATH, path);
-  }, []);
-
   const updateConcurrency = useCallback(async (value: number): Promise<void> => {
     const normalized = Number.isFinite(value) ? Math.max(1, Math.min(10, value)) : 1;
     setConcurrency(normalized);
@@ -100,11 +92,10 @@ export function useSettingsStore(): UseSettingsStoreResult {
 
   const saveAll = useCallback(async (): Promise<void> => {
     await Promise.all([
-      tauriStorage.setItem(STORAGE_KEYS.REPO_PATH, repoPath),
       tauriStorage.setItem(STORAGE_KEYS.CONCURRENCY, String(concurrency)),
       tauriStorage.setItem(STORAGE_KEYS.PARSE_PROFILE, parseProfile),
     ]);
-  }, [concurrency, parseProfile, repoPath]);
+  }, [concurrency, parseProfile]);
 
   return {
     isLoading,
@@ -113,7 +104,6 @@ export function useSettingsStore(): UseSettingsStoreResult {
     parseProfile,
     repoStatusMessage,
     isRepoReady,
-    updateRepoPath,
     updateConcurrency,
     updateParseProfile,
     refreshRepoStatus,
