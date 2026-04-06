@@ -193,3 +193,18 @@ export async function startBatchUploadWithEvents(
 ): Promise<string> {
   return invoke<string>('start_batch_upload_with_events', { items });
 }
+
+// ============ Preview generation for unsupported formats ============
+
+export interface PreviewResult {
+  originalPath: string;
+  previewPath: string | null;
+  success: boolean;
+  error: string | null;
+}
+
+export async function generatePreviewForUnsupported(
+  paths: string[]
+): Promise<PreviewResult[]> {
+  return invoke<PreviewResult[]>('generate_preview_for_unsupported', { paths });
+}

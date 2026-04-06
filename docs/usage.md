@@ -62,7 +62,7 @@ The Lumina Desktop app provides a graphical interface for managing your photo po
 
 ### Features
 
-- Browse and manage photos in your local repository
+- Browse and manage photos in a connected GitHub repository (local cache is managed by the app)
 - Upload new photos with automatic processing (EXIF extraction, thumbnail generation)
 - Preview changes before committing
 - Git integration for syncing with remote repository
@@ -70,7 +70,7 @@ The Lumina Desktop app provides a graphical interface for managing your photo po
 ### Getting Started
 
 1. Launch Lumina Desktop
-2. Open Settings and configure your local repository path
+2. Open Settings and enter your GitHub repository URL (the app will clone it into app cache automatically)
 3. Add photos via drag-and-drop or the upload dialog
 4. Review changes in the Changes panel
 5. Commit and push to sync with your remote repository

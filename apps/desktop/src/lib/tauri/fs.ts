@@ -7,6 +7,15 @@ interface FileInfo {
   is_file: boolean;
 }
 
+export interface FolderImageInfo {
+  path: string;
+  name: string;
+  sizeBytes: number;
+  modifiedAt: number;
+  mimeType: string;
+  isBrowserSupported: boolean;
+}
+
 async function readFileAsBytes(path: string): Promise<Uint8Array> {
   const bytes = await invoke<number[]>('read_file_as_bytes', { path });
   return new Uint8Array(bytes);
@@ -22,6 +31,13 @@ async function scanDirectory(
   recursive: boolean = false
 ): Promise<string[]> {
   return invoke<string[]>('scan_directory', { path, extensions, recursive });
+}
+
+export async function scanFolderImages(
+  folderPath: string,
+  recursive: boolean = false
+): Promise<FolderImageInfo[]> {
+  return invoke<FolderImageInfo[]>('scan_folder_images', { folderPath, recursive });
 }
 
 async function fileToBlob(path: string): Promise<File> {

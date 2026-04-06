@@ -437,3 +437,115 @@ async fn upload_single_from_cache(
 
     Ok((result.image_id, "Uploaded successfully".to_string()))
 }
+
+// ============ Preview generation for unsupported formats ============
+
+fn get_preview_cache_dir() -> Result<std::path::PathBuf> {
+    let cache_dir = if cfg!(target_os = "macos") {
+        dirs::home_dir()
+            .context("Failed to get home directory")?
+            .join("Library/Caches")
+    } else {
+        dirs::cache_dir().context("Failed to get cache directory")?
+    };
+
+    let preview_cache = cache_dir.join("lumina_preview");
+    std::fs::create_dir_all(&preview_cache)?;
+    Ok(preview_cache)
+}
+
+fn path_to_cache_key(path: &str) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    path.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewResult {
+    pub original_path: String,
+    pub preview_path: Option<String>,
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+pub async fn generate_preview_for_unsupported(
+    paths: Vec<String>,
+) -> Result<Vec<PreviewResult>, String> {
+    let cache_dir = get_preview_cache_dir().map_err(|e| e.to_string())?;
+    let mut results = Vec::with_capacity(paths.len());
+
+    for original_path in paths {
+        let cache_key = path_to_cache_key(&original_path);
+        let cached_path = cache_dir.join(format!("{}.jpg", cache_key));
+
+        // Return cached preview if it exists
+        if cached_path.exists() {
+            results.push(PreviewResult {
+                original_path,
+                preview_path: Some(cached_path.to_string_lossy().to_string()),
+                success: true,
+                error: None,
+            });
+            continue;
+        }
+
+        match convert_heif_to_jpeg_preview(&original_path, &cached_path) {
+            Ok(()) => {
+                results.push(PreviewResult {
+                    original_path,
+                    preview_path: Some(cached_path.to_string_lossy().to_string()),
+                    success: true,
+                    error: None,
+                });
+            }
+            Err(e) => {
+                results.push(PreviewResult {
+                    original_path,
+                    preview_path: None,
+                    success: false,
+                    error: Some(e),
+                });
+            }
+        }
+    }
+
+    Ok(results)
+}
+
+fn convert_heif_to_jpeg_preview(
+    input_path: &str,
+    output_path: &std::path::Path,
+) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        // Use sips to convert and resize to a small preview (max 600px)
+        let status = Command::new("sips")
+            .args([
+                "-s", "format", "jpeg",
+                "-s", "formatOptions", "60",
+                "--resampleHeightWidthMax", "600",
+                input_path,
+                "--out",
+            ])
+            .arg(output_path)
+            .status()
+            .map_err(|e| format!("failed to execute sips: {}", e))?;
+
+        if !status.success() {
+            let _ = std::fs::remove_file(output_path);
+            return Err(format!("sips conversion failed with exit code: {}",
+                status.code().map(|c| c.to_string()).unwrap_or_else(|| "unknown".to_string())
+            ));
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (input_path, output_path);
+        Err("Preview generation for HEIC/HEIF is currently supported on macOS only".to_string())
+    }
+}

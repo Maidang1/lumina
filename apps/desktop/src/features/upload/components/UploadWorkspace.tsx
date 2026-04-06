@@ -4,6 +4,7 @@ import { uploadService } from "@/services/uploadService";
 import UploadDropzone from "@/features/upload/components/UploadDropzone";
 import UploadQueuePanel from "@/features/upload/components/UploadQueuePanel";
 import UploadConfirmHeader from "@/features/upload/components/UploadConfirmHeader";
+import FolderBrowser from "@/features/upload/components/FolderBrowser";
 import { useUploadQueueStore } from "@/features/upload/hooks/useUploadQueueStore";
 import { useParseScheduler } from "@/features/upload/hooks/useParseScheduler";
 import { useSubmitScheduler } from "@/features/upload/hooks/useSubmitScheduler";
@@ -14,6 +15,8 @@ import { tauriStorage } from "@/lib/tauri/storage";
 import { DEFAULT_UPLOAD_CONFIG, UploadParseProfile } from "@/types/photo";
 
 const USE_EVENT_DRIVEN_UPLOAD = true;
+
+type UploadMode = "dropzone" | "folder-browser";
 
 interface UploadWorkspaceProps {
   onUploadCompleted?: (successCount: number) => void;
@@ -28,6 +31,7 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
   const [parseProfile, setParseProfile] = useState<UploadParseProfile>(
     DEFAULT_UPLOAD_CONFIG.parseProfile,
   );
+  const [uploadMode, setUploadMode] = useState<UploadMode>("dropzone");
 
   useEffect(() => {
     const refreshRepoState = async (): Promise<void> => {
@@ -100,6 +104,25 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
 
     enqueuePathFiles(enriched);
   }, [enqueuePathFiles, isRepoConfigured]);
+
+  const handleFolderBrowserBack = useCallback(() => {
+    setUploadMode("dropzone");
+  }, []);
+
+  const handleAddFromFolderBrowser = useCallback(
+    (
+      files: Array<{
+        path: string;
+        name: string;
+        size: number;
+        modified: number;
+        mime?: string;
+      }>,
+    ) => {
+      enqueuePathFiles(files);
+    },
+    [enqueuePathFiles],
+  );
 
   const handleSubmit = useCallback(() => {
     if (!isRepoConfigured) return;
@@ -192,10 +215,21 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
     );
   }
 
+  if (uploadMode === "folder-browser") {
+    return (
+      <FolderBrowser
+        queue={queue}
+        onAddToQueue={handleAddFromFolderBrowser}
+        onBack={handleFolderBrowserBack}
+      />
+    );
+  }
+
   return (
     <UploadDropzone
       isRepoConfigured={isRepoConfigured}
       onSelectFilesFromDialog={() => void handleSelectFilesFromDialog()}
+      onSelectFolderFromDialog={() => setUploadMode("folder-browser")}
     />
   );
 };
