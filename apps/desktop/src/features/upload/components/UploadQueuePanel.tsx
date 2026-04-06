@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Eye, Gauge, Image as ImageIcon, X } from "lucide-react";
+import { AlertTriangle, Eye, Gauge, Image as ImageIcon, Undo2, X } from "lucide-react";
 import { UploadQueueItem } from "@/types/photo";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ interface UploadQueuePanelProps {
   activeWorkers: number;
   onRemoveItem: (id: string) => void;
   onRetryItem: (id: string) => void;
+  onRevertItem?: (id: string) => void;
   onEditItem?: (id: string) => void;
   isEditEnabled?: boolean;
   onUpdateCategory?: (id: string, category: string, save?: boolean) => void;
@@ -144,6 +145,7 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
   workerCount,
   activeWorkers,
   onRemoveItem,
+  onRevertItem,
   onUpdateCategory,
   onUpdateDescription,
 }) => {
@@ -677,6 +679,23 @@ const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
                         </div>
                       )}
                     </div>
+                  )}
+
+                  {isCompleted && onRevertItem && item.metadata?.image_id && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => {
+                        if (window.confirm("确定要撤销此图片的所有已转换文件吗？")) {
+                          onRevertItem(item.id);
+                        }
+                      }}
+                      className="h-6 w-6 rounded-full p-1 text-amber-500/70 opacity-0 transition-all hover:bg-amber-500/10 hover:text-amber-400 group-hover:opacity-100"
+                      title="撤销上传（删除 repo 中该图片的所有文件）"
+                    >
+                      <Undo2 size={16} />
+                    </Button>
                   )}
 
                   <Button

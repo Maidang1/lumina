@@ -183,6 +183,55 @@ impl UploadManager {
         })
     }
 
+    pub async fn revert_image(&self, image_id: String) -> Result<RevertResult> {
+        let base_path = Self::image_base_path(&image_id)?;
+        let abs_dir = self.repo_path_for(&base_path);
+
+        if !abs_dir.exists() || !abs_dir.is_dir() {
+            anyhow::bail!("Image directory not found: {}", base_path);
+        }
+
+        let entries = fs::read_dir(&abs_dir)
+            .with_context(|| format!("Failed to read directory: {}", base_path))?;
+
+        let mut reverted_files = Vec::new();
+
+        for entry in entries {
+            let entry = entry.context("Failed to read directory entry")?;
+            let entry_path = entry.path();
+            if !entry_path.is_file() {
+                continue;
+            }
+
+            let relative = format!(
+                "{}/{}",
+                base_path,
+                entry_path.file_name().unwrap_or_default().to_string_lossy()
+            );
+
+            if self.is_tracked(&relative)? {
+                self.run_repo_git(&["rm", "-f", "--", &relative])?;
+            } else {
+                fs::remove_file(&entry_path)
+                    .with_context(|| format!("Failed to delete: {}", relative))?;
+            }
+
+            reverted_files.push(relative);
+        }
+
+        // Clean up empty parent directories up to objects/
+        self.cleanup_empty_parents(&abs_dir)?;
+
+        self.remove_from_index(&image_id)?;
+
+        Ok(RevertResult {
+            success: true,
+            image_id,
+            reverted_files,
+            message: Some("Image reverted successfully".to_string()),
+        })
+    }
+
     pub async fn list_images(
         &self,
         cursor: Option<String>,
@@ -374,5 +423,54 @@ impl UploadManager {
             "1600" | "lg" => Some("1600"),
             _ => None,
         }
+    }
+
+    fn is_tracked(&self, relative_path: &str) -> Result<bool> {
+        let output = std::process::Command::new("git")
+            .args(["ls-files", "--error-unmatch", "--", relative_path])
+            .current_dir(&self.config.repo_path)
+            .output()
+            .context("Failed to execute git ls-files")?;
+        Ok(output.status.success())
+    }
+
+    fn run_repo_git(&self, args: &[&str]) -> Result<String> {
+        let output = std::process::Command::new("git")
+            .args(args)
+            .current_dir(&self.config.repo_path)
+            .output()
+            .with_context(|| format!("Failed to execute git {:?}", args))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            anyhow::bail!("git {:?} failed: {}", args, stderr);
+        }
+
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    fn cleanup_empty_parents(&self, start_dir: &Path) -> Result<()> {
+        let objects_root = self.repo_path_for("objects");
+        let mut current = start_dir.to_path_buf();
+
+        while current.starts_with(&objects_root) && current != objects_root {
+            let is_empty = current
+                .read_dir()
+                .map(|mut entries| entries.next().is_none())
+                .unwrap_or(false);
+
+            if is_empty {
+                let _ = fs::remove_dir(&current);
+            } else {
+                break;
+            }
+
+            match current.parent() {
+                Some(parent) => current = parent.to_path_buf(),
+                None => break,
+            }
+        }
+
+        Ok(())
     }
 }

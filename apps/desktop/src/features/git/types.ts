@@ -2,6 +2,19 @@ import type { GitChangesSnapshot, GitFileState } from "@/lib/tauri/github";
 
 export type GitChangeSource = "staged" | "unstaged";
 
+export interface ImageGroup {
+  imageId: string;
+  basePath: string;
+  rows: GitChangeRow[];
+}
+
+export interface GroupedGitChanges {
+  stagedGroups: ImageGroup[];
+  unstagedGroups: ImageGroup[];
+  stagedUngrouped: GitChangeRow[];
+  unstagedUngrouped: GitChangeRow[];
+}
+
 interface GitChangeCounts {
   total: number;
   staged: number;
@@ -118,4 +131,54 @@ export function deriveGitChanges(snapshot: GitChangesSnapshot | null): DerivedGi
   }
 
   return { stagedRows, unstagedRows, counts };
+}
+
+const IMAGE_OBJECT_RE = /^objects\/([0-9a-f]{2})\/([0-9a-f]{2})\/sha256_([0-9a-f]+)\//i;
+
+function extractImageId(filePath: string): string | null {
+  const match = filePath.match(IMAGE_OBJECT_RE);
+  if (!match) return null;
+  return `sha256:${match[3]}`;
+}
+
+function buildGroups(rows: GitChangeRow[]): { groups: ImageGroup[]; ungrouped: GitChangeRow[] } {
+  const groupMap = new Map<string, { basePath: string; rows: GitChangeRow[] }>();
+  const ungrouped: GitChangeRow[] = [];
+
+  for (const row of rows) {
+    const imageId = extractImageId(row.path);
+    if (!imageId) {
+      ungrouped.push(row);
+      continue;
+    }
+
+    let entry = groupMap.get(imageId);
+    if (!entry) {
+      const hash = imageId.replace("sha256:", "");
+      const basePath = `objects/${hash.slice(0, 2)}/${hash.slice(2, 4)}/sha256_${hash}`;
+      entry = { basePath, rows: [] };
+      groupMap.set(imageId, entry);
+    }
+    entry.rows.push(row);
+  }
+
+  const groups: ImageGroup[] = [];
+  for (const [imageId, entry] of groupMap) {
+    groups.push({ imageId, basePath: entry.basePath, rows: entry.rows });
+  }
+
+  return { groups, ungrouped };
+}
+
+export function groupChangesByImage(snapshot: GitChangesSnapshot | null): GroupedGitChanges {
+  const derived = deriveGitChanges(snapshot);
+  const staged = buildGroups(derived.stagedRows);
+  const unstaged = buildGroups(derived.unstagedRows);
+
+  return {
+    stagedGroups: staged.groups,
+    unstagedGroups: unstaged.groups,
+    stagedUngrouped: staged.ungrouped,
+    unstagedUngrouped: unstaged.ungrouped,
+  };
 }

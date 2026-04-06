@@ -13,6 +13,7 @@ import { selectFiles } from "@/lib/tauri/dialog";
 import { getFileInfo } from "@/lib/tauri/fs";
 import { tauriStorage } from "@/lib/tauri/storage";
 import { DEFAULT_UPLOAD_CONFIG, UploadParseProfile } from "@/types/photo";
+import { logger } from "@/lib/logger";
 
 const USE_EVENT_DRIVEN_UPLOAD = true;
 
@@ -129,6 +130,23 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
     void handleSubmitAll();
   }, [handleSubmitAll, isRepoConfigured]);
 
+  const handleRevertItem = useCallback(
+    async (id: string): Promise<void> => {
+      const item = queue.find((i) => i.id === id);
+      const imageId = item?.metadata?.image_id;
+      if (!imageId) return;
+
+      try {
+        await uploadService.revertImage(imageId);
+        removeItem(id);
+        logger.debug(`[UploadWorkspace] Reverted image: ${imageId}`);
+      } catch (err) {
+        logger.error("[UploadWorkspace] Revert failed:", err);
+      }
+    },
+    [queue, removeItem],
+  );
+
   if (!isRepoConfigured) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">
@@ -176,6 +194,7 @@ const UploadWorkspace: React.FC<UploadWorkspaceProps> = ({
           activeWorkers={stats.parseActiveCount + stats.uploadActiveCount}
           onRemoveItem={removeItem}
           onRetryItem={retryItem}
+          onRevertItem={(id) => void handleRevertItem(id)}
           onEditItem={() => {}}
           isEditEnabled={false}
           onUpdateCategory={async (id, category, save) => {

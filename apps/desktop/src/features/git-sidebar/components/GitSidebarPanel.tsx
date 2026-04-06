@@ -1,14 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { X, RefreshCw, GitBranch } from "lucide-react";
+import { X, RefreshCw, GitBranch, Image as ImageIcon, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommitForm } from "./CommitForm";
 import {
   GitChangeList,
   deriveGitChanges,
+  groupChangesByImage,
   useGitChangesSnapshot,
   useGitOps,
   type GitChangeRow,
 } from "@/features/git";
+import { GitImageGroupList } from "@/features/git/components/GitImageGroupList";
+
+type SidebarViewMode = "files" | "images";
 
 interface GitSidebarPanelProps {
   open: boolean;
@@ -27,9 +31,10 @@ export function GitSidebarPanel({
 }: GitSidebarPanelProps): React.ReactElement | null {
   const [stagedExpanded, setStagedExpanded] = useState(true);
   const [unstagedExpanded, setUnstagedExpanded] = useState(true);
+  const [viewMode, setViewMode] = useState<SidebarViewMode>("images");
 
   const { snapshot, loading, error, setError, refresh } = useGitChangesSnapshot();
-  const { operatingKey, bulkLoading, stage, unstage, discard, remove, stageEverything, unstageEverything } =
+  const { operatingKey, bulkLoading, stage, unstage, discard, remove, stageEverything, unstageEverything, revertImage } =
     useGitOps({ refresh, setError });
 
   useEffect(() => {
@@ -39,6 +44,7 @@ export function GitSidebarPanel({
   }, [open, refresh]);
 
   const derived = useMemo(() => deriveGitChanges(snapshot), [snapshot]);
+  const grouped = useMemo(() => groupChangesByImage(snapshot), [snapshot]);
 
   const handleToggleStage = (row: GitChangeRow): void => {
     if (row.source === "staged") {
@@ -54,6 +60,10 @@ export function GitSidebarPanel({
 
   const handleDelete = (row: GitChangeRow): void => {
     void remove(row.path, row.key);
+  };
+
+  const handleRevertImage = (imageId: string): void => {
+    void revertImage(imageId);
   };
 
   if (!open) return null;
@@ -76,6 +86,17 @@ export function GitSidebarPanel({
           )}
         </div>
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setViewMode(viewMode === "files" ? "images" : "files")}
+            className={cn(
+              "p-1 rounded hover:bg-[var(--lumina-accent-muted)] text-[var(--lumina-muted)] hover:text-[var(--lumina-text)]",
+              viewMode === "images" && "text-[var(--lumina-text)] bg-[var(--lumina-accent-muted)]",
+            )}
+            title={viewMode === "files" ? "按图片分组" : "按文件列表"}
+          >
+            {viewMode === "files" ? <ImageIcon size={14} /> : <List size={14} />}
+          </button>
           <button
             type="button"
             onClick={() => void refresh()}
@@ -116,23 +137,46 @@ export function GitSidebarPanel({
       )}
 
       <div className="flex-1 overflow-y-auto">
-        <GitChangeList
-          stagedRows={derived.stagedRows}
-          unstagedRows={derived.unstagedRows}
-          operatingKey={operatingKey}
-          bulkLoading={bulkLoading}
-          onToggleStage={handleToggleStage}
-          onDiscard={handleDiscard}
-          onDelete={handleDelete}
-          onStageAll={() => void stageEverything()}
-          onUnstageAll={() => void unstageEverything()}
-          collapsible
-          stagedExpanded={stagedExpanded}
-          unstagedExpanded={unstagedExpanded}
-          onToggleStagedExpanded={() => setStagedExpanded((value) => !value)}
-          onToggleUnstagedExpanded={() => setUnstagedExpanded((value) => !value)}
-          compact
-        />
+        {viewMode === "files" ? (
+          <GitChangeList
+            stagedRows={derived.stagedRows}
+            unstagedRows={derived.unstagedRows}
+            operatingKey={operatingKey}
+            bulkLoading={bulkLoading}
+            onToggleStage={handleToggleStage}
+            onDiscard={handleDiscard}
+            onDelete={handleDelete}
+            onStageAll={() => void stageEverything()}
+            onUnstageAll={() => void unstageEverything()}
+            collapsible
+            stagedExpanded={stagedExpanded}
+            unstagedExpanded={unstagedExpanded}
+            onToggleStagedExpanded={() => setStagedExpanded((value) => !value)}
+            onToggleUnstagedExpanded={() => setUnstagedExpanded((value) => !value)}
+            compact
+          />
+        ) : (
+          <>
+            {grouped.stagedGroups.length > 0 && (
+              <GitImageGroupList
+                title="已暂存"
+                groups={grouped.stagedGroups}
+                ungrouped={grouped.stagedUngrouped}
+                onRevertImage={handleRevertImage}
+                reverting={bulkLoading}
+              />
+            )}
+            {grouped.unstagedGroups.length > 0 && (
+              <GitImageGroupList
+                title="更改"
+                groups={grouped.unstagedGroups}
+                ungrouped={grouped.unstagedUngrouped}
+                onRevertImage={handleRevertImage}
+                reverting={bulkLoading}
+              />
+            )}
+          </>
+        )}
 
         {!loading && derived.counts.total === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center">

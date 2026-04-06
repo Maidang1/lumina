@@ -9,6 +9,7 @@ import { tauriStorage } from "@/lib/tauri/storage";
 import {
   uploadImageToGitHub,
   deleteImageFromGitHub,
+  revertImageFromGitHub,
   finalizeBatchToGitHub,
   listImagesFromGitHub,
   updateImageMetadataInRepo,
@@ -27,6 +28,13 @@ interface UploadOptions {
 interface DeleteImageResult {
   image_id: string;
   deleted_paths: string[];
+}
+
+interface RevertImageResult {
+  success: boolean;
+  image_id: string;
+  reverted_files: string[];
+  message?: string;
 }
 
 interface SignedShareResult {
@@ -545,6 +553,14 @@ class UploadService {
         `Failed to delete image: ${response.status}`,
       );
     }
+  }
+
+  async revertImage(imageId: string): Promise<RevertImageResult> {
+    const result = await revertImageFromGitHub(imageId);
+    if (!result.success) {
+      throw new ApiRequestError(result.message || "Revert failed", 500);
+    }
+    return result;
   }
 
   async updateImageMetadata(

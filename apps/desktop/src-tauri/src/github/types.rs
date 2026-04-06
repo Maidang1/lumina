@@ -23,6 +23,14 @@ pub struct DeleteResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RevertResult {
+    pub success: bool,
+    pub image_id: String,
+    pub reverted_files: Vec<String>,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BatchFinalizeResult {
     pub success_count: usize,
     pub failed_items: Option<Vec<BatchFinalizeFailure>>,

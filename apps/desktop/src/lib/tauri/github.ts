@@ -30,6 +30,13 @@ interface GitHubDeleteResult {
   message?: string;
 }
 
+interface GitHubRevertResult {
+  success: boolean;
+  image_id: string;
+  reverted_files: string[];
+  message?: string;
+}
+
 interface GitHubUploadResultRaw {
   success: boolean;
   image_id: string;
@@ -103,6 +110,14 @@ export async function deleteImageFromGitHub(
     image_id: raw.image_id,
     message: raw.message,
   };
+}
+
+export async function revertImageFromGitHub(
+  imageId: string
+): Promise<GitHubRevertResult> {
+  return invoke<GitHubRevertResult>('github_revert_image', {
+    imageId,
+  });
 }
 
 export async function finalizeBatchToGitHub(

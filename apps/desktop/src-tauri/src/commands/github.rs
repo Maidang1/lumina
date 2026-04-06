@@ -53,6 +53,18 @@ pub async fn github_delete_image(
 }
 
 #[tauri::command]
+pub async fn github_revert_image(
+    image_id: String,
+    app: tauri::AppHandle,
+) -> Result<crate::github::RevertResult, String> {
+    let manager = create_github_manager(&app, "Repo Revert")?;
+    manager
+        .revert_image(image_id)
+        .await
+        .map_err(|e| format!("撤销失败: {}", e))
+}
+
+#[tauri::command]
 pub async fn github_finalize_batch(
     metadatas: Vec<String>,
     app: tauri::AppHandle,

@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import {
   deleteFile,
   discardFile,
+  revertImageFromGitHub,
   stageAll,
   stageFile,
   unstageAll,
@@ -92,6 +93,28 @@ export function useGitOps({ refresh, setError }: UseGitOpsOptions) {
     [withBulkOp],
   );
 
+  const revertImage = useCallback(
+    async (imageId: string): Promise<void> => {
+      setBulkLoading(true);
+      try {
+        const result = await revertImageFromGitHub(imageId);
+        if (!result.success) {
+          throw new Error(result.message || "撤销失败");
+        }
+        await refresh();
+        setError(null);
+        pushToast(`已撤销图片 (${result.reverted_files.length} 个文件)`, "success");
+      } catch (err) {
+        const message = errorMessage(err, "按图片撤销失败");
+        setError(message);
+        pushToast(message, "error");
+      } finally {
+        setBulkLoading(false);
+      }
+    },
+    [refresh, setError],
+  );
+
   return {
     operatingKey,
     bulkLoading,
@@ -101,5 +124,6 @@ export function useGitOps({ refresh, setError }: UseGitOpsOptions) {
     remove,
     stageEverything,
     unstageEverything,
+    revertImage,
   };
 }

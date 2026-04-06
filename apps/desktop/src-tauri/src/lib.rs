@@ -32,6 +32,7 @@ pub fn run() {
             commands::system::open_in_finder,
             commands::github::github_upload_image,
             commands::github::github_delete_image,
+            commands::github::github_revert_image,
             commands::github::github_finalize_batch,
             commands::github::github_list_images,
             commands::github::github_update_image_metadata,
