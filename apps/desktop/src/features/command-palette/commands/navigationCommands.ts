@@ -1,4 +1,4 @@
-import { Upload, FolderOpen, Settings, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Upload, FolderOpen, FileText, Settings, PanelLeftClose, PanelLeft } from "lucide-react";
 import React from "react";
 import type { Command } from "@/types/commands";
 import { useAppStore } from "@/stores/appStore";
@@ -26,9 +26,18 @@ export function useNavigationCommands(): Command[] {
       keywords: ["manage", "管理", "photos", "照片"],
     },
     {
+      id: "nav-metadata",
+      label: "前往 Metadata 页面",
+      shortcut: "⌘3",
+      icon: React.createElement(FileText, { size: 16 }),
+      action: () => setCurrentView("metadata"),
+      group: "navigation",
+      keywords: ["metadata", "exif", "json", "元数据"],
+    },
+    {
       id: "nav-settings",
       label: "前往设置页面",
-      shortcut: "⌘3",
+      shortcut: "⌘4",
       icon: React.createElement(Settings, { size: 16 }),
       action: () => setCurrentView("settings"),
       group: "navigation",

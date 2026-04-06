@@ -3,6 +3,7 @@ import { useAppStore } from "@/stores/appStore";
 import { AppShell } from "@/layouts/AppShell";
 import UploadWorkspace from "@/features/upload/components/UploadWorkspace";
 import ManagePage from "@/features/manage/pages/ManagePage";
+import MetadataPage from "@/features/metadata/pages/MetadataPage";
 import { SettingsPage } from "@/features/settings/pages/SettingsPage";
 import { ToastViewport } from "@/components/ui/toast";
 import { pushToast } from "@/lib/toast";
@@ -43,6 +44,19 @@ function App(): React.ReactElement {
               className="h-full w-full"
             >
               <ManagePage />
+            </motion.section>
+          )}
+
+          {currentView === "metadata" && (
+            <motion.section
+              key="metadata"
+              initial={{ opacity: 0, y: 10, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.99 }}
+              transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+              className="h-full w-full"
+            >
+              <MetadataPage />
             </motion.section>
           )}
 

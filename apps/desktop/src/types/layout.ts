@@ -1,4 +1,4 @@
-export type View = "upload" | "manage" | "settings";
+export type View = "upload" | "manage" | "metadata" | "settings";
 
 export interface RepoStatus {
   configured: boolean;

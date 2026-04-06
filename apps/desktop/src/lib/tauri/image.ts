@@ -20,6 +20,14 @@ export interface ParseFormatReport {
   reason: string;
 }
 
+export interface ParseImageMetadataResult {
+  sourcePath: string;
+  sourceName: string;
+  metadata: ImageMetadata;
+  formatReport: ParseFormatReport;
+  stageMetrics: ProcessingTaskMetric[];
+}
+
 interface ParseImageForUploadResult {
   normalizedOriginalBytes: number[];
   normalizedOriginalMime: string;
@@ -63,6 +71,16 @@ export async function parseImageForUploadFromPathOptimized(params: {
     path: params.path,
     declaredMime: params.declaredMime,
     config: params.config,
+  });
+}
+
+export async function parseImageMetadataFromPath(params: {
+  path: string;
+  declaredMime?: string;
+}): Promise<ParseImageMetadataResult> {
+  return invoke<ParseImageMetadataResult>('parse_image_metadata_from_path', {
+    path: params.path,
+    declaredMime: params.declaredMime,
   });
 }
 

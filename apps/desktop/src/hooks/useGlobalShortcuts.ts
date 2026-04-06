@@ -1,6 +1,5 @@
 import { useHotkeys } from "react-hotkeys-hook";
 import { useAppStore } from "@/stores/appStore";
-import type { View } from "@/types/layout";
 
 interface UseGlobalShortcutsOptions {
   onOpenCommandPalette?: () => void;
@@ -21,7 +20,12 @@ export function useGlobalShortcuts(options: UseGlobalShortcutsOptions = {}): voi
     enableOnFormTags: false,
   });
 
-  useHotkeys("meta+3", () => setCurrentView("settings"), {
+  useHotkeys("meta+3", () => setCurrentView("metadata"), {
+    preventDefault: true,
+    enableOnFormTags: false,
+  });
+
+  useHotkeys("meta+4", () => setCurrentView("settings"), {
     preventDefault: true,
     enableOnFormTags: false,
   });

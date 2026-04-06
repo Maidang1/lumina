@@ -112,6 +112,16 @@ pub struct ParseImageForUploadResultOptimized {
     pub stage_metrics: Vec<ProcessingTaskMetric>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ParseImageMetadataResult {
+    pub source_path: String,
+    pub source_name: String,
+    pub metadata: JsonValue,
+    pub format_report: FormatReport,
+    pub stage_metrics: Vec<ProcessingTaskMetric>,
+}
+
 fn build_stage_metric(task_id: &str, status: &str, duration_ms: u64) -> ProcessingTaskMetric {
     ProcessingTaskMetric {
         task_id: task_id.to_string(),
@@ -348,6 +358,56 @@ pub async fn parse_image_for_upload_from_path_optimized(
             reason: result.format_report.reason,
         },
         stage_metrics: end_to_end_stage_metrics,
+    })
+}
+
+#[tauri::command]
+pub async fn parse_image_metadata_from_path(
+    path: String,
+    declared_mime: Option<String>,
+) -> Result<ParseImageMetadataResult, String> {
+    let read_start = Instant::now();
+    let bytes = fs::read(&path).map_err(|e| format!("failed to read file: {}", e))?;
+    let read_duration_ms = read_start.elapsed().as_millis() as u64;
+    let file_name = Path::new(&path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.to_string())
+        .unwrap_or_else(|| "upload.bin".to_string());
+    let mime = declared_mime.unwrap_or_else(|| "application/octet-stream".to_string());
+    let lumina_config = Some(ParseConfig {
+        max_thumb_size: Some(1024),
+        thumb_quality: Some(0.78),
+        blur_threshold: Some(100.0),
+        enable_region_resolve: Some(true),
+        generate_thumb_variants: Some(false),
+        parse_profile: Some(ParseProfile::Quality),
+    });
+
+    let result = parse_with_heif_fallback(&path, &file_name, &mime, bytes, lumina_config)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut stage_metrics = Vec::with_capacity(result.stage_metrics.len() + 1);
+    stage_metrics.push(build_stage_metric("read_file", "completed", read_duration_ms));
+    stage_metrics.extend(result.stage_metrics.into_iter().map(|m| ProcessingTaskMetric {
+        task_id: m.task_id,
+        status: m.status,
+        duration_ms: m.duration_ms,
+        degraded: m.degraded,
+    }));
+
+    Ok(ParseImageMetadataResult {
+        source_path: path,
+        source_name: file_name,
+        metadata: result.metadata,
+        format_report: FormatReport {
+            declared_mime: result.format_report.declared_mime,
+            detected_mime: result.format_report.detected_mime,
+            converted: result.format_report.converted,
+            reason: result.format_report.reason,
+        },
+        stage_metrics,
     })
 }
 

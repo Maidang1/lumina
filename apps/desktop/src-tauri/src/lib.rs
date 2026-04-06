@@ -51,6 +51,7 @@ pub fn run() {
             commands::clone::github_clone_repo,
             commands::image::parse_image_for_upload_from_path,
             commands::image::parse_image_for_upload_from_path_optimized,
+            commands::image::parse_image_metadata_from_path,
             commands::image::upload_from_cache_to_github,
             commands::image::generate_preview_for_unsupported,
             commands::metadata::merge_and_validate_metadata,

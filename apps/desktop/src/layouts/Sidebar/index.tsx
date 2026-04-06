@@ -1,5 +1,5 @@
 import React from "react";
-import { Upload, FolderOpen, Settings } from "lucide-react";
+import { Upload, FolderOpen, FileText, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NavItem } from "./NavItem";
 import { ActionBar } from "./ActionBar";
@@ -28,7 +28,8 @@ const NAV_ITEMS: Array<{
 }> = [
   { view: "upload", label: "上传", icon: <Upload size={18} />, shortcut: "⌘1" },
   { view: "manage", label: "管理", icon: <FolderOpen size={18} />, shortcut: "⌘2" },
-  { view: "settings", label: "设置", icon: <Settings size={18} />, shortcut: "⌘3" },
+  { view: "metadata", label: "Metadata", icon: <FileText size={18} />, shortcut: "⌘3" },
+  { view: "settings", label: "设置", icon: <Settings size={18} />, shortcut: "⌘4" },
 ];
 
 export function Sidebar({
@@ -98,5 +99,4 @@ export function Sidebar({
     </aside>
   );
 }
-
 
