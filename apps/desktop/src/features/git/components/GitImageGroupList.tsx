@@ -6,7 +6,7 @@ import {
   Loader2,
   Undo2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import type { ImageGroup, GitChangeRow } from "../types";
 
 interface GitImageGroupListProps {

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { CheckCircle2, X, XCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import type { BatchActionResult } from "@/hooks/useBatchPhotoActions";
 
 interface ManageBatchActionsProps {

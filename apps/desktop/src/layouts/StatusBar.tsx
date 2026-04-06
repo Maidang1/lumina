@@ -1,6 +1,6 @@
 import React from "react";
 import { Cloud, CloudOff, Upload, CheckCircle, AlertCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import type { UploadProgress } from "@/types/layout";
 
 interface StatusBarProps {

@@ -1,151 +1,168 @@
 @import url("https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;0,6..96,600;0,6..96,700;1,6..96,400&family=Space+Grotesk:wght@300;400;500;600&display=swap");
 @import "tailwindcss";
+@plugin "tailwindcss-animate";
 @import "tw-animate-css";
 @import "@luminafe/theme/tokens.css";
 @import "@luminafe/theme/effects.css";
 
 @theme {
-  --font-sans: "Archivo", system-ui, -apple-system, sans-serif;
-  --font-serif: "Bodoni Moda", Georgia, serif;
-  --font-mono: "Space Grotesk", ui-monospace, monospace;
-  --font-display: "Bodoni Moda", Georgia, serif;
+    --font-sans: "Archivo", system-ui, -apple-system, sans-serif;
+    --font-serif: "Bodoni Moda", Georgia, serif;
+    --font-mono: "Space Grotesk", ui-monospace, monospace;
+    --font-display: "Bodoni Moda", Georgia, serif;
 
-  --color-lumina-bg: var(--lumina-bg);
-  --color-lumina-surface: var(--lumina-surface);
-  --color-lumina-surface-elevated: var(--lumina-surface-elevated);
-  --color-lumina-border: var(--lumina-border);
-  --color-lumina-border-subtle: var(--lumina-border-subtle);
-  --color-lumina-text: var(--lumina-text);
-  --color-lumina-text-secondary: var(--lumina-text-secondary);
-  --color-lumina-muted: var(--lumina-muted);
-  --color-lumina-accent: var(--lumina-accent);
+    --color-lumina-bg: var(--lumina-bg);
+    --color-lumina-surface: var(--lumina-surface);
+    --color-lumina-surface-elevated: var(--lumina-surface-elevated);
+    --color-lumina-border: var(--lumina-border);
+    --color-lumina-border-subtle: var(--lumina-border-subtle);
+    --color-lumina-text: var(--lumina-text);
+    --color-lumina-text-secondary: var(--lumina-text-secondary);
+    --color-lumina-muted: var(--lumina-muted);
+    --color-lumina-accent: var(--lumina-accent);
 }
 
 :root {
-  --header-height-mobile: 64px;
-  --header-height-desktop: 80px;
+    --header-height-mobile: 64px;
+    --header-height-desktop: 80px;
 }
 
 * {
-  border-color: var(--border);
+    border-color: var(--border);
 }
 
 body {
-  min-height: 100vh;
-  background:
-    radial-gradient(1200px 500px at 50% -80px, rgba(255, 255, 255, 0.055), transparent 60%),
-    radial-gradient(900px 450px at 80% 110%, rgba(255, 255, 255, 0.04), transparent 60%),
-    var(--lumina-bg);
-  color: var(--lumina-text);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  letter-spacing: -0.01em;
-  overflow-x: hidden;
+    min-height: 100vh;
+    background:
+        radial-gradient(
+            1200px 500px at 50% -80px,
+            rgba(255, 255, 255, 0.055),
+            transparent 60%
+        ),
+        radial-gradient(
+            900px 450px at 80% 110%,
+            rgba(255, 255, 255, 0.04),
+            transparent 60%
+        ),
+        var(--lumina-bg);
+    color: var(--lumina-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em;
+    overflow-x: hidden;
 }
 
 body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.03) 0%, transparent 45%);
-  pointer-events: none;
-  z-index: 0;
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(
+        circle at 20% 0%,
+        rgba(255, 255, 255, 0.03) 0%,
+        transparent 45%
+    );
+    pointer-events: none;
+    z-index: 0;
 }
 
 #root {
-  position: relative;
-  z-index: 1;
+    position: relative;
+    z-index: 1;
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--lumina-border);
-  border-radius: 3px;
+    background: var(--lumina-border);
+    border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--lumina-muted);
+    background: var(--lumina-muted);
 }
 
 .glass-card {
-  background: color-mix(in srgb, var(--lumina-surface) 84%, transparent);
-  border: 1px solid var(--lumina-border-subtle);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+    background: color-mix(in srgb, var(--lumina-surface) 84%, transparent);
+    border: 1px solid var(--lumina-border-subtle);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 .glass-card-elevated {
-  background: color-mix(in srgb, var(--lumina-surface-elevated) 88%, transparent);
-  border: 1px solid var(--lumina-border);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+    background: color-mix(
+        in srgb,
+        var(--lumina-surface-elevated) 88%,
+        transparent
+    );
+    border: 1px solid var(--lumina-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
 }
 
 .shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.03) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 3s ease-in-out infinite;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.03) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
 }
 
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.02) 0%,
-    rgba(255, 255, 255, 0.06) 50%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
-  background-size: 200% 100%;
-  animation: skeleton-pulse 2s ease-in-out infinite;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.02) 0%,
+        rgba(255, 255, 255, 0.06) 50%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-pulse 2s ease-in-out infinite;
 }
 
 @keyframes skeleton-pulse {
-  0%,
-  100% {
-    opacity: 0.85;
-  }
-  50% {
-    opacity: 0.45;
-  }
+    0%,
+    100% {
+        opacity: 0.85;
+    }
+    50% {
+        opacity: 0.45;
+    }
 }
 
 .no-scrollbar::-webkit-scrollbar {
-  display: none;
+    display: none;
 }
 
 .no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .shimmer,
-  .skeleton,
-  .animate-spin,
-  body::before,
-  .lumina-noise::after {
-    animation: none !important;
-  }
+    .shimmer,
+    .skeleton,
+    .animate-spin,
+    body::before,
+    .lumina-noise::after {
+        animation: none !important;
+    }
 }

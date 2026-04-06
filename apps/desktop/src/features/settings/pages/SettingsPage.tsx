@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { useSettingsStore } from "@/features/settings/hooks/useSettingsStore";
 import { Download, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
 import { CloneProgressDialog } from "@/features/settings/components/CloneProgressDialog";
 import { useCloneProgress } from "@/hooks/useCloneProgress";
 import {

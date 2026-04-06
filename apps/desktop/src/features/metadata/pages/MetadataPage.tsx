@@ -8,7 +8,7 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import { selectFiles } from "@/lib/tauri/dialog";
 import { tauriStorage } from "@/lib/tauri/storage";
 import { pushToast } from "@/lib/toast";

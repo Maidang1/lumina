@@ -14,7 +14,7 @@ import {
   Trash2,
   Undo2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import type { GitChangeRow } from "../types";
 
 interface GitChangeListProps {

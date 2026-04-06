@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Command as CommandPrimitive } from "cmdk";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import { useCommands } from "./hooks/useCommands";
 
 interface CommandPaletteProps {

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { X, RefreshCw, GitBranch, Image as ImageIcon, List } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import { CommitForm } from "./CommitForm";
 import {
   GitChangeList,

@@ -1,6 +1,6 @@
 import React from "react";
 import { Upload, FolderOpen, FileText, Settings } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import { NavItem } from "./NavItem";
 import { ActionBar } from "./ActionBar";
 import { CollapseToggle } from "./CollapseToggle";

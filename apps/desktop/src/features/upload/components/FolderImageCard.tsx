@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Check, ImageOff } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import type { FolderImage } from "@/features/upload/hooks/useFolderBrowserStore";
 
 interface FolderImageCardProps {

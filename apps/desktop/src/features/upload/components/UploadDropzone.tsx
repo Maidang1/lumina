@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { Upload, ImagePlus, FolderOpen } from "lucide-react";
 import { DEFAULT_UPLOAD_CONFIG } from "@/types/photo";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import { motion } from "motion/react";
 
 interface UploadDropzoneProps {

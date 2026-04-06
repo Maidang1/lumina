@@ -7,7 +7,7 @@ import {
   Plus,
   FolderTree,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import type {
   SortField,
   SortDirection,

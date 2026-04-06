@@ -1,8 +1,8 @@
 import React from "react";
 import { X, Loader2, CheckCircle2, AlertCircle, GitBranch } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/shared/lib/utils";
+import { Progress } from "@/shared/ui/progress";
+import { Button } from "@/shared/ui/button";
 import type { CloneProgress } from "@/lib/tauri/clone";
 
 interface CloneProgressDialogProps {

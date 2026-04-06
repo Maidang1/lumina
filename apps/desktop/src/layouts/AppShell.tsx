@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import { useAppStore } from "@/stores/appStore";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { uploadService } from "@/services/uploadService";

@@ -1,6 +1,6 @@
 import React from "react";
 import { Search, Command, Bell, Sun, Moon, GitBranch } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 
 interface HeaderBarProps {
   title: string;

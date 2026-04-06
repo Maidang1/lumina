@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Eye, Gauge, Image as ImageIcon, Undo2, X } from "lucide-react";
 import { UploadQueueItem } from "@/types/photo";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
+import { cn } from "@/shared/lib/utils";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Progress } from "@/shared/ui/progress";
 import { motion, AnimatePresence } from "motion/react";
 
 interface UploadQueuePanelProps {
